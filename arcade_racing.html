@@ -40,6 +40,7 @@ const Crosshair = (p) => <Icon {...p}><circle cx="12" cy="12" r="7"/><path d="M1
 
 
 
+
 const MAX_SPEED = 140;
 
 const getGear = (speed) => {
@@ -232,43 +233,128 @@ function generateTrack() {
   return { 0: leftTrack, 1: rightTrack };
 }
 
-const CARDS = {
-  'accelerate': {
-    id: 'accelerate', name: 'Accelerate', type: 'Gas', timing: 'Before', req: 'None',
-    desc: 'Speed +40 km/h.',
-    canPlay: () => true,
-    play: (p) => ({ ...p, speed: Math.min(MAX_SPEED, p.speed + 40) })
-  },
-  'hard_brake': {
-    id: 'hard_brake', name: 'Hard Brake', type: 'Brake', timing: 'Before', req: 'Min 50 km/h',
-    desc: 'Speed -50 km/h.',
-    canPlay: (p) => p.speed >= 50,
-    play: (p) => ({ ...p, speed: Math.max(0, p.speed - 50) })
-  },
-  'change_lane': {
-    id: 'change_lane', name: 'Change Lane', type: 'Turn', timing: 'Before', req: 'None',
-    desc: 'Move to the other lane immediately.',
-    canPlay: () => true,
-    play: (p, track, otherPlayer) => {
-      const current = track[p.lane][p.idx];
-      const newLane = 1 - p.lane;
-      const newIdx = current.adj[current.adj.length - 1] || 0;
-      if (otherPlayer.lane === newLane && otherPlayer.idx === newIdx) return p;
-      return { ...p, lane: newLane, idx: newIdx, distance: track[newLane][newIdx].distance };
+const IMPLEMENTED_CARD_IDS = ['drift', 'accelerate', 'hard_brake', 'change_lane', 'rocket_start'];
+
+const DEFAULT_CARD_ROWS = [
+  { id: 'drift', name: 'Drift', category: 'Common / Starter Cards - Bright Red AE86', requirement: 'Max 60', type: 'Turn', timing: 'Drive', effect: '+30 km/h to the corner speed limit calculation.', implemented: 'true' },
+  { id: 'accelerate', name: 'Accelerate', category: 'Common / Starter Cards - Bright Red AE86', requirement: 'Any', type: 'Gas', timing: 'Before', effect: 'Speed +40 km/h.', implemented: 'true' },
+  { id: 'hard_brake', name: 'Hard Brake', category: 'Common / Starter Cards - Bright Red AE86', requirement: 'Min 30', type: 'Brake', timing: 'Before', effect: 'Speed -30 km/h.', implemented: 'true' },
+  { id: 'change_lane', name: 'Change Lane', category: 'Common / Starter Cards - Bright Red AE86', requirement: 'Any', type: 'Turn', timing: 'Before', effect: 'Move to the other lane. You may discard 1 card from hand.', implemented: 'true' },
+  { id: 'rocket_start', name: 'Rocket Start', category: 'Common / Starter Cards - Bright Red AE86', requirement: 'Max 30', type: 'Gas', timing: 'After', effect: 'Speed +40 km/h. You may discard 1 card from hand.', implemented: 'true' }
+];
+
+const parseCSV = (text) => {
+  const rows = [];
+  let row = [];
+  let value = '';
+  let quoted = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (quoted) {
+      if (char === '"' && text[i + 1] === '"') {
+        value += '"';
+        i++;
+      } else if (char === '"') {
+        quoted = false;
+      } else {
+        value += char;
+      }
+    } else if (char === '"') {
+      quoted = true;
+    } else if (char === ',') {
+      row.push(value);
+      value = '';
+    } else if (char === '\n') {
+      row.push(value.replace(/\r$/, ''));
+      if (row.some(cell => cell.length > 0)) rows.push(row);
+      row = [];
+      value = '';
+    } else {
+      value += char;
     }
-  },
-  'drift': {
-    id: 'drift', name: 'Drift', type: 'Turn', timing: 'Drive', req: 'Max 80 km/h',
-    desc: 'Treat corner speed limits as +40 km/h this turn.',
-    canPlay: (p) => p.speed <= 80,
-    play: (p) => ({ ...p, modifiers: { ...p.modifiers, drift: true } })
-  },
-  'rocket_start': {
-    id: 'rocket_start', name: 'Rocket Start', type: 'Gas', timing: 'After', req: 'Max 40 km/h',
-    desc: 'Speed +60 km/h after moving.',
-    canPlay: (p) => p.speed <= 40,
-    play: (p) => ({ ...p, modifiers: { ...p.modifiers, rocket: true } })
   }
+
+  if (value.length > 0 || row.length > 0) {
+    row.push(value.replace(/\r$/, ''));
+    rows.push(row);
+  }
+  if (rows.length < 2) throw new Error('Card CSV has no data rows.');
+
+  const headers = rows[0].map((header, index) => index === 0 ? header.replace(/^\uFEFF/, '').trim() : header.trim());
+  return rows.slice(1).map(values => Object.fromEntries(headers.map((header, index) => [header, (values[index] || '').trim()])));
+};
+
+const getRequirementRule = (requirement) => {
+  const match = requirement.match(/^(Min|Max)\s+(\d+)/i);
+  if (!match) return { label: 'None', canPlay: () => true };
+  const value = Number(match[2]);
+  if (match[1].toLowerCase() === 'min') return { label: `Min ${value} km/h`, canPlay: player => player.speed >= value };
+  return { label: `Max ${value} km/h`, canPlay: player => player.speed <= value };
+};
+
+const getSpeedDelta = (effect) => {
+  const match = effect.match(/Speed\s*([+-])\s*(\d+)\s*km\/h/i);
+  if (!match) return 0;
+  return Number(match[2]) * (match[1] === '-' ? -1 : 1);
+};
+
+const getCornerLimitBonus = (effect) => {
+  const match = effect.match(/([+-]?\d+)\s*km\/h to the corner speed limit/i);
+  return match ? Number(match[1]) : 0;
+};
+
+const getOptionalDiscardCount = (effect) => {
+  const match = effect.match(/may discard\s+(\d+)\s+cards?/i);
+  return match ? Number(match[1]) : 0;
+};
+
+const buildCardCatalog = (rows) => {
+  const rowById = Object.fromEntries(rows.map(row => [row.id, row]));
+
+  return Object.fromEntries(IMPLEMENTED_CARD_IDS.map(id => {
+    const row = rowById[id];
+    if (!row) throw new Error(`Missing implemented card in CSV: ${id}`);
+
+    const requirement = getRequirementRule(row.requirement);
+    const speedDelta = getSpeedDelta(row.effect);
+    const cornerBonus = getCornerLimitBonus(row.effect);
+    const cycleCards = getOptionalDiscardCount(row.effect);
+    const addCycle = player => cycleCards > 0 ? {
+      ...player,
+      modifiers: { ...player.modifiers, cycleCards: Math.max(player.modifiers.cycleCards || 0, cycleCards) }
+    } : player;
+
+    const card = {
+      id: row.id,
+      name: row.name,
+      category: row.category,
+      type: row.type,
+      timing: row.timing,
+      req: requirement.label,
+      desc: row.effect,
+      canPlay: requirement.canPlay
+    };
+
+    if (id === 'accelerate' || id === 'hard_brake') {
+      card.play = player => addCycle({ ...player, speed: Math.max(0, Math.min(MAX_SPEED, player.speed + speedDelta)) });
+    } else if (id === 'change_lane') {
+      card.play = (player, track, otherPlayer) => {
+        let nextPlayer = addCycle({ ...player });
+        const current = track[nextPlayer.lane][nextPlayer.idx];
+        const newLane = 1 - nextPlayer.lane;
+        const newIdx = current.adj[current.adj.length - 1] || 0;
+        if (otherPlayer.lane === newLane && otherPlayer.idx === newIdx) return nextPlayer;
+        return { ...nextPlayer, lane: newLane, idx: newIdx, distance: track[newLane][newIdx].distance };
+      };
+    } else if (id === 'drift') {
+      card.play = player => addCycle({ ...player, modifiers: { ...player.modifiers, driftBonus: cornerBonus } });
+    } else if (id === 'rocket_start') {
+      card.play = player => addCycle({ ...player, modifiers: { ...player.modifiers, rocketSpeedDelta: speedDelta } });
+    }
+
+    return [id, card];
+  }));
 };
 
 const INITIAL_DECK = [
@@ -355,6 +441,8 @@ function ArcadeRacingGame() {
   const [hoveredCardIdx, setHoveredCardIdx] = useState(null);
   const [discardSelection, setDiscardSelection] = useState([]);
   const [nnRevealStage, setNNRevealStage] = useState('faceDown');
+  const [cardRows, setCardRows] = useState(DEFAULT_CARD_ROWS);
+  const [cardDataSource, setCardDataSource] = useState('loading');
   
   // Panning & Zoom State
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
@@ -364,6 +452,33 @@ function ArcadeRacingGame() {
   const panStart = useRef({ x: 0, y: 0 });
 
   const TRACK = useMemo(() => generateTrack(), []);
+  const CARDS = useMemo(() => buildCardCatalog(cardRows), [cardRows]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const url = `racing_cards.csv?updated=${Date.now()}`;
+
+    fetch(url, { cache: 'no-store' })
+      .then(response => {
+        if (!response.ok) throw new Error(`Card CSV request failed: ${response.status}`);
+        return response.text();
+      })
+      .then(text => {
+        const rows = parseCSV(text);
+        IMPLEMENTED_CARD_IDS.forEach(id => {
+          if (!rows.some(row => row.id === id)) throw new Error(`Card CSV is missing ${id}`);
+        });
+        if (!cancelled) {
+          setCardRows(rows);
+          setCardDataSource('csv');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCardDataSource('fallback');
+      });
+
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     const updateSize = () => setWinSize({ w: window.innerWidth, h: window.innerHeight });
@@ -395,6 +510,9 @@ function ArcadeRacingGame() {
       nnActionOrder: null,
       nnActiveTurnIdx: null,
       nnMpLeft: null,
+      cycleContext: null,
+      cycleQueue: null,
+      cycleQueueIndex: 0,
       isNNRound: false
     });
     setPanOffset({ x: 0, y: 0 });
@@ -458,6 +576,7 @@ function ArcadeRacingGame() {
 
   const resolveNNReveal = () => {
     if (nnRevealStage !== 'decision') return;
+    setDiscardSelection([]);
     setGameState(prev => {
       let newPlayers = [...prev.players];
       const order = getNNActionOrder(newPlayers, prev.turnOrder);
@@ -483,20 +602,23 @@ function ArcadeRacingGame() {
         0: getGear(newPlayers[0].speed).mp,
         1: getGear(newPlayers[1].speed).mp
       };
+      const cycleQueue = order.filter(pid => (newPlayers[pid].modifiers.cycleCards || 0) > 0 && newPlayers[pid].hand.length > 0);
 
       return {
         ...prev,
         players: newPlayers,
-        phase: 'NN_MOVE',
+        phase: cycleQueue.length > 0 ? 'NN_CARD_CYCLE' : 'NN_MOVE',
         nnActionOrder: order,
         nnActiveTurnIdx: 0,
         nnMpLeft,
+        cycleQueue,
+        cycleQueueIndex: 0,
         logs: [...logs, ...prev.logs].slice(0, 20)
       };
     });
   };
 
-  const activePlayerId = gameState?.phase === 'NN_MOVE' ? gameState.nnActionOrder[gameState.nnActiveTurnIdx] : gameState?.turnOrder[gameState?.activePlayerIdx];
+  const activePlayerId = gameState?.phase === 'NN_MOVE' ? gameState.nnActionOrder[gameState.nnActiveTurnIdx] : gameState?.phase === 'NN_CARD_CYCLE' ? gameState.cycleQueue[gameState.cycleQueueIndex] : gameState?.turnOrder[gameState?.activePlayerIdx];
   const activePlayer = gameState?.players[activePlayerId];
   const otherPlayer = gameState?.players[1 - activePlayerId];
   const isLead = gameState?.activePlayerIdx === 0 && !gameState?.isNNRound;
@@ -549,6 +671,9 @@ function ArcadeRacingGame() {
              selection = [Math.floor(Math.random() * activePlayer.hand.length)];
          }
          confirmDiscard(selection);
+      } else if (gameState.phase === 'CARD_CYCLE' || gameState.phase === 'NN_CARD_CYCLE') {
+        const selection = activePlayer.hand.length > 0 ? [Math.floor(Math.random() * activePlayer.hand.length)] : [];
+        confirmCardCycle(selection);
       } else if (gameState.phase === 'SLIPSTREAM') {
         acceptSlipstream(true);
       } else if (gameState.phase === 'MOVE' && gameState.mpLeft > 0) {
@@ -610,11 +735,15 @@ function ArcadeRacingGame() {
 
     if (!isLead && p.lane === otherPlayer.lane && p.distance < otherPlayer.distance) nextPhase = 'SLIPSTREAM';
 
+    const cycleMax = p.modifiers.cycleCards || 0;
+    const shouldCycle = cycleMax > 0 && p.hand.length > 0;
+    setDiscardSelection([]);
     setGameState(prev => ({ 
       ...prev, 
       players: newPlayers, 
-      phase: nextPhase, 
+      phase: shouldCycle ? 'CARD_CYCLE' : nextPhase,
       mpLeft: mp,
+      cycleContext: shouldCycle ? { max: cycleMax, resumePhase: nextPhase, resumeMp: mp } : null,
       mangaCutin: { card: cardId, player: p.name, color: p.id === 0 ? 'text-red-500' : 'text-blue-500', type: card.type }
     }));
     setHoveredCardIdx(null);
@@ -662,6 +791,52 @@ function ArcadeRacingGame() {
     if (!isLead && p.lane === otherPlayer.lane && p.distance < otherPlayer.distance) nextPhase = 'SLIPSTREAM';
     
     setGameState(prev => ({ ...prev, players: newPlayers, phase: nextPhase, mpLeft: mp }));
+    setDiscardSelection([]);
+  };
+
+  const toggleCardCycleSelection = (idx) => {
+    const max = gameState.phase === 'CARD_CYCLE' ? gameState.cycleContext.max : (activePlayer.modifiers.cycleCards || 1);
+    setDiscardSelection(prev => {
+      if (prev.includes(idx)) return prev.filter(i => i !== idx);
+      if (prev.length >= max) return prev;
+      return [...prev, idx];
+    });
+  };
+
+  const confirmCardCycle = (overrideSelection = null) => {
+    const max = gameState.phase === 'CARD_CYCLE' ? gameState.cycleContext.max : (activePlayer.modifiers.cycleCards || 1);
+    const requested = Array.isArray(overrideSelection) ? overrideSelection : discardSelection;
+    const selection = requested.filter(idx => idx >= 0 && idx < activePlayer.hand.length).slice(0, max);
+    const newPlayers = [...gameState.players];
+    const player = { ...activePlayer };
+    const discardedIds = selection.map(idx => player.hand[idx]);
+    player.hand = player.hand.filter((_, idx) => !selection.includes(idx));
+    player.discard = [...player.discard, ...discardedIds];
+    const { cycleCards, ...remainingModifiers } = player.modifiers;
+    player.modifiers = remainingModifiers;
+    newPlayers[activePlayerId] = player;
+
+    if (discardedIds.length > 0) addLog(`${player.name} cycles ${discardedIds.length} card.`);
+
+    if (gameState.phase === 'CARD_CYCLE') {
+      setGameState(prev => ({
+        ...prev,
+        players: newPlayers,
+        phase: prev.cycleContext.resumePhase,
+        mpLeft: prev.cycleContext.resumeMp,
+        cycleContext: null
+      }));
+    } else {
+      setGameState(prev => {
+        const nextQueueIndex = prev.cycleQueueIndex + 1;
+        return {
+          ...prev,
+          players: newPlayers,
+          phase: nextQueueIndex >= prev.cycleQueue.length ? 'NN_MOVE' : 'NN_CARD_CYCLE',
+          cycleQueueIndex: nextQueueIndex
+        };
+      });
+    }
     setDiscardSelection([]);
   };
 
@@ -720,7 +895,7 @@ function ArcadeRacingGame() {
       }
 
       let effLimit = space.limit;
-      if (effLimit !== null && p.modifiers.drift) effLimit += 40;
+      if (effLimit !== null && p.modifiers.driftBonus) effLimit += p.modifiers.driftBonus;
 
       if (effLimit !== null && p.speed > effLimit) {
         addLog(`UNDERSTEER: ${p.name} speed ${p.speed} exceeds limit ${effLimit}.`);
@@ -788,9 +963,9 @@ function ArcadeRacingGame() {
       
       [0, 1].forEach(pid => {
          let p = { ...newPlayers[pid] };
-         if (p.modifiers.rocket) {
-           p.speed = Math.min(MAX_SPEED, p.speed + 60);
-           newLogs.unshift(`ROCKET START: ${p.name} gains 60 km/h.`);
+         if (p.modifiers.rocketSpeedDelta) {
+           p.speed = Math.min(MAX_SPEED, p.speed + p.modifiers.rocketSpeedDelta);
+           newLogs.unshift(`ROCKET START: ${p.name} gains ${p.modifiers.rocketSpeedDelta} km/h.`);
          }
          p.modifiers = {};
          const drawn = drawCards(p.deck, p.discard, p.hand, 4);
@@ -839,9 +1014,9 @@ function ArcadeRacingGame() {
       let p = { ...newPlayers[prev.turnOrder[prev.activePlayerIdx]] };
       let newLogs = [...prev.logs];
 
-      if (p.modifiers.rocket) {
-        p.speed = Math.min(MAX_SPEED, p.speed + 60);
-           newLogs.unshift(`ROCKET START: ${p.name} gains 60 km/h.`);
+      if (p.modifiers.rocketSpeedDelta) {
+        p.speed = Math.min(MAX_SPEED, p.speed + p.modifiers.rocketSpeedDelta);
+           newLogs.unshift(`ROCKET START: ${p.name} gains ${p.modifiers.rocketSpeedDelta} km/h.`);
       }
 
       p.modifiers = {};
@@ -1014,6 +1189,9 @@ function ArcadeRacingGame() {
             <div className="relative flex items-center gap-3 text-xl font-bold"><Users className="text-zinc-400 group-hover:text-blue-400" /><span>VS Player 2</span></div>
           </button>
         </div>
+        <div className={`fixed bottom-6 px-4 py-2 rounded-full border text-xs font-bold tracking-wide ${cardDataSource === 'csv' ? 'bg-emerald-950/80 border-emerald-700 text-emerald-300' : cardDataSource === 'loading' ? 'bg-zinc-900/80 border-zinc-700 text-zinc-400' : 'bg-amber-950/80 border-amber-700 text-amber-300'}`}>
+          {cardDataSource === 'csv' ? 'CARD DATA: racing_cards.csv (live)' : cardDataSource === 'loading' ? 'LOADING CARD DATA...' : 'CARD DATA: embedded fallback - use start_arcade_racing.cmd for live CSV'}
+        </div>
       </div>
     );
   }
@@ -1029,6 +1207,7 @@ function ArcadeRacingGame() {
   const nnPreviewOrder = gameState?.phase === 'NN_REVEAL' ? getNNActionOrder(gameState.players, gameState.turnOrder) : null;
   const nnFirstMover = nnPreviewOrder ? gameState.players[nnPreviewOrder[0]] : null;
   const nnRevealStageIndex = { faceDown: 0, revealed: 1, decision: 2 }[nnRevealStage];
+  const activeCycleMax = gameState?.phase === 'CARD_CYCLE' ? (gameState.cycleContext?.max || 0) : gameState?.phase === 'NN_CARD_CYCLE' ? (activePlayer.modifiers.cycleCards || 0) : 0;
 
   // Calculate projected speed for speedometer preview
   let activeProjectedSpeed = null;
@@ -1445,6 +1624,33 @@ function ArcadeRacingGame() {
         </div>
       )}
 
+      {/* Optional Card Cycling */}
+      {!isAITurn && (gameState.phase === 'CARD_CYCLE' || gameState.phase === 'NN_CARD_CYCLE') && (
+        <div className="absolute inset-0 z-[110] bg-black/65 backdrop-blur-sm flex items-end justify-center p-6 no-pan">
+          <div className="w-full max-w-5xl bg-zinc-950/95 border-2 border-emerald-500 rounded-2xl shadow-[0_0_40px_rgba(16,185,129,0.25)] p-5 flex flex-col items-center">
+            <div className="text-center mb-4">
+              <div className="text-xs font-black tracking-[0.3em] text-emerald-400 uppercase">Optional Hand Cycling</div>
+              <h3 className="text-xl font-black text-white mt-1">{activePlayer.name}: discard up to {activeCycleMax} card</h3>
+              <p className="text-sm text-zinc-400 mt-1">Selected cards go to your discard pile. Your hand refills at turn end.</p>
+            </div>
+            <div className="flex gap-3 max-w-full overflow-x-auto px-3 pt-2 pb-4">
+              {activePlayer.hand.map((cardId, idx) => (
+                <RenderCard
+                  key={`${cardId}-${idx}`}
+                  card={CARDS[cardId]}
+                  scale={0.8}
+                  isSelected={discardSelection.includes(idx)}
+                  onClick={() => toggleCardCycleSelection(idx)}
+                />
+              ))}
+            </div>
+            <button onClick={() => confirmCardCycle()} className="px-8 py-3 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-black rounded-lg text-base font-black uppercase tracking-wider transition-colors">
+              {discardSelection.length > 0 ? `Discard ${discardSelection.length} & Continue` : 'Keep Hand & Continue'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Slide-out Race Radio */}
       <div className={`fixed right-0 top-0 h-full w-80 bg-zinc-950/95 border-l border-zinc-800 shadow-2xl transition-transform duration-300 z-50 flex flex-col no-pan ${isRadioOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         <button onClick={() => setIsRadioOpen(!isRadioOpen)} className="absolute -left-12 top-1/2 -translate-y-1/2 bg-zinc-900 border border-zinc-700 border-r-0 p-2 py-6 rounded-l-xl text-zinc-400 hover:text-white transition-colors flex items-center shadow-[-5px_0_15px_rgba(0,0,0,0.5)]">
@@ -1485,6 +1691,7 @@ function ArcadeRacingGame() {
     </div>
   );
 }
+
 ReactDOM.createRoot(document.getElementById('root')).render(<ArcadeRacingGame />);
   </script>
 </body>
