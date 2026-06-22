@@ -29,12 +29,61 @@ const getNextNNActiveTurnIdx = (actionOrder, currentTurnIdx, mpLeft) => {
   return null;
 };
 
-function generateTrack() {
+const createTrackRandom = (seed) => {
+  let state = seed >>> 0;
+  return () => {
+    state += 0x6D2B79F5;
+    let value = state;
+    value = Math.imul(value ^ value >>> 15, value | 1);
+    value ^= value + Math.imul(value ^ value >>> 7, value | 61);
+    return ((value ^ value >>> 14) >>> 0) / 4294967296;
+  };
+};
+
+const DEFAULT_CORNER_CARD_ROWS = [
+  { id: 'sweeper', name: 'SWEEPER', entry_spaces: '1', exit_spaces: '2', weight: '1', segments_json: '[{"type":"curve","direction":"random","angle":70,"radius":540,"in_spaces":3,"out_spaces":4,"speed_limit":80}]' },
+  { id: 'hairpin', name: 'HAIRPIN', entry_spaces: '3', exit_spaces: '2', weight: '1', segments_json: '[{"type":"curve","direction":"random","angle":180,"radius":250,"in_spaces":3,"out_spaces":5,"speed_limit":40}]' },
+  { id: 'chicane', name: 'CHICANE', entry_spaces: '2', exit_spaces: '1', weight: '1', segments_json: '[{"type":"curve","direction":"random","angle":45,"radius":310,"in_spaces":2,"out_spaces":3,"speed_limit":60},{"type":"curve","direction":"opposite","angle":45,"radius":310,"in_spaces":2,"out_spaces":3,"speed_limit":60}]' },
+  { id: 'increasing_radius', name: 'INCREASING RADIUS', entry_spaces: '1', exit_spaces: '3', weight: '1', segments_json: '[{"type":"curve","direction":"random","angle":45,"radius":240,"in_spaces":2,"out_spaces":3,"speed_limit":50},{"type":"curve","direction":"same","angle":45,"radius":500,"in_spaces":3,"out_spaces":4,"speed_limit":70}]' },
+  { id: 'decreasing_radius', name: 'DECREASING RADIUS', entry_spaces: '3', exit_spaces: '1', weight: '1', segments_json: '[{"type":"curve","direction":"random","angle":45,"radius":500,"in_spaces":3,"out_spaces":4,"speed_limit":70},{"type":"curve","direction":"same","angle":45,"radius":240,"in_spaces":2,"out_spaces":3,"speed_limit":50}]' },
+  { id: 'double_apex', name: 'DOUBLE APEX', entry_spaces: '2', exit_spaces: '0', weight: '1', segments_json: '[{"type":"curve","direction":"random","angle":65,"radius":310,"in_spaces":2,"out_spaces":3,"speed_limit":50},{"type":"straight","spaces":1},{"type":"curve","direction":"same","angle":65,"radius":310,"in_spaces":2,"out_spaces":3,"speed_limit":50}]' },
+  { id: 'corner_90', name: '90 DEG CORNER', entry_spaces: '1', exit_spaces: '1', weight: '1', segments_json: '[{"type":"curve","direction":"random","angle":90,"radius":350,"in_spaces":2,"out_spaces":3,"speed_limit":60}]' }
+];
+
+const parseCornerCardRows = (rows) => {
+  if (!Array.isArray(rows) || rows.length === 0) throw new Error('Corner card CSV has no data rows.');
+  const parsed = rows.map(row => {
+    const entrySpaces = Number(row.entry_spaces);
+    const exitSpaces = Number(row.exit_spaces);
+    const weight = Number(row.weight || 1);
+    const segments = JSON.parse(row.segments_json);
+    if (!row.id || !row.name || !Number.isInteger(entrySpaces) || !Number.isInteger(exitSpaces)) throw new Error('Corner card identity or spacing is invalid.');
+    if (entrySpaces < 0 || entrySpaces > 3 || exitSpaces < 0 || exitSpaces > 3 || entrySpaces + exitSpaces < 2 || entrySpaces + exitSpaces > 5) throw new Error(`Corner card spacing is invalid: ${row.id}`);
+    if (!Number.isInteger(weight) || weight < 1 || !Array.isArray(segments) || segments.length === 0) throw new Error(`Corner card weight or segments are invalid: ${row.id}`);
+    segments.forEach(segment => {
+      if (segment.type === 'straight') {
+        if (!Number.isInteger(segment.spaces) || segment.spaces < 1) throw new Error(`Straight segment is invalid: ${row.id}`);
+        return;
+      }
+      if (segment.type !== 'curve' || !['random', 'same', 'opposite'].includes(segment.direction)) throw new Error(`Curve segment is invalid: ${row.id}`);
+      for (const key of ['angle', 'radius', 'in_spaces', 'out_spaces', 'speed_limit']) {
+        if (!Number.isFinite(segment[key]) || segment[key] <= 0) throw new Error(`Curve ${key} is invalid: ${row.id}`);
+      }
+    });
+    return { id: row.id, name: row.name, entrySpaces, exitSpaces, weight, segments };
+  });
+  if (new Set(parsed.map(card => card.id)).size !== parsed.length) throw new Error('Corner card IDs must be unique.');
+  return parsed;
+};
+
+function generateTrack(seed = Date.now(), cornerCardRows = DEFAULT_CORNER_CARD_ROWS, retry = 0, requestedRoadCards = 12) {
   let cx = 0, cy = 0, dir = 0; // dir 0 = UP
   let globalDistance = 0;
   const LANE_W = 70;
-  const R_CENTER = 350;
   const SPACE_LEN = 140;
+  const MIN_TRACK_CLEARANCE = 340;
+  const MAX_LAYOUT_RETRIES = 24;
+  const random = createTrackRandom(seed);
 
   let leftTrack = [];
   let rightTrack = [];
@@ -85,9 +134,9 @@ function generateTrack() {
     globalDistance += len * SPACE_LEN;
   }
 
-  function addNodesCurve(turnRight, angleDeg, inSpaces, outSpaces, inLimit, outLimit, guardrail) {
+  function addNodesCurve(turnRight, angleDeg, inSpaces, outSpaces, inLimit, outLimit, guardrail, radius = 350) {
     const sign = turnRight ? 1 : -1;
-    const rCenterOffset = sign * R_CENTER;
+    const rCenterOffset = sign * radius;
     const rotCx = cx + Math.cos(dir * Math.PI / 180) * rCenterOffset;
     const rotCy = cy + Math.sin(dir * Math.PI / 180) * rCenterOffset;
 
@@ -101,7 +150,7 @@ function generateTrack() {
 
     const startIdxL = leftTrack.length;
     const startIdxR = rightTrack.length;
-    const curveLenCenter = R_CENTER * (angleDeg * Math.PI / 180);
+    const curveLenCenter = radius * (angleDeg * Math.PI / 180);
 
     function getArcPath(r1, r2, stepIdx, totalSteps, isLeft) {
       const a1 = rotStartAngle + (stepIdx / totalSteps) * totalSweep;
@@ -118,8 +167,8 @@ function generateTrack() {
       return `M ${p1x} ${p1y} L ${p2x} ${p2y} A ${r2} ${r2} 0 0 ${sweep} ${p3x} ${p3y} L ${p4x} ${p4y} A ${r1} ${r1} 0 0 ${sweepBack} ${p1x} ${p1y} Z`;
     }
 
-    const l_r1 = turnRight ? R_CENTER : R_CENTER - LANE_W;
-    const l_r2 = turnRight ? R_CENTER + LANE_W : R_CENTER;
+    const l_r1 = turnRight ? radius : radius - LANE_W;
+    const l_r2 = turnRight ? radius + LANE_W : radius;
 
     for (let i = 0; i < lSpaces; i++) {
       const pathL = getArcPath(l_r1, l_r2, i, lSpaces, true);
@@ -135,8 +184,8 @@ function generateTrack() {
       leftTrack.push({ id: `L${leftTrack.length}`, path: pathL, center: centerL, limit: effLimitL, guardrail: (guardrail === 'outer' && turnRight), angle: curDir, isOuter: turnRight, distance: d, adj: [] });
     }
 
-    const r_r1 = turnRight ? R_CENTER - LANE_W : R_CENTER;
-    const r_r2 = turnRight ? R_CENTER : R_CENTER + LANE_W;
+    const r_r1 = turnRight ? radius - LANE_W : radius;
+    const r_r2 = turnRight ? radius : radius + LANE_W;
     const rLimitVal = turnRight ? inLimit : outLimit;
 
     for (let i = 0; i < rSpaces; i++) {
@@ -170,27 +219,104 @@ function generateTrack() {
 
     dir += totalSweep;
     const newCenterA = rotStartAngle + totalSweep;
-    cx = rotCx + R_CENTER * Math.cos(newCenterA * Math.PI / 180);
-    cy = rotCy + R_CENTER * Math.sin(newCenterA * Math.PI / 180);
+    cx = rotCx + radius * Math.cos(newCenterA * Math.PI / 180);
+    cy = rotCy + radius * Math.sin(newCenterA * Math.PI / 180);
     globalDistance += curveLenCenter;
   }
 
-  const DEFINITIONS = [
-    { type: 'straight', len: 2, limitL: null, limitR: null },
-    { type: 'curve', turnRight: true, angle: 90, inSpaces: 2, outSpaces: 3, limitIn: 60, limitOut: 60, guardrail: 'outer' },
-    { type: 'straight', len: 1, limitL: null, limitR: null },
-    { type: 'curve', turnRight: false, angle: 180, inSpaces: 4, outSpaces: 6, limitIn: 40, limitOut: 40, guardrail: 'outer' },
-    { type: 'straight', len: 2, limitL: null, limitR: null },
-    { type: 'curve', turnRight: true, angle: 90, inSpaces: 2, outSpaces: 3, limitIn: 50, limitOut: 50, guardrail: 'outer' },
-    { type: 'straight', len: 4, limitL: null, limitR: null, goal: true }
-  ];
+  const curve = (turnRight, angle, radius, inSpaces, outSpaces, limit) => ({
+    type: 'curve', turnRight, angle, radius, inSpaces, outSpaces,
+    limitIn: limit, limitOut: limit, guardrail: 'outer'
+  });
+  const straight = (len) => ({ type: 'straight', len, limitL: null, limitR: null });
+  const side = () => random() >= 0.5;
+  const cornerCard = (name, entrySpaces, defs, exitSpaces) => ({
+    name,
+    defs: [straight(entrySpaces), ...defs, straight(exitSpaces)].filter(def => def.len !== 0)
+  });
+  const cornerCards = parseCornerCardRows(cornerCardRows);
+  const ROAD_CARD_FACTORIES = cornerCards.flatMap(card => Array.from({ length: card.weight }, () => () => {
+    let turnRight = side();
+    const defs = card.segments.map(segment => {
+      if (segment.type === 'straight') return straight(segment.spaces);
+      if (segment.direction === 'random') turnRight = side();
+      else if (segment.direction === 'opposite') turnRight = !turnRight;
+      return curve(turnRight, segment.angle, segment.radius, segment.in_spaces, segment.out_spaces, segment.speed_limit);
+    });
+    return cornerCard(card.name, card.entrySpaces, defs, card.exitSpaces);
+  }));
+  ROAD_CARD_FACTORIES.push(() => ({ name: 'STRAIGHT', defs: [straight(5 + Math.floor(random() * 3))] }));
 
-  for (let def of DEFINITIONS) {
-    if (def.type === 'straight') addNodesStraight(def.len, def.limitL, def.limitR, def.goal);
-    else if (def.type === 'curve') addNodesCurve(def.turnRight, def.angle, def.inSpaces, def.outSpaces, def.limitIn, def.limitOut, def.guardrail);
+  const roadCards = [];
+  const addRoadCard = (card, cardIndex, checkClearance = true) => {
+    const snapshot = { left: leftTrack.length, right: rightTrack.length, cx, cy, dir, globalDistance };
+    for (const def of card.defs) {
+      if (def.type === 'straight') addNodesStraight(def.len, def.limitL, def.limitR, def.goal);
+      else addNodesCurve(def.turnRight, def.angle, def.inSpaces, def.outSpaces, def.limitIn, def.limitOut, def.guardrail, def.radius);
+    }
+
+    if (checkClearance) {
+      const previousSpaces = [
+        ...leftTrack.slice(0, Math.max(0, snapshot.left - 5)),
+        ...rightTrack.slice(0, Math.max(0, snapshot.right - 5))
+      ];
+      const newSpaces = [
+        ...leftTrack.slice(snapshot.left),
+        ...rightTrack.slice(snapshot.right)
+      ];
+      const tooClose = newSpaces.some(next => previousSpaces.some(previous =>
+        Math.hypot(next.center.x - previous.center.x, next.center.y - previous.center.y) < MIN_TRACK_CLEARANCE
+      ));
+      if (tooClose) {
+        leftTrack.length = snapshot.left;
+        rightTrack.length = snapshot.right;
+        ({ cx, cy, dir, globalDistance } = snapshot);
+        return false;
+      }
+    }
+
+    for (let i = snapshot.left; i < leftTrack.length; i++) {
+      leftTrack[i].roadCard = card.name;
+      leftTrack[i].roadCardIndex = cardIndex;
+    }
+    for (let i = snapshot.right; i < rightTrack.length; i++) {
+      rightTrack[i].roadCard = card.name;
+      rightTrack[i].roadCardIndex = cardIndex;
+    }
+    leftTrack[snapshot.left].roadCardStart = { index: cardIndex + 1, name: card.name };
+    roadCards.push(card);
+    return true;
+  };
+
+  addRoadCard({ name: 'START STRAIGHT', defs: [straight(4)] }, 0, false);
+  let previousFactory = -1;
+  for (let i = 0; i < requestedRoadCards; i++) {
+    let placed = false;
+    for (let attempt = 0; attempt < 80 && !placed; attempt++) {
+      let factoryIndex;
+      do factoryIndex = Math.floor(random() * ROAD_CARD_FACTORIES.length);
+      while (factoryIndex === previousFactory);
+      placed = addRoadCard(ROAD_CARD_FACTORIES[factoryIndex](), i + 1);
+      if (placed) previousFactory = factoryIndex;
+    }
+    if (!placed) {
+      if (retry >= MAX_LAYOUT_RETRIES) throw new Error('Unable to generate a clear track layout.');
+      return generateTrack((seed + 0x9E3779B9) >>> 0, cornerCardRows, retry + 1, requestedRoadCards);
+    }
+  }
+  if (!addRoadCard({ name: 'FINISH STRAIGHT', defs: [{ ...straight(5), goal: true }] }, requestedRoadCards + 1)) {
+    if (retry >= MAX_LAYOUT_RETRIES) throw new Error('Unable to place finish straight.');
+    return generateTrack((seed + 0x9E3779B9) >>> 0, cornerCardRows, retry + 1, requestedRoadCards);
   }
 
-  return { 0: leftTrack, 1: rightTrack };
+  for (const lane of [leftTrack, rightTrack]) {
+    lane.forEach((space, index) => {
+      space.id = `${space.id}-${seed}`;
+      space.trackIndex = index;
+    });
+  }
+
+  return { 0: leftTrack, 1: rightTrack, seed, roadCardCount: roadCards.length };
 }
 
 const IMPLEMENTED_CARD_IDS = ['drift', 'accelerate', 'hard_brake', 'change_lane', 'rocket_start'];
@@ -202,6 +328,22 @@ const DEFAULT_CARD_ROWS = [
   { id: 'change_lane', name: 'Change Lane', category: 'Common / Starter Cards - Bright Red AE86', requirement: 'Any', type: 'Turn', timing: 'Before', effect: 'Move to the other lane. You may discard 1 card from hand.', implemented: 'true' },
   { id: 'rocket_start', name: 'Rocket Start', category: 'Common / Starter Cards - Bright Red AE86', requirement: 'Max 30', type: 'Gas', timing: 'After', effect: 'Speed +40 km/h. You may discard 1 card from hand.', implemented: 'true' }
 ];
+
+const COURSE_OPTIONS = [
+  { id: 'akagi', name: 'Akagi Redline', region: 'Gunma', seed: 17031, difficulty: 'Technical', length: 'Short', cardCount: 5, path: 'M18 74 C35 68 25 48 45 45 S62 55 72 38 S68 17 88 14' },
+  { id: 'haruna', name: 'Haruna Skyline', region: 'Gunma', seed: 28417, difficulty: 'Balanced', length: 'Medium', cardCount: 8, path: 'M12 28 C26 10 43 18 42 35 S20 52 33 70 S65 82 88 66' },
+  { id: 'hakone', name: 'Hakone Turnpike', region: 'Kanagawa', seed: 39163, difficulty: 'High Speed', length: 'Long', cardCount: 12, path: 'M14 78 C20 52 38 63 43 39 S71 32 62 13 M62 13 L88 23' },
+  { id: 'random', name: 'Wildcard Route', region: 'Unknown', seed: null, difficulty: 'Variable', path: 'M14 70 C31 80 38 53 50 57 S67 68 73 46 S66 21 88 18' }
+];
+
+const CAR_OPTIONS = [
+  { id: 'ae86', name: 'Toyota AE86', drive: 'RWD', specialty: 'Lightweight balance. Predictable drifts and fast line changes.' },
+  { id: 'huracan', name: 'Lamborghini Huracan', drive: 'AWD', specialty: 'Explosive exits. Strong grip when power comes down early.' },
+  { id: 'porsche911', name: 'Porsche 911', drive: 'RWD', specialty: 'Rear-engine traction. Precise corrections through technical bends.' },
+  { id: 'mustang', name: 'Mustang GT500', drive: 'RWD', specialty: 'Raw straight-line power. Built to pressure rivals door to door.' }
+];
+
+const RANDOM_SIZE_CARDS = { small: 5, medium: 8, long: 12 };
 
 const parseCSV = (text) => {
   const rows = [];
@@ -403,6 +545,13 @@ export default function ArcadeRacingGame() {
   const [nnRevealStage, setNNRevealStage] = useState('faceDown');
   const [cardRows, setCardRows] = useState(DEFAULT_CARD_ROWS);
   const [cardDataSource, setCardDataSource] = useState('loading');
+  const [cornerCardRows, setCornerCardRows] = useState(DEFAULT_CORNER_CARD_ROWS);
+  const [cornerDataSource, setCornerDataSource] = useState('loading');
+  const [selectedCourseId, setSelectedCourseId] = useState('akagi');
+  const [courseDirection, setCourseDirection] = useState('downhill');
+  const [randomMapSize, setRandomMapSize] = useState('medium');
+  const [selectedCars, setSelectedCars] = useState([null, null]);
+  const [activeCarPlayer, setActiveCarPlayer] = useState(0);
   
   // Panning & Zoom State
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
@@ -411,7 +560,9 @@ export default function ArcadeRacingGame() {
   const dragStart = useRef({ x: 0, y: 0 });
   const panStart = useRef({ x: 0, y: 0 });
 
-  const TRACK = useMemo(() => generateTrack(), []);
+  const [trackSeed, setTrackSeed] = useState(() => Date.now());
+  const [trackCardCount, setTrackCardCount] = useState(12);
+  const TRACK = useMemo(() => generateTrack(trackSeed, cornerCardRows, 0, trackCardCount), [trackSeed, cornerCardRows, trackCardCount]);
   const CARDS = useMemo(() => buildCardCatalog(cardRows), [cardRows]);
 
   useEffect(() => {
@@ -441,21 +592,64 @@ export default function ArcadeRacingGame() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    const url = `racing_corner_cards.csv?updated=${Date.now()}`;
+
+    fetch(url, { cache: 'no-store' })
+      .then(response => {
+        if (!response.ok) throw new Error(`Corner card CSV request failed: ${response.status}`);
+        return response.text();
+      })
+      .then(text => {
+        const rows = parseCSV(text);
+        parseCornerCardRows(rows);
+        if (!cancelled) {
+          setCornerCardRows(rows);
+          setCornerDataSource('csv');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCornerDataSource('fallback');
+      });
+
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
     const updateSize = () => setWinSize({ w: window.innerWidth, h: window.innerHeight });
     window.addEventListener('resize', updateSize);
     updateSize();
     return () => window.removeEventListener('resize', updateSize);
   }, []);
 
-  const initGame = (mode) => {
+  const beginSetup = (mode) => {
+    setGameMode(mode);
+    setSelectedCourseId('akagi');
+    setCourseDirection('downhill');
+    setRandomMapSize('medium');
+    setSelectedCars([null, mode === 'PvE' ? 'huracan' : null]);
+    setActiveCarPlayer(0);
+    setAppState('SELECT');
+  };
+
+  const initGame = () => {
+    const selectedCourse = COURSE_OPTIONS.find(course => course.id === selectedCourseId) || COURSE_OPTIONS[0];
+    const cardCount = selectedCourse.id === 'random' ? RANDOM_SIZE_CARDS[randomMapSize] : selectedCourse.cardCount;
+    const directionOffset = courseDirection === 'uphill' ? 7919 : 0;
+    const nextSeed = selectedCourse.seed === null
+      ? Date.now() + Math.floor(Math.random() * 100000)
+      : selectedCourse.seed + directionOffset;
+    const nextTrack = generateTrack(nextSeed, cornerCardRows, 0, cardCount);
     const p1Draw = drawCards(shuffle(INITIAL_DECK), [], [], 4);
     const p2Draw = drawCards(shuffle(INITIAL_DECK), [], [], 4);
 
-    setGameMode(mode);
+    setTrackSeed(nextSeed);
+    setTrackCardCount(cardCount);
     setGameState({
+      raceSetup: { courseId: selectedCourse.id, direction: selectedCourse.id === 'random' ? null : courseDirection, size: selectedCourse.id === 'random' ? randomMapSize : null, cars: [...selectedCars] },
       players: [
-        { id: 0, name: 'Player 1', color: 'red', speed: 20, lane: 0, idx: 0, distance: TRACK[0][0].distance, ...p1Draw, modifiers: {}, lastPlayed: null },
-        { id: 1, name: mode === 'PvE' ? 'AI Racer' : 'Player 2', color: 'blue', speed: 20, lane: 1, idx: 0, distance: TRACK[1][0].distance, ...p2Draw, modifiers: {}, lastPlayed: null }
+        { id: 0, name: 'Player 1', carId: selectedCars[0], color: 'red', speed: 20, lane: 0, idx: 0, distance: nextTrack[0][0].distance, ...p1Draw, modifiers: {}, lastPlayed: null },
+        { id: 1, name: gameMode === 'PvE' ? 'AI Racer' : 'Player 2', carId: selectedCars[1], color: 'blue', speed: 20, lane: 1, idx: 0, distance: nextTrack[1][0].distance, ...p2Draw, modifiers: {}, lastPlayed: null }
       ],
       turnOrder: [0, 1],
       activePlayerIdx: 0,
@@ -1140,17 +1334,105 @@ export default function ArcadeRacingGame() {
         <h1 className="text-7xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-yellow-500 mb-2 drop-shadow-[0_0_15px_rgba(239,68,68,0.8)]">ARCADE RACING</h1>
         <p className="text-zinc-400 font-mono tracking-widest mb-12">TACTICAL CARD BATTLES</p>
         <div className="flex gap-6">
-          <button onClick={() => initGame('PvE')} className="group relative px-8 py-4 bg-zinc-900 border-2 border-zinc-700 rounded-xl hover:border-red-500 hover:bg-zinc-800 transition-all shadow-xl overflow-hidden">
+          <button onClick={() => beginSetup('PvE')} className="group relative px-8 py-4 bg-zinc-900 border-2 border-zinc-700 rounded-xl hover:border-red-500 hover:bg-zinc-800 transition-all shadow-xl overflow-hidden">
             <div className="absolute inset-0 bg-red-500/20 translate-y-full group-hover:translate-y-0 transition-transform"></div>
             <div className="relative flex items-center gap-3 text-xl font-bold"><Bot className="text-zinc-400 group-hover:text-red-400" /><span>VS AI Racers</span></div>
           </button>
-          <button onClick={() => initGame('PvP')} className="group relative px-8 py-4 bg-zinc-900 border-2 border-zinc-700 rounded-xl hover:border-blue-500 hover:bg-zinc-800 transition-all shadow-xl overflow-hidden">
+          <button onClick={() => beginSetup('PvP')} className="group relative px-8 py-4 bg-zinc-900 border-2 border-zinc-700 rounded-xl hover:border-blue-500 hover:bg-zinc-800 transition-all shadow-xl overflow-hidden">
             <div className="absolute inset-0 bg-blue-500/20 translate-y-full group-hover:translate-y-0 transition-transform"></div>
             <div className="relative flex items-center gap-3 text-xl font-bold"><Users className="text-zinc-400 group-hover:text-blue-400" /><span>VS Player 2</span></div>
           </button>
         </div>
-        <div className={`fixed bottom-6 px-4 py-2 rounded-full border text-xs font-bold tracking-wide ${cardDataSource === 'csv' ? 'bg-emerald-950/80 border-emerald-700 text-emerald-300' : cardDataSource === 'loading' ? 'bg-zinc-900/80 border-zinc-700 text-zinc-400' : 'bg-amber-950/80 border-amber-700 text-amber-300'}`}>
-          {cardDataSource === 'csv' ? 'CARD DATA: racing_cards.csv (live)' : cardDataSource === 'loading' ? 'LOADING CARD DATA...' : 'CARD DATA: embedded fallback - use start_arcade_racing.cmd for live CSV'}
+        <div className={`fixed bottom-6 px-4 py-2 rounded-full border text-xs font-bold tracking-wide ${cardDataSource === 'csv' && cornerDataSource === 'csv' ? 'bg-emerald-950/80 border-emerald-700 text-emerald-300' : cardDataSource === 'loading' || cornerDataSource === 'loading' ? 'bg-zinc-900/80 border-zinc-700 text-zinc-400' : 'bg-amber-950/80 border-amber-700 text-amber-300'}`}>
+          {cardDataSource === 'loading' || cornerDataSource === 'loading'
+            ? 'LOADING CSV DATA...'
+            : `DRIVING CARDS: ${cardDataSource === 'csv' ? 'LIVE' : 'FALLBACK'} / CORNER CARDS: ${cornerDataSource === 'csv' ? 'LIVE' : 'FALLBACK'}${cardDataSource !== 'csv' || cornerDataSource !== 'csv' ? ' / RUN start_arcade_racing.cmd FOR LIVE CSV' : ''}`}
+        </div>
+      </div>
+    );
+  }
+
+  if (appState === 'SELECT') {
+    const selectedCourse = COURSE_OPTIONS.find(course => course.id === selectedCourseId) || COURSE_OPTIONS[0];
+    const activePicker = gameMode === 'PvE' ? 0 : activeCarPlayer;
+    const chooseCar = (carId) => {
+      setSelectedCars(current => current.map((car, index) => index === activePicker ? carId : car));
+      if (gameMode === 'PvP' && activePicker === 0 && selectedCars[1] === null) setActiveCarPlayer(1);
+    };
+    const selectedCarData = selectedCars.map(carId => CAR_OPTIONS.find(car => car.id === carId));
+    const CarPortrait = ({ car, player }) => (
+      <div className={`relative h-36 sm:h-44 overflow-hidden border-b-4 ${player === 0 ? 'border-red-500 bg-gradient-to-br from-red-950 to-zinc-950' : 'border-blue-500 bg-gradient-to-bl from-blue-950 to-zinc-950'}`}>
+        <div className={`absolute inset-0 opacity-20 ${player === 0 ? 'bg-[linear-gradient(135deg,transparent_35%,#ef4444_35%,#ef4444_38%,transparent_38%)]' : 'bg-[linear-gradient(45deg,transparent_35%,#3b82f6_35%,#3b82f6_38%,transparent_38%)]'}`} />
+        {car ? (
+          <svg viewBox="0 0 360 170" className="absolute inset-x-0 bottom-0 h-full w-full drop-shadow-[0_12px_12px_rgba(0,0,0,0.8)]" aria-label={`${car.name} placeholder portrait`}>
+            <path d="M54 111 L83 75 Q96 57 127 52 L229 52 Q255 57 280 83 L320 97 Q333 102 336 119 L330 137 L302 139 Q295 157 273 157 Q252 157 244 139 L112 139 Q104 157 82 157 Q60 157 53 139 L31 135 L29 118 Z" fill={player === 0 ? '#ef4444' : '#3b82f6'} stroke="#f4f4f5" strokeWidth="4" />
+            <path d="M117 60 L149 60 L142 88 L91 88 Z M159 60 L224 60 Q241 65 259 87 L151 87 Z" fill="#09090b" stroke="#a1a1aa" strokeWidth="3" />
+            <circle cx="83" cy="137" r="21" fill="#09090b" stroke="#d4d4d8" strokeWidth="6"/><circle cx="273" cy="137" r="21" fill="#09090b" stroke="#d4d4d8" strokeWidth="6"/>
+          </svg>
+        ) : <div className="absolute inset-0 flex items-center justify-center text-6xl font-black italic text-white/10">SELECT</div>}
+        <div className={`absolute top-3 ${player === 0 ? 'left-4' : 'right-4'} text-2xl font-black italic`}>{player === 0 ? '1P' : gameMode === 'PvE' ? 'CPU' : '2P'}</div>
+      </div>
+    );
+
+    return (
+      <div className="h-screen w-full overflow-y-auto bg-[#090b08] text-white selection:bg-yellow-400 selection:text-black">
+        <div className="min-h-screen bg-[radial-gradient(circle_at_50%_20%,rgba(91,108,59,0.32),transparent_45%),linear-gradient(120deg,rgba(127,29,29,0.16),transparent_38%,rgba(30,58,138,0.16))] px-4 py-4 sm:px-6 lg:px-10">
+          <header className="mx-auto flex max-w-7xl items-center justify-between border-b border-white/15 pb-3">
+            <button onClick={() => setAppState('TITLE')} className="flex items-center gap-1 text-xs font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white"><ChevronLeft size={18}/> Mode Select</button>
+            <div className="text-center"><div className="text-2xl sm:text-4xl font-black italic tracking-tight">RACE SETUP</div><div className="text-[10px] font-bold tracking-[0.35em] text-yellow-400">COURSE & MACHINE SELECT</div></div>
+            <div className="rounded border border-white/20 bg-black/40 px-3 py-2 text-xs font-black uppercase text-zinc-300">{gameMode === 'PvE' ? '1P vs CPU' : '1P vs 2P'}</div>
+          </header>
+
+          <main className="mx-auto grid max-w-7xl gap-4 py-4 lg:grid-rows-[minmax(270px,42vh)_minmax(300px,1fr)]">
+            <section className="grid overflow-hidden border border-white/15 bg-black/60 shadow-2xl lg:grid-cols-[1.25fr_1fr]">
+              <div className="relative min-h-52 border-b border-white/15 p-5 lg:border-b-0 lg:border-r">
+                <div className="absolute left-5 top-4 z-10"><div className="text-[10px] font-black uppercase tracking-[0.3em] text-yellow-400">Player 1 Course Pick</div><h2 className="text-3xl font-black italic uppercase sm:text-4xl">{selectedCourse.name}</h2><p className="text-xs font-bold uppercase tracking-widest text-zinc-400">{selectedCourse.region} / {selectedCourse.difficulty} / {selectedCourse.id === 'random' ? randomMapSize : selectedCourse.length} / {selectedCourse.id === 'random' ? RANDOM_SIZE_CARDS[randomMapSize] : selectedCourse.cardCount} cards</p></div>
+                <svg viewBox="0 0 100 90" className="absolute inset-0 h-full w-full p-6 pt-16" aria-label={`${selectedCourse.name} mini map`}>
+                  <path d={selectedCourse.path} fill="none" stroke="#18181b" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d={selectedCourse.path} fill="none" stroke={selectedCourse.id === 'random' ? '#facc15' : '#f4f4f5'} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" strokeDasharray={selectedCourse.id === 'random' ? '3 4' : undefined} />
+                  <circle cx="14" cy={selectedCourse.id === 'haruna' ? '28' : selectedCourse.id === 'hakone' ? '78' : '70'} r="3" fill="#22c55e" stroke="white" strokeWidth="1" />
+                </svg>
+                <div className="absolute bottom-4 right-4 flex gap-2">
+                  {selectedCourse.id === 'random' ? Object.keys(RANDOM_SIZE_CARDS).map(size => <button key={size} onClick={() => setRandomMapSize(size)} className={`px-3 py-2 text-xs font-black uppercase ${randomMapSize === size ? 'bg-yellow-400 text-black' : 'border border-white/20 bg-black/70 text-zinc-300 hover:border-yellow-400'}`}>{size}<span className="ml-1 text-[9px] opacity-60">{RANDOM_SIZE_CARDS[size]} cards</span></button>) : ['downhill', 'uphill'].map(direction => <button key={direction} onClick={() => setCourseDirection(direction)} className={`px-4 py-2 text-xs font-black uppercase ${courseDirection === direction ? 'bg-yellow-400 text-black' : 'border border-white/20 bg-black/70 text-zinc-300 hover:border-yellow-400'}`}>{direction === 'downhill' ? '↓' : '↑'} {direction}</button>)}
+                </div>
+              </div>
+              <div className="grid grid-cols-4 gap-2 p-3 lg:grid-cols-2">
+                {COURSE_OPTIONS.map((course, index) => <button key={course.id} onClick={() => setSelectedCourseId(course.id)} className={`group relative min-h-24 overflow-hidden border p-3 text-left transition ${selectedCourseId === course.id ? 'border-yellow-400 bg-yellow-400/15' : 'border-white/15 bg-zinc-950/80 hover:border-white/50'}`}>
+                  <span className="text-[10px] font-black text-zinc-500">0{index + 1}</span><div className="mt-2 text-xs sm:text-base font-black uppercase leading-tight">{course.name}</div><div className="mt-1 hidden text-[10px] uppercase tracking-widest text-zinc-500 sm:block">{course.difficulty} / {course.id === 'random' ? `${RANDOM_SIZE_CARDS[randomMapSize]} cards` : `${course.length} / ${course.cardCount} cards`}</div>
+                  {selectedCourseId === course.id && <span className="absolute right-2 top-2 h-2 w-2 bg-yellow-400 shadow-[0_0_10px_#facc15]"/>}
+                </button>)}
+              </div>
+            </section>
+
+            <section className="grid gap-3 lg:grid-cols-[1fr_1.25fr_1fr]">
+              {[0, 1].map(player => {
+                const car = selectedCarData[player];
+                const waiting = activePicker === player;
+                return <button type="button" key={player} onClick={() => !(player === 1 && gameMode === 'PvE') && setActiveCarPlayer(player)} className={`overflow-hidden border bg-black/65 text-left ${player === 1 ? 'lg:col-start-3' : ''} ${player === 1 && gameMode === 'PvE' ? 'cursor-default' : 'cursor-pointer hover:border-white/50'} ${waiting ? player === 0 ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.25)]' : 'border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.25)]' : 'border-white/15'}`}>
+                  <CarPortrait car={car} player={player}/>
+                  <div className={`p-4 ${player === 1 ? 'text-right' : ''}`}>
+                    <div className="flex items-center justify-between gap-3"><h3 className="text-xl font-black uppercase">{car?.name || (waiting ? 'Choose Machine' : 'Waiting...')}</h3>{car && <span className="border border-yellow-500/50 bg-yellow-500/10 px-2 py-1 text-xs font-black text-yellow-300">{car.drive}</span>}</div>
+                    <p className="mt-2 min-h-10 text-xs leading-relaxed text-zinc-400">{car?.specialty || (player === 1 && gameMode === 'PvE' ? 'CPU machine locked.' : 'Select from machine grid.')}</p>
+                    {car && !(player === 1 && gameMode === 'PvE') && <div className="mt-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">Press panel, then press any machine</div>}
+                  </div>
+                </button>;
+              })}
+
+              <div className="grid grid-cols-2 gap-2 self-stretch lg:col-start-2 lg:row-start-1">
+                {CAR_OPTIONS.map((car, index) => {
+                  const pickedBy = selectedCars.reduce((players, id, player) => id === car.id ? [...players, player] : players, []);
+                  return <button key={car.id} onClick={() => chooseCar(car.id)} className={`group relative min-h-36 overflow-hidden border bg-zinc-950 p-3 text-left transition hover:-translate-y-1 hover:border-yellow-400 ${pickedBy.length ? 'border-yellow-500/60' : 'border-white/15'}`}>
+                    <div className="absolute -right-3 -top-4 text-7xl font-black italic text-white/[0.04]">0{index + 1}</div><div className="relative text-[10px] font-black uppercase tracking-widest text-zinc-500">{car.drive} / Machine 0{index + 1}</div><div className="relative mt-4 text-lg font-black uppercase leading-tight">{car.name}</div>
+                    <svg viewBox="0 0 160 55" className="absolute bottom-4 right-3 w-4/5 opacity-50 group-hover:opacity-90"><path d="M8 39 L25 24 L52 17 L105 17 L128 31 L151 36 L154 45 L139 47 Q133 55 123 47 L40 47 Q31 55 24 47 L8 45 Z" fill="#a1a1aa"/></svg>
+                    <div className="absolute bottom-2 left-2 flex gap-1">{pickedBy.map(player => <span key={player} className={`px-2 py-1 text-[10px] font-black text-white ${player === 0 ? 'bg-red-600' : 'bg-blue-600'}`}>{player === 0 ? '1P' : gameMode === 'PvE' ? 'CPU' : '2P'}</span>)}</div>
+                  </button>;
+                })}
+                <div className="col-span-2 flex min-h-14 items-center justify-center">
+                  {selectedCars.every(Boolean) ? <button onClick={initGame} className="group flex items-center gap-3 border-2 border-yellow-300 bg-yellow-400 px-8 py-3 text-lg font-black italic uppercase text-black shadow-[0_0_26px_rgba(250,204,21,0.4)] transition hover:scale-105 hover:bg-yellow-300">Start Your Engines <Play size={20}/></button> : <div className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">{activePicker === 0 ? 'Player 1: choose machine' : 'Player 2: choose machine'}</div>}
+                </div>
+              </div>
+            </section>
+          </main>
         </div>
       </div>
     );
@@ -1274,6 +1556,18 @@ export default function ArcadeRacingGame() {
               </g>
             ))
           )}
+
+          {/* Road card signs */}
+          {TRACK[0].filter(s => s.roadCardStart).map((s) => (
+            <g key={`road-card-${s.roadCardStart.index}`} transform={`translate(${s.center.x}, ${s.center.y}) rotate(${s.angle})`} className="pointer-events-none">
+              <g transform="translate(-35, 58)">
+                <rect x="-95" y="-17" width="190" height="34" rx="8" fill="rgba(9,9,11,0.88)" stroke="#facc15" strokeWidth="2" />
+                <text fill="#facc15" fontSize="13" fontWeight="900" fontFamily="sans-serif" textAnchor="middle" dy="5">
+                  {String(s.roadCardStart.index).padStart(2, '0')} / {s.roadCardStart.name}
+                </text>
+              </g>
+            </g>
+          ))}
 
           {/* Render Limits Text */}
           {[0, 1].map(lane =>
