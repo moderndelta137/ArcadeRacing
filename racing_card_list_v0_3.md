@@ -1,554 +1,548 @@
 # Racing Card List v0.3
 
-## Update Summary
+Authoritative source: `racing_cards.csv`.
 
-This update applies the new acceleration and hand-cycling direction:
-
-- **Accelerate** is increased from `Speed +20 km/h` to `Speed +40 km/h`.
-- `+40 km/h` is now the normal strong Gas benchmark.
-- `+20 km/h` is now treated as small / controlled acceleration.
-- **Discard 1–2 cards from hand is beneficial** because players draw back up to 4 cards at the end of the turn.
-- **Discard 3+ cards from hand is a detriment / cost.**
-- Effects that previously used `draw 1 card` as a small reward are converted to optional discard / cycling when appropriate.
-- Corner-support values are slightly increased where needed because cars can now accelerate harder.
-
-Recommended wording:
-
-> `You may discard 1 card from hand.`
-
-This should usually be optional, because sometimes a player wants to keep their current hand.
+This document is generated from the current CSV card list. When card names, requirements, timings, effects, implementation flags, deck codes, or internal serial numbers change, update `racing_cards.csv` first, then sync this document.
 
 ---
 
-# 1. Common / Starter Cards — Bright Red AE86
+## Serial Number Rule
 
-## 1. Drift
+Each card has a lower-left number-plate label showing car/deck name and a shortened printed plate serial.
+
+Plate visual rule:
+
+- Position: lower-left, overlapping the lower effect panel but clear of the outer frame.
+- Tilt: flat 2D clockwise tilt, about 5-8 degrees; left side higher than right side.
+- Visible size on a 1060 x 1484 card: about 210-235 px wide and 86-100 px tall.
+- Layout: first line = car/deck name; second line = large printed serial; decorative text must not overlap either line.
+- AE86 deck plate: Japanese-style black carbon plate, rounded border, white text, no red decoration circle.
+
+Printed plate serial format:
+
+> `{CC}-{NN}`
+
+`CC` is a two-character car code, preferably numeric when the car identity has a clear number. `NN` is the two-digit order of that card inside its car/deck list, starting at `01`. Do not renumber published cards. If a card is removed, leave the old number unused. New cards take the next unused number in that deck.
+
+| Deck / car | Deck code |
+|---|---|
+| Common / Starter and Balance Cards - Bright Red AE86 | `AE86` |
+| RWD Drift Set - Bright Green Lamborghini Huracan | `HRCN` |
+| AWD Grip Set - Yellow Porsche 911 | `P911` |
+| Muscle Car Set - Blue Mustang GT500 with Black Stripes | `GT500` |
+
+| Internal deck code | Printed car code | Printed serial range |
+|---|---|---|
+| `AE86` | `86` | `86-01` to `86-08` |
+| `HRCN` | `63` | `63-01` to `63-08` |
+| `P911` | `91` | `91-01` to `91-08` |
+| `GT500` | `50` | `50-01` to `50-08` |
+
+## Current Internal Card Serials
+
+| Serial | Card | Deck / car | Implemented |
+|---|---|---|---|
+| `AE86-01` | Drift | Common / Starter Cards - Bright Red AE86 | Yes |
+| `AE86-02` | Full throttle | Common / Starter Cards - Bright Red AE86 | Yes |
+| `AE86-03` | Back down | Common / Starter Cards - Bright Red AE86 | Yes |
+| `AE86-04` | Hard Brake | Balance set / Starter Cards - Bright Red AE86 | Yes |
+| `AE86-05` | Change Lane | Balance set / Starter Cards - Bright Red AE86 | Yes |
+| `AE86-06` | Early Brake Cornering | Balance set / Starter Cards - Bright Red AE86 | Yes |
+| `AE86-07` | Rocket Start | Balance set / Starter Cards - Bright Red AE86 | Yes |
+| `AE86-08` | Change Shift | Balance set / Starter Cards - Bright Red AE86 | Yes |
+| `HRCN-01` | Clutch Kick | RWD Drift set - Bright Green Lamborghini Huracan | Yes |
+| `HRCN-02` | Trail Braking | RWD Drift set - Bright Green Lamborghini Huracan | Yes |
+| `HRCN-03` | Full Countersteer | RWD Drift set - Bright Green Lamborghini Huracan | Yes |
+| `HRCN-04` | Exit Drift | RWD Drift set - Bright Green Lamborghini Huracan | Yes |
+| `HRCN-05` | Drift Extend | RWD Drift set - Bright Green Lamborghini Huracan | Yes |
+| `HRCN-06` | Gutter Boost | RWD Drift set - Bright Green Lamborghini Huracan | Yes |
+| `HRCN-07` | Blind Attack | RWD Drift set - Bright Green Lamborghini Huracan | Yes |
+| `HRCN-08` | Jump Exit | RWD Drift set - Bright Green Lamborghini Huracan | Yes |
+| `P911-01` | Progressive Acceleration | AWD Grip Set - Yellow Porsche 911 | Yes |
+| `P911-02` | Early Power | AWD Grip Set - Yellow Porsche 911 | Yes |
+| `P911-03` | Traction Control | AWD Grip Set - Yellow Porsche 911 | Yes |
+| `P911-04` | Grip Line | AWD Grip Set - Yellow Porsche 911 | Yes |
+| `P911-05` | Balanced Chassis | AWD Grip Set - Yellow Porsche 911 | Yes |
+| `P911-06` | Torque Split | AWD Grip Set - Yellow Porsche 911 | Yes |
+| `P911-07` | Micro Correction | AWD Grip Set - Yellow Porsche 911 | Yes |
+| `P911-08` | Line Lock | AWD Grip Set - Yellow Porsche 911 | Yes |
+| `GT500-01` | Raw Horsepower | Muscle Car Set - Blue Mustang GT500 with Black Stripes | Yes |
+| `GT500-02` | Straight-Line Monster | Muscle Car Set - Blue Mustang GT500 with Black Stripes | Yes |
+| `GT500-03` | Panic Stop | Muscle Car Set - Blue Mustang GT500 with Black Stripes | Yes |
+| `GT500-04` | Chrome Bumper | Muscle Car Set - Blue Mustang GT500 with Black Stripes | Yes |
+| `GT500-05` | Shove Aside | Muscle Car Set - Blue Mustang GT500 with Black Stripes | Yes |
+| `GT500-06` | Burn Rubber | Muscle Car Set - Blue Mustang GT500 with Black Stripes | Yes |
+| `GT500-07` | Door Slam | Muscle Car Set - Blue Mustang GT500 with Black Stripes | Yes |
+| `GT500-08` | No Room | Muscle Car Set - Blue Mustang GT500 with Black Stripes | Yes |
+
+---
+
+# Common / Starter and Balance Cards - Bright Red AE86
+
+## AE86-01. Drift
 
 **Requirement:** Max 60  
 **Type:** Turn  
 **Timing:** Drive  
+**Implemented:** Yes  
 
-**Updated Effect:**  
-`+30 km/h to the corner speed limit calculation.`
+**Effect:**  
+`+30 km/h to the speed check this turn.`
 
-**Update Note:**  
-Increased from `+20 km/h` to `+30 km/h` because the new basic Accelerate is now `+40 km/h`.
+**Role:**  
+line control / cornering card for Bright Red AE86.
 
 ---
-
-## 2. Accelerate
+## AE86-02. Full throttle
 
 **Requirement:** Any  
 **Type:** Gas  
 **Timing:** Before  
+**Implemented:** Yes  
 
-**Updated Effect:**  
+**Effect:**  
 `Speed +40 km/h.`
 
-**Update Note:**  
-This is now the standard strong Gas benchmark.
+**Role:**  
+speed gain / acceleration card for Bright Red AE86.
 
 ---
+## AE86-03. Back down
 
-## 3. Hard Brake
-
-**Requirement:** Min 30  
+**Requirement:** Any  
 **Type:** Brake  
 **Timing:** Before  
+**Implemented:** Yes  
 
-**Updated Effect:**  
-`Speed -30 km/h.`
+**Effect:**  
+`Speed -20 km/h. Discard 1 card.`
 
-**Update Note:**  
-No change. Hard Brake remains the simple stronger braking card with no cycling bonus.
+**Role:**  
+speed control / braking card for Bright Red AE86.
 
 ---
+## AE86-04. Hard Brake
 
-## 4. Change Lane
+**Requirement:** Min 50  
+**Type:** Brake  
+**Timing:** Before  
+**Implemented:** Yes  
+
+**Effect:**  
+`Speed -50 km/h.`
+
+**Role:**  
+speed control / braking card for Bright Red AE86.
+
+---
+## AE86-05. Change Lane
 
 **Requirement:** Any  
 **Type:** Turn  
 **Timing:** Before  
+**Implemented:** Yes  
 
-**Updated Effect:**  
-`Move to the other lane. You may discard 1 card from hand.`
+**Effect:**  
+`Move to the other lane. Discard 1 card.`
 
-**Update Note:**  
-Discard 1 is now a beneficial cycling bonus.
+**Role:**  
+line control / cornering card for Bright Red AE86.
 
 ---
+## AE86-06. Early Brake Cornering
 
-## 5. Early Brake Cornering
-
-**Requirement:** Max 50  
+**Requirement:** Max 60  
 **Type:** Turn  
 **Timing:** Before  
+**Implemented:** Yes  
 
-**Updated Effect:**  
-`Speed -20 km/h. Move to the inner lane. You may discard 1 card from hand.`
+**Effect:**  
+`Speed -20 km/h. Move to the inner lane.`
 
-**Update Note:**  
-This becomes a technical setup card: light braking, inner-lane setup, and hand cycling.
+**Role:**  
+line control / cornering card for Bright Red AE86.
 
 ---
-
-## 6. In-Out-In
+## AE86-07. Rocket Start
 
 **Requirement:** Max 40  
-**Type:** Turn  
-**Timing:** Step / After  
-
-**Updated Effect:**  
-`During movement, move to the inner lane. At the end of movement, move to the outer lane. You may discard 1 card from hand.`
-
-**Update Note:**  
-The discard bonus helps this situational line card stay useful.
-
----
-
-## 7. Rocket Start
-
-**Requirement:** Max 30  
 **Type:** Gas  
 **Timing:** After  
+**Implemented:** Yes  
 
-**Updated Effect:**  
-`Speed +40 km/h. You may discard 1 card from hand.`
+**Effect:**  
+`Speed +50 km/h. You may discard 2 cards.`
 
-**Update Note:**  
-Since Accelerate is now also `+40 km/h`, Rocket Start keeps its After timing identity and gains a cycling bonus.
+**Role:**  
+speed gain / acceleration card for Bright Red AE86.
 
 ---
-
-## 8. Change Shift
+## AE86-08. Change Shift
 
 **Requirement:** Any  
 **Type:** Gas  
 **Timing:** Before  
+**Implemented:** Yes  
 
-**Updated Effect:**  
-`Speed +10 km/h or -10 km/h. You may discard 1 card from hand. You may then play another card.`
+**Effect:**  
+`Speed +10 km/h or -10 km/h. You may then play another card.`
 
-**Update Note:**  
-The card remains a combo / tuning card and now also supports hand cycling.
+**Role:**  
+speed gain / acceleration card for Bright Red AE86.
 
 ---
 
-# 2. Drift / Touge Technique Set — Bright Green Lamborghini Huracán
+# RWD Drift Set - Bright Green Lamborghini Huracan
 
-## 9. Clutch Kick
+## HRCN-01. Clutch Kick
 
-**Requirement:** Min 40  
+**Requirement:** Min 60  
 **Type:** Gas  
 **Timing:** Before  
+**Implemented:** Yes  
 
-**Updated Effect:**  
-`Speed +20 km/h. This turn, your first corner speed check gains +30 km/h.`
+**Effect:**  
+`Speed +20 km/h. This turn, your first speed check gains +50 km/h.`
 
-**Update Note:**  
-Both the acceleration and corner-check bonus are increased slightly to keep this card competitive after Accelerate became `+40 km/h`.
+**Role:**  
+speed gain / acceleration card for Bright Green Lamborghini Huracan.
 
 ---
+## HRCN-02. Trail Braking
 
-## 10. Trail Braking
-
-**Requirement:** Max 60  
+**Requirement:** Max 80  
 **Type:** Brake  
 **Timing:** Drive  
+**Implemented:** Yes  
 
-**Updated Effect:**  
-`Before each corner speed check this turn, you may reduce Speed by 10 km/h.`
+**Effect:**  
+`Before each speed check this turn, you may reduce Speed by 10 km/h.`
 
-**Update Note:**  
-No change. This is already valuable because it gives precise speed control during movement.
+**Role:**  
+speed control / braking card for Bright Green Lamborghini Huracan.
 
 ---
-
-## 11. Full Countersteer
+## HRCN-03. Full Countersteer
 
 **Requirement:** Any  
 **Type:** Turn  
-**Timing:** Drive  
+**Timing:** Step  
+**Implemented:** Yes  
 
-**Updated Effect:**  
-`If you would understeer this turn, you may cancel that understeer once.`
+**Effect:**  
+`If you would understeer this turn, discard 1 card and cancel that understeer once.`
 
-**Update Note:**  
-No change. Higher acceleration makes this card naturally more valuable.
-
----
-
-## 12. Throttle Control
-
-**Requirement:** Any  
-**Type:** Gas  
-**Timing:** Drive  
-
-**Updated Effect:**  
-`Once this turn, after moving into a corner speed check space, you may choose Speed +10 km/h or Speed -10 km/h.`
-
-**Update Note:**  
-No change. This card is about fine control, not raw acceleration.
+**Role:**  
+line control / cornering card for Bright Green Lamborghini Huracan.
 
 ---
-
-## 13. Exit Drift
-
-**Requirement:** Max 80  
-**Type:** Gas  
-**Timing:** After  
-
-**Updated Effect:**  
-`If you moved through at least 1 corner speed check space this turn, Speed +30 km/h.`
-
-**Update Note:**  
-Increased from `+20 km/h` to `+30 km/h` so successful corner-exit rewards remain meaningful.
-
----
-
-## 14. Drift Extend
-
-**Requirement:** Max 80  
-**Type:** Turn  
-**Timing:** Drive  
-
-**Updated Effect:**  
-`Your first corner speed bonus this turn also applies to the next corner speed check this turn.`
-
-**Update Note:**  
-No direct value change. This card scales naturally with the increased corner-bonus values.
-
----
-
-## 15. Gutter Boost
+## HRCN-04. Exit Drift
 
 **Requirement:** Max 60  
 **Type:** Gas  
 **Timing:** After  
+**Implemented:** Yes  
 
-**Updated Effect:**  
-`If you ended movement in the inner lane of a corner, Speed +30 km/h.`
+**Effect:**  
+`If you moved through at least 1 speed check space this turn, Speed +30 km/h.`
 
-**Update Note:**  
-Increased from `+20 km/h` to `+30 km/h`.
+**Role:**  
+speed gain / acceleration card for Bright Green Lamborghini Huracan.
 
 ---
+## HRCN-05. Drift Extend
 
-## 16. Blind Attack
+**Requirement:** Max 80  
+**Type:** Turn  
+**Timing:** Drive  
+**Implemented:** Yes  
+
+**Effect:**  
+`If you gain corner speed bonus last turn, it also applies to the speed check this turn.`
+
+**Role:**  
+line control / cornering card for Bright Green Lamborghini Huracan.
+
+---
+## HRCN-06. Gutter Boost
+
+**Requirement:** Max 80  
+**Type:** Turn  
+**Timing:** Drive  
+**Implemented:** Yes  
+
+**Effect:**  
+`If you are on the inner lane, +50 km/h to the corner speed limit calculation.`
+
+**Role:**  
+line control / cornering card for Bright Green Lamborghini Huracan.
+
+---
+## HRCN-07. Blind Attack
 
 **Requirement:** Min 50  
 **Type:** Turn  
-**Timing:** Before  
+**Timing:** Drive  
+**Implemented:** Yes  
 
-**Updated Effect:**  
-`If you are the following car and in the same lane as the lead car, ignore blocking once this turn.`
+**Effect:**  
+`Discard all cards in your hand. If you get blocked, move to the other lane and gain 1 move point.`
 
-**Update Note:**  
-No change.
+**Role:**  
+line control / cornering card for Bright Green Lamborghini Huracan.
+
+---
+## HRCN-08. Jump Exit
+
+**Requirement:** Max 30  
+**Type:** Gas  
+**Timing:** Drive  
+**Implemented:** Yes  
+
+**Effect:**  
+`You have 4 move points this turn regardless of your gear, ignore the corner speed limit.`
+
+**Role:**  
+speed gain / acceleration card for Bright Green Lamborghini Huracan.
 
 ---
 
-## 17. Jump Start Exit
+# AWD Grip Set - Yellow Porsche 911
 
-**Requirement:** Max 40  
+## P911-01. Progressive Acceleration
+
+**Requirement:** Any  
+**Type:** Gas  
+**Timing:** Drive  
+**Implemented:** Yes  
+
+**Effect:**  
+`After each move this turn, Speed +10 km/h.`
+
+**Role:**  
+speed gain / acceleration card for Yellow Porsche 911.
+
+---
+## P911-02. Early Power
+
+**Requirement:** Max 60  
 **Type:** Gas  
 **Timing:** After  
+**Implemented:** Yes  
 
-**Updated Effect:**  
-`If you moved from inner lane to outer lane this turn, Speed +40 km/h.`
+**Effect:**  
+`If you passed all speed checks this turn, Speed +40 km/h.`
 
-**Update Note:**  
-Increased from `+30 km/h` to `+40 km/h` because the condition is strict and represents a strong corner exit.
-
----
-
-# 3. AWD Grip Set — Yellow Porsche 911
-
-## 18. Grip Acceleration
-
-**Requirement:** Any  
-**Type:** Gas  
-**Timing:** Before  
-
-**Updated Effect:**  
-`Speed +20 km/h. If you are not in a corner, you may discard 1 card from hand.`
-
-**Update Note:**  
-Changed from smaller split acceleration to a clean controlled acceleration plus cycling. AWD remains steady rather than explosive.
+**Role:**  
+speed gain / acceleration card for Yellow Porsche 911.
 
 ---
-
-## 19. Early Power
-
-**Requirement:** Max 70  
-**Type:** Gas  
-**Timing:** After  
-
-**Updated Effect:**  
-`If you passed all corner speed checks this turn, Speed +30 km/h.`
-
-**Update Note:**  
-Increased from `+20 km/h` to `+30 km/h` as a clean-driving reward.
-
----
-
-## 20. Traction Control
-
-**Requirement:** Any  
-**Type:** Turn  
-**Timing:** Drive  
-
-**Updated Effect:**  
-`If you would understeer this turn, reduce your speed by 10 km/h instead. Then cancel that understeer.`
-
-**Update Note:**  
-No change. Higher acceleration makes understeer prevention more valuable.
-
----
-
-## 21. Grip Line
-
-**Requirement:** Max 70  
-**Type:** Turn  
-**Timing:** Drive  
-
-**Updated Effect:**  
-`+10 km/h to all corner speed limit calculations this turn. If you stay in the same lane during movement, you may discard 1 card from hand.`
-
-**Update Note:**  
-The previous `draw 1 card` reward is replaced with optional discard cycling.
-
----
-
-## 22. Balanced Chassis
-
-**Requirement:** Any  
-**Type:** Turn  
-**Timing:** Drive  
-
-**Updated Effect:**  
-`Once this turn, after a speed check, you may move sideways without spending movement.`
-
-**Update Note:**  
-No change.
-
----
-
-## 23. Torque Split
-
-**Requirement:** Any  
-**Type:** Gas  
-**Timing:** Before  
-
-**Updated Effect:**  
-`Choose one: Speed +20 km/h, or +30 km/h to your next corner speed check this turn.`
-
-**Update Note:**  
-Increased from `Speed +10 km/h` / `+20 km/h to check` to keep the card relevant under the new acceleration scale.
-
----
-
-## 24. Micro Correction
-
-**Requirement:** Any  
-**Type:** Turn  
-**Timing:** Step  
-
-**Updated Effect:**  
-`During movement, move sideways. This does not cost movement if your speed is 80 km/h or lower.`
-
-**Update Note:**  
-No change.
-
----
-
-## 25. Line Lock
-
-**Requirement:** Max 80  
-**Type:** Turn  
-**Timing:** Drive  
-
-**Updated Effect:**  
-`Choose your lane. While you remain in that lane this turn, all corner speed checks gain +30 km/h.`
-
-**Update Note:**  
-Increased from `+20 km/h` to `+30 km/h` because it requires lane commitment.
-
----
-
-# 4. Muscle Car Set — Blue Mustang GT500 with Black Stripes
-
-## 26. Raw Horsepower
-
-**Requirement:** Any  
-**Type:** Gas  
-**Timing:** Before  
-
-**Updated Effect:**  
-`Speed +40 km/h. You may only move forward this turn. If you are on a straight, Speed +10 km/h again.`
-
-**Update Note:**  
-Because common Accelerate is now `+40 km/h`, Raw Horsepower gains a straight-road bonus while keeping the forward-only restriction.
-
----
-
-## 27. Straight-Line Monster
-
-**Requirement:** Any  
-**Type:** Gas  
-**Timing:** Before  
-
-**Updated Effect:**  
-`If you are on a straight, Speed +50 km/h. Otherwise, Speed +20 km/h and your first corner speed check this turn gets -10 km/h.`
-
-**Update Note:**  
-Muscle Cars should exceed the common acceleration benchmark when the condition fits their specialty.
-
----
-
-## 28. Wide Open Throttle
-
-**Requirement:** Min 60  
-**Type:** Gas  
-**Timing:** Drive  
-
-**Updated Effect:**  
-`After each forward movement on a straight, Speed +10 km/h. This can trigger up to twice this turn.`
-
-**Update Note:**  
-No change. This already scales with long straight movement and forward commitment.
-
----
-
-## 29. Torque Monster
-
-**Requirement:** Max 80  
-**Type:** Gas  
-**Timing:** Before  
-
-**Updated Effect:**  
-`Speed +30 km/h. This turn, when your forward space is occupied, the blocking car loses 10 km/h. You may then stop moving or move sideways if possible.`
-
-**Update Note:**  
-No change. This card is below common Accelerate because it also gives contact pressure.
-
----
-
-## 30. Shove Aside
-
-**Requirement:** Min 40  
-**Type:** Attack  
-**Timing:** Step  
-
-**Updated Effect:**  
-`Move the blocking car 1 lane outward if possible. If it moves, you may enter the space it left. If it cannot move, both cars suffer collision and you stop moving.`
-
-**Update Note:**  
-No change. This follows the no-shared-space attack rule.
-
----
-
-## 31. Overpower
-
-**Requirement:** Min 60  
-**Type:** Attack  
-**Timing:** Step  
-
-**Updated Effect:**  
-`The blocking car loses 1 Gear. You lose 10 km/h and stop moving.`
-
-**Update Note:**  
-No change.
-
----
-
-## 32. Door Slam
-
-**Requirement:** Max 70  
-**Type:** Attack  
-**Timing:** Step  
-
-**Updated Effect:**  
-`That car loses 10 km/h. If it is in the outer lane, it loses 20 km/h instead.`
-
-**Update Note:**  
-No change.
-
----
-
-## 33. No Room
-
-**Requirement:** Any  
-**Type:** Attack  
-**Timing:** Drive  
-
-**Updated Effect:**  
-`Adjacent opponents cannot move sideways into your lane this turn.`
-
-**Update Note:**  
-No change.
-
----
-
-# Additional New Common Card
-
-This card was requested as a new normal Brake card. It is not part of the original 33 image-requested cards above.
-
-## Brake
+## P911-03. Traction Control
 
 **Requirement:** Any  
 **Type:** Brake  
-**Timing:** Before  
+**Timing:** Drive  
+**Implemented:** Yes  
 
 **Effect:**  
-`Speed -20 km/h. You may discard 1 card from hand.`
+`If you would understeer this turn, reduce your speed by 20 km/h and cancel that understeer.`
 
 **Role:**  
-A normal Brake card that reduces speed less than Hard Brake, but gives beneficial hand cycling.
+speed control / braking card for Yellow Porsche 911.
+
+---
+## P911-04. Grip Line
+
+**Requirement:** Max 60  
+**Type:** Turn  
+**Timing:** Drive  
+**Implemented:** Yes  
+
+**Effect:**  
+`+20 km/h to the speed check this turn. Discard 1 card.`
+
+**Role:**  
+line control / cornering card for Yellow Porsche 911.
+
+---
+## P911-05. Balanced Chassis
+
+**Requirement:** Any  
+**Type:** Turn  
+**Timing:** Step  
+**Implemented:** Yes  
+
+**Effect:**  
+`Once this turn, you may move sideways by discard 1 card.`
+
+**Role:**  
+line control / cornering card for Yellow Porsche 911.
+
+---
+## P911-06. Torque Split
+
+**Requirement:** Any  
+**Type:** Gas  
+**Timing:** Before  
+**Implemented:** Yes  
+
+**Effect:**  
+`Choose one: Speed +30 km/h, or +40 km/h to the speed check this turn.`
+
+**Role:**  
+speed gain / acceleration card for Yellow Porsche 911.
+
+---
+## P911-07. Micro Correction
+
+**Requirement:** Any  
+**Type:** Turn  
+**Timing:** Drive  
+**Implemented:** Yes  
+
+**Effect:**  
+`After each speed check this turn, you may choose Speed +10 km/h or Speed -10 km/h.`
+
+**Role:**  
+line control / cornering card for Yellow Porsche 911.
+
+---
+## P911-08. Line Lock
+
+**Requirement:** Max 60  
+**Type:** Turn  
+**Timing:** Drive  
+**Implemented:** Yes  
+
+**Effect:**  
+`While you remain in your current lane , all speed checks gain +30 km/h this turn.`
+
+**Role:**  
+line control / cornering card for Yellow Porsche 911.
 
 ---
 
-# Updated Design Scale
+# Muscle Car Set - Blue Mustang GT500 with Black Stripes
 
-## Speed Change Scale
+## GT500-01. Raw Horsepower
 
-| Value | Meaning |
-|---:|---|
-| ±10 km/h | fine adjustment / technical tuning |
-| ±20 km/h | controlled acceleration or normal braking |
-| ±30 km/h | strong braking, strong corner reward, or conditional acceleration |
-| ±40 km/h | standard strong Gas acceleration |
-| ±50 km/h | rare archetype specialty or heavily conditional effect |
+**Requirement:** Any  
+**Type:** Gas  
+**Timing:** Before  
+**Implemented:** Yes  
 
-## Corner Support Scale
+**Effect:**  
+`Speed +50 km/h. You may only move forward this turn.`
 
-| Bonus | Meaning |
-|---:|---|
-| +10 km/h | small handling bonus |
-| +20 km/h | normal handling bonus |
-| +30 km/h | strong handling bonus |
-| +40 km/h | rare, car-specific, or heavily conditional support |
+**Role:**  
+speed gain / acceleration card for Blue Mustang GT500 with Black Stripes.
 
-## Discard Scale
+---
+## GT500-02. Straight-Line Monster
 
-| Discard Amount | Meaning |
-|---:|---|
-| Discard 1 card | beneficial cycling |
-| Discard 2 cards | strong beneficial cycling |
-| Discard 3+ cards | cost / penalty |
+**Requirement:** Any  
+**Type:** Gas  
+**Timing:** Before  
+**Implemented:** Yes  
+
+**Effect:**  
+`If you are on a straight, Speed +40 km/h. Otherwise, Speed +20 km/h`
+
+**Role:**  
+speed gain / acceleration card for Blue Mustang GT500 with Black Stripes.
+
+---
+## GT500-03. Panic Stop
+
+**Requirement:** Any  
+**Type:** Brake  
+**Timing:** Drive  
+**Implemented:** Yes  
+
+**Effect:**  
+`Speed -80km/h. Discard all cards from hand.`
+
+**Role:**  
+speed control / braking card for Blue Mustang GT500 with Black Stripes.
+
+---
+## GT500-04. Chrome Bumper
+
+**Requirement:** Min 60  
+**Type:** Attack  
+**Timing:** Step  
+**Implemented:** Yes  
+
+**Effect:**  
+`When you get blocked, discard 1 card, then the blocking car loses 40 km/h.`
+
+**Role:**  
+blocking, contact, or lane pressure card for Blue Mustang GT500 with Black Stripes.
+
+---
+## GT500-05. Shove Aside
+
+**Requirement:** Min 80  
+**Type:** Attack  
+**Timing:** Step  
+**Implemented:** Yes  
+
+**Effect:**  
+`Move the blocking car to the other lane. You may enter the space it left. If it cannot move, both cars spin-off.`
+
+**Role:**  
+blocking, contact, or lane pressure card for Blue Mustang GT500 with Black Stripes.
+
+---
+## GT500-06. Burn Rubber
+
+**Requirement:** Any  
+**Type:** Gas  
+**Timing:** After  
+**Implemented:** Yes  
+
+**Effect:**  
+`If you overtake this turn, Speed +60 km/h. Discard all cards.`
+
+**Role:**  
+speed gain / acceleration card for Blue Mustang GT500 with Black Stripes.
+
+---
+## GT500-07. Door Slam
+
+**Requirement:** Min 80  
+**Type:** Attack  
+**Timing:** Step  
+**Implemented:** Yes  
+
+**Effect:**  
+`Move to the other lane. If you get blocked the blocking car loses 20 km/h and all his remaining move points.`
+
+**Role:**  
+blocking, contact, or lane pressure card for Blue Mustang GT500 with Black Stripes.
+
+---
+## GT500-08. No Room
+
+**Requirement:** Min 60  
+**Type:** Attack  
+**Timing:** Drive  
+**Implemented:** Yes  
+
+**Effect:**  
+`Other cars cannot move into your lane until next turn.`
+
+**Role:**  
+blocking, contact, or lane pressure card for Blue Mustang GT500 with Black Stripes.
 
 ---
 
 # Count Check
 
-This file contains the updated information for the **33 previously listed player race cards**:
-
-| Category | Count |
-|---|---:|
-| Common / AE86 cards | 8 |
-| Drift / Huracán cards | 9 |
-| AWD Grip / Porsche cards | 8 |
-| Muscle / Mustang cards | 8 |
-| **Total** | **33** |
-
-The new normal **Brake** card is included as an additional card after the main 33-card list.
+| Set | Cards | Implemented |
+|---|---:|---:|
+| Common / Starter and Balance Cards - Bright Red AE86 | 8 | 8 |
+| RWD Drift Set - Bright Green Lamborghini Huracan | 8 | 8 |
+| AWD Grip Set - Yellow Porsche 911 | 8 | 8 |
+| Muscle Car Set - Blue Mustang GT500 with Black Stripes | 8 | 8 |
+| **Total** | **32** | **32** |

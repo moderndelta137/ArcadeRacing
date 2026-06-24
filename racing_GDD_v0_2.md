@@ -270,13 +270,12 @@ Driving Cards represent acceleration, braking, turning, drifting, gear control, 
 
 ## 7. Driving Card Types
 
-There are three base card types:
+There are four current card types:
 
 1. Gas
 2. Brake
 3. Turn
-
-A future expansion may add a fourth type, such as Attack.
+4. Attack
 
 ---
 
@@ -286,7 +285,7 @@ Gas cards are used to increase speed, maintain momentum, or trigger acceleration
 
 Examples:
 
-- Accelerate
+- Full throttle
 - Rocket Start
 - Change Shift
 
@@ -299,7 +298,8 @@ Brake cards are used to reduce speed, prepare for corners, or recover from dange
 Examples:
 
 - Hard Brake
-- Brake
+- Back down
+- Panic Stop
 - Early Brake Cornering
 
 ---
@@ -312,7 +312,19 @@ Examples:
 
 - Drift
 - Change Lane
-- In-Out-In
+- Gutter Boost
+
+---
+
+### 7.4 Attack Cards
+
+Attack cards are used for blocking pressure, contact pressure, and lane denial.
+
+Examples:
+
+- Chrome Bumper
+- Shove Aside
+- Door Slam
 
 ---
 
@@ -320,10 +332,13 @@ Examples:
 
 Each Driving Card has the following information:
 
-1. Speed requirement
-2. Card type
-3. Timing
-4. Effect
+1. Card name
+2. Deck / car name
+3. Serial number
+4. Speed requirement
+5. Card type
+6. Timing
+7. Effect
 
 ---
 
@@ -350,6 +365,42 @@ Speed requirements are checked before any card effect resolves.
 Example:
 
 If a card says `Max 50 km/h`, a player at 60 km/h cannot play that card, even if the card would reduce speed as part of its effect.
+
+---
+
+### 8.2 Deck Name and Serial Number
+
+Each Driving Card belongs to a deck / car identity. The card face shows this identity in a small tilted number-plate label at the lower-left.
+
+The plate uses:
+
+- First line: car / deck name
+- Second line: shortened printed plate serial
+- Flat 2D number-plate treatment, not perspective skew
+- Clockwise tilt of about 5-8 degrees, meaning the left side is higher than the right side
+- Compact visible plate size around 210-235 px wide and 86-100 px tall on a 1060 x 1484 card
+- No overlap between car/deck name, large serial, and decorative plate text
+
+Printed plate serial format:
+
+> `{CC}-{NN}`
+
+`CC` is a two-character car code, preferably numeric when the car identity has a clear number. `NN` is the two-digit order of that card inside its car/deck list, starting at `01`.
+
+Do not renumber published cards. If a card is removed, leave the old number unused. New cards take the next unused number in that deck.
+
+Prototype deck codes:
+
+| Deck / car | Internal deck code | Printed car code | Printed serial range |
+|---|---|---|---|
+| Bright Red AE86 starter/balance cards | `AE86` | `86` | `86-01` to `86-08` |
+| RWD Drift set - Bright Green Lamborghini Huracan | `HRCN` | `63` | `63-01` to `63-08` |
+| AWD Grip Set - Yellow Porsche 911 | `P911` | `91` | `91-01` to `91-08` |
+| Muscle Car Set - Blue Mustang GT500 with Black Stripes | `GT500` | `50` | `50-01` to `50-08` |
+
+The plate is cosmetic and has no gameplay effect.
+
+For visual direction, each car/deck may use a different regional plate design. The AE86 starter/balance deck uses a Japanese-style black carbon plate with white text, first line `AE86`, and large printed serial such as `86-01`.
 
 ---
 
@@ -1074,161 +1125,113 @@ Place the cars one after another at the starting line so the game begins in a cl
 
 ## 32. Example Cards
 
-The following cards are example prototype cards. The separate [Racing Card List v0.3](racing_card_list_v0_3.md) is the authoritative source for card requirements and effects. If an example here conflicts with that list, use the card list.
+The current card list comes from [racing_cards.csv](racing_cards.csv). The separate [Racing Card List v0.3](racing_card_list_v0_3.md) mirrors that CSV and remains the readable card reference.
+
+| Serial | Card | Type | Requirement | Timing | Effect | Implemented |
+|---|---|---|---|---|---|---|
+| `AE86-01` | Drift | Turn | Max 60 | Drive | +30 km/h to the speed check this turn. | Yes |
+| `AE86-02` | Full throttle | Gas | Any | Before | Speed +40 km/h. | Yes |
+| `AE86-03` | Back down | Brake | Any | Before | Speed -20 km/h. Discard 1 card. | Yes |
+| `AE86-04` | Hard Brake | Brake | Min 50 | Before | Speed -50 km/h. | Yes |
+| `AE86-05` | Change Lane | Turn | Any | Before | Move to the other lane. Discard 1 card. | Yes |
+| `AE86-06` | Early Brake Cornering | Turn | Max 60 | Before | Speed -20 km/h. Move to the inner lane. | Yes |
+| `AE86-07` | Rocket Start | Gas | Max 40 | After | Speed +50 km/h. You may discard 2 cards. | Yes |
+| `AE86-08` | Change Shift | Gas | Any | Before | Speed +10 km/h or -10 km/h. You may then play another card. | Yes |
+| `HRCN-01` | Clutch Kick | Gas | Min 60 | Before | Speed +20 km/h. This turn, your first speed check gains +50 km/h. | Yes |
+| `HRCN-02` | Trail Braking | Brake | Max 80 | Drive | Before each speed check this turn, you may reduce Speed by 10 km/h. | Yes |
+| `HRCN-03` | Full Countersteer | Turn | Any | Step | If you would understeer this turn, discard 1 card and cancel that understeer once. | Yes |
+| `HRCN-04` | Exit Drift | Gas | Max 60 | After | If you moved through at least 1 speed check space this turn, Speed +30 km/h. | Yes |
+| `HRCN-05` | Drift Extend | Turn | Max 80 | Drive | If you gain corner speed bonus last turn, it also applies to the speed check this turn. | Yes |
+| `HRCN-06` | Gutter Boost | Turn | Max 80 | Drive | If you are on the inner lane, +50 km/h to the corner speed limit calculation. | Yes |
+| `HRCN-07` | Blind Attack | Turn | Min 50 | Drive | Discard all cards in your hand. If you get blocked, move to the other lane and gain 1 move point. | Yes |
+| `HRCN-08` | Jump Exit | Gas | Max 30 | Drive | You have 4 move points this turn regardless of your gear, ignore the corner speed limit. | Yes |
+| `P911-01` | Progressive Acceleration | Gas | Any | Drive | After each move this turn, Speed +10 km/h. | Yes |
+| `P911-02` | Early Power | Gas | Max 60 | After | If you passed all speed checks this turn, Speed +40 km/h. | Yes |
+| `P911-03` | Traction Control | Brake | Any | Drive | If you would understeer this turn, reduce your speed by 20 km/h and cancel that understeer. | Yes |
+| `P911-04` | Grip Line | Turn | Max 60 | Drive | +20 km/h to the speed check this turn. Discard 1 card. | Yes |
+| `P911-05` | Balanced Chassis | Turn | Any | Step | Once this turn, you may move sideways by discard 1 card. | Yes |
+| `P911-06` | Torque Split | Gas | Any | Before | Choose one: Speed +30 km/h, or +40 km/h to the speed check this turn. | Yes |
+| `P911-07` | Micro Correction | Turn | Any | Drive | After each speed check this turn, you may choose Speed +10 km/h or Speed -10 km/h. | Yes |
+| `P911-08` | Line Lock | Turn | Max 60 | Drive | While you remain in your current lane , all speed checks gain +30 km/h this turn. | Yes |
+| `GT500-01` | Raw Horsepower | Gas | Any | Before | Speed +50 km/h. You may only move forward this turn. | Yes |
+| `GT500-02` | Straight-Line Monster | Gas | Any | Before | If you are on a straight, Speed +40 km/h. Otherwise, Speed +20 km/h | Yes |
+| `GT500-03` | Panic Stop | Brake | Any | Drive | Speed -80km/h. Discard all cards from hand. | Yes |
+| `GT500-04` | Chrome Bumper | Attack | Min 60 | Step | When you get blocked, discard 1 card, then the blocking car loses 40 km/h. | Yes |
+| `GT500-05` | Shove Aside | Attack | Min 80 | Step | Move the blocking car to the other lane. You may enter the space it left. If it cannot move, both cars spin-off. | Yes |
+| `GT500-06` | Burn Rubber | Gas | Any | After | If you overtake this turn, Speed +60 km/h. Discard all cards. | Yes |
+| `GT500-07` | Door Slam | Attack | Min 80 | Step | Move to the other lane. If you get blocked the blocking car loses 20 km/h and all his remaining move points. | Yes |
+| `GT500-08` | No Room | Attack | Min 60 | Drive | Other cars cannot move into your lane until next turn. | Yes |
 
 ---
 
-### 32.1 Drift
+## 33. Prototype Driving Decks
 
-Type: Turn  
-Requirement: Max 60 km/h  
-Timing: Drive  
+The browser prototype currently uses fixed 12-card decks per selected car. Car decks may include Common / Starter cards so every archetype has enough basic acceleration and braking.
 
-Effect:
-
-> During this movement, treat corner speed limits as +30 km/h.
-
----
-
-### 32.2 Accelerate
-
-Type: Gas  
-Requirement: No Requirement  
-Timing: Before  
-
-Effect:
-
-> Speed +40 km/h.
-
----
-
-### 32.3 Hard Brake
-
-Type: Brake  
-Requirement: Min 30 km/h  
-Timing: Before  
-
-Effect:
-
-> Speed -30 km/h.
-
----
-
-### 32.4 Change Lane
-
-Type: Turn  
-Requirement: No Requirement  
-Timing: Before  
-
-Effect:
-
-> Move to the other lane.  
-> You may discard 1 card from your hand.
-
----
-
-### 32.5 Early Brake Cornering
-
-Type: Turn  
-Requirement: Max 50 km/h  
-Timing: Before  
-
-Effect:
-
-> Speed -20 km/h.  
-> Move to the inner lane.  
-> You may discard 1 card from your hand.
-
----
-
-### 32.6 In-Out-In
-
-Type: Turn  
-Requirement: Max 40 km/h  
-Timing: Step / After  
-
-Effect:
-
-> Step: During one movement step in a corner, move to the inner lane.  
-> After: Move to the outer lane.  
-> You may discard 1 card from your hand.
-
----
-
-### 32.7 Rocket Start
-
-Type: Gas  
-Requirement: Max 30 km/h  
-Timing: After  
-
-Effect:
-
-> Speed +40 km/h.  
-> You may discard 1 card from your hand.
-
-This speed increase does not trigger a speed-limit check.
-
----
-
-### 32.8 Change Shift
-
-Type: Gas  
-Requirement: No Requirement  
-Timing: Before  
-
-Effect:
-
-> Speed +10 km/h or -10 km/h.  
-> You may discard 1 card from your hand.  
-> You may then play another card.
-
----
-
-### 32.9 Brake
-
-Type: Brake  
-Requirement: No Requirement  
-Timing: Before  
-
-Effect:
-
-> Speed -20 km/h.  
-> You may discard 1 card from your hand.
-
----
-
-## 33. Prototype Starter Deck Suggestion
-
-Each player may use the following 12-card starter deck:
+### Balance Set / Bright Red AE86
 
 | Card | Copies |
 |---|---:|
-| Accelerate | 3 |
-| Brake | 2 |
-| Hard Brake | 1 |
-| Change Lane | 3 |
-| Drift | 1 |
-| Early Brake Cornering | 1 |
-| Change Shift | 1 |
-
-This starter deck is simple and focused on the core loop.
-
-Alternative balanced starter deck:
-
-| Card | Copies |
-|---|---:|
-| Accelerate | 2 |
-| Brake | 2 |
-| Change Lane | 2 |
 | Drift | 2 |
-| Early Brake Cornering | 2 |
+| Full throttle | 3 |
+| Back down | 2 |
 | Hard Brake | 1 |
+| Change Lane | 1 |
+| Early Brake Cornering | 1 |
+| Rocket Start | 1 |
 | Change Shift | 1 |
 
-Use whichever version feels better during testing.
+Shape: Gas 5 / Brake 3 / Turn 4. This deck is the stable starter baseline: enough acceleration, enough braking, and a clear AE86 lane-control identity.
+
+### RWD Drift Set / Bright Green Lamborghini Huracan
+
+| Card | Copies |
+|---|---:|
+| Drift | 1 |
+| Full throttle | 3 |
+| Back down | 2 |
+| Clutch Kick | 1 |
+| Trail Braking | 1 |
+| Full Countersteer | 1 |
+| Exit Drift | 1 |
+| Gutter Boost | 1 |
+| Jump Exit | 1 |
+
+Shape: Gas 6 / Brake 3 / Turn 3. This deck keeps enough basic economy from Common cards, then leans into speed-check bonuses and drift recovery. Drift Extend and Blind Attack stay out of the first playable deck because they are more situational tuning cards.
+
+### AWD Grip Set / Yellow Porsche 911
+
+| Card | Copies |
+|---|---:|
+| Drift | 1 |
+| Full throttle | 3 |
+| Back down | 2 |
+| Progressive Acceleration | 1 |
+| Early Power | 1 |
+| Traction Control | 1 |
+| Grip Line | 1 |
+| Torque Split | 1 |
+| Micro Correction | 1 |
+
+Shape: Gas 6 / Brake 3 / Turn 3. This deck keeps Common acceleration/braking as the baseline, then adds Porsche grip tools for speed-check stability, safe understeer cancel, and post-check speed correction. Balanced Chassis and Line Lock stay out of the first playable deck as tuning cards.
+
+### Muscle Car Set / Blue Mustang GT500
+
+| Card | Copies |
+|---|---:|
+| Full throttle | 3 |
+| Back down | 2 |
+| Hard Brake | 1 |
+| Raw Horsepower | 1 |
+| Straight-Line Monster | 1 |
+| Panic Stop | 1 |
+| Chrome Bumper | 1 |
+| Shove Aside | 1 |
+| Door Slam | 1 |
+
+Shape: Gas 5 / Brake 4 / Attack 3. This deck keeps enough control cards to recover from heavy speed spikes, then gives the Mustang contact pressure through blocking punishment and lane-force tools. Burn Rubber and No Room stay out of the first playable deck as more situational tuning cards.
 
 ---
-
 ## 34. Prototype Road Deck Suggestion
 
 For the first playtest, use 10 road cards:
@@ -1599,7 +1602,7 @@ During the playtest, watch for:
 
 The following elements are intentionally left for later development:
 
-- Attack cards
+- Attack-card tuning
 - More than 2 players
 - Advanced car parts
 - Car-specific Gear tables

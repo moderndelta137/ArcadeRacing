@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Play, Users, Bot, ChevronRight, ChevronLeft, Radio, FastForward, Crosshair } from 'lucide-react';
 
 const MAX_SPEED = 140;
@@ -319,14 +319,46 @@ function generateTrack(seed = Date.now(), cornerCardRows = DEFAULT_CORNER_CARD_R
   return { 0: leftTrack, 1: rightTrack, seed, roadCardCount: roadCards.length };
 }
 
-const IMPLEMENTED_CARD_IDS = ['drift', 'accelerate', 'hard_brake', 'change_lane', 'rocket_start'];
+const IMPLEMENTED_CARD_IDS = [
+  'drift', 'full_throttle', 'back_down', 'hard_brake', 'change_lane', 'early_brake_cornering', 'rocket_start', 'change_shift',
+  'clutch_kick', 'trail_braking', 'full_countersteer', 'exit_drift', 'drift_extend', 'gutter_boost', 'blind_attack', 'jump_exit',
+  'progressive_acceleration', 'early_power', 'traction_control', 'grip_line', 'balanced_chassis', 'torque_split', 'micro_correction', 'line_lock',
+  'raw_horsepower', 'straight_line_monster', 'panic_stop', 'chrome_bumper', 'shove_aside', 'burn_rubber', 'door_slam', 'no_room'
+];
 
 const DEFAULT_CARD_ROWS = [
-  { id: 'drift', name: 'Drift', category: 'Common / Starter Cards - Bright Red AE86', requirement: 'Max 60', type: 'Turn', timing: 'Drive', effect: '+30 km/h to the corner speed limit calculation.', implemented: 'true' },
-  { id: 'accelerate', name: 'Accelerate', category: 'Common / Starter Cards - Bright Red AE86', requirement: 'Any', type: 'Gas', timing: 'Before', effect: 'Speed +40 km/h.', implemented: 'true' },
-  { id: 'hard_brake', name: 'Hard Brake', category: 'Common / Starter Cards - Bright Red AE86', requirement: 'Min 30', type: 'Brake', timing: 'Before', effect: 'Speed -30 km/h.', implemented: 'true' },
-  { id: 'change_lane', name: 'Change Lane', category: 'Common / Starter Cards - Bright Red AE86', requirement: 'Any', type: 'Turn', timing: 'Before', effect: 'Move to the other lane. You may discard 1 card from hand.', implemented: 'true' },
-  { id: 'rocket_start', name: 'Rocket Start', category: 'Common / Starter Cards - Bright Red AE86', requirement: 'Max 30', type: 'Gas', timing: 'After', effect: 'Speed +40 km/h. You may discard 1 card from hand.', implemented: 'true' }
+  { id: 'drift', name: 'Drift', category: 'Common / Starter Cards - Bright Red AE86', requirement: 'Max 60', type: 'Turn', timing: 'Drive', effect: '+30 km/h to the speed check this turn.', implemented: 'true', deck_code: 'AE86', serial_number: 'AE86-01' },
+  { id: 'full_throttle', name: 'Full throttle', category: 'Common / Starter Cards - Bright Red AE86', requirement: 'Any', type: 'Gas', timing: 'Before', effect: 'Speed +40 km/h.', implemented: 'true', deck_code: 'AE86', serial_number: 'AE86-02' },
+  { id: 'back_down', name: 'Back down', category: 'Common / Starter Cards - Bright Red AE86', requirement: 'Any', type: 'Brake', timing: 'Before', effect: 'Speed -20 km/h. Discard 1 card.', implemented: 'true', deck_code: 'AE86', serial_number: 'AE86-03' },
+  { id: 'hard_brake', name: 'Hard Brake', category: 'Balance set / Starter Cards - Bright Red AE86', requirement: 'Min 50', type: 'Brake', timing: 'Before', effect: 'Speed -50 km/h.', implemented: 'true', deck_code: 'AE86', serial_number: 'AE86-04' },
+  { id: 'change_lane', name: 'Change Lane', category: 'Balance set / Starter Cards - Bright Red AE86', requirement: 'Any', type: 'Turn', timing: 'Before', effect: 'Move to the other lane. Discard 1 card.', implemented: 'true', deck_code: 'AE86', serial_number: 'AE86-05' },
+  { id: 'early_brake_cornering', name: 'Early Brake Cornering', category: 'Balance set / Starter Cards - Bright Red AE86', requirement: 'Max 60', type: 'Turn', timing: 'Before', effect: 'Speed -20 km/h. Move to the inner lane.', implemented: 'true', deck_code: 'AE86', serial_number: 'AE86-06' },
+  { id: 'rocket_start', name: 'Rocket Start', category: 'Balance set / Starter Cards - Bright Red AE86', requirement: 'Max 40', type: 'Gas', timing: 'After', effect: 'Speed +50 km/h. You may discard 2 cards.', implemented: 'true', deck_code: 'AE86', serial_number: 'AE86-07' },
+  { id: 'change_shift', name: 'Change Shift', category: 'Balance set / Starter Cards - Bright Red AE86', requirement: 'Any', type: 'Gas', timing: 'Before', effect: 'Speed +10 km/h or -10 km/h. You may then play another card.', implemented: 'true', deck_code: 'AE86', serial_number: 'AE86-08' },
+  { id: 'clutch_kick', name: 'Clutch Kick', category: 'RWD Drift set - Bright Green Lamborghini Huracan', requirement: 'Min 60', type: 'Gas', timing: 'Before', effect: 'Speed +20 km/h. This turn, your first speed check gains +50 km/h.', implemented: 'true', deck_code: 'HRCN', serial_number: 'HRCN-01' },
+  { id: 'trail_braking', name: 'Trail Braking', category: 'RWD Drift set - Bright Green Lamborghini Huracan', requirement: 'Max 80', type: 'Brake', timing: 'Drive', effect: 'Before each speed check this turn, you may reduce Speed by 10 km/h.', implemented: 'true', deck_code: 'HRCN', serial_number: 'HRCN-02' },
+  { id: 'full_countersteer', name: 'Full Countersteer', category: 'RWD Drift set - Bright Green Lamborghini Huracan', requirement: 'Any', type: 'Turn', timing: 'Step', effect: 'If you would understeer this turn, discard 1 card and cancel that understeer once.', implemented: 'true', deck_code: 'HRCN', serial_number: 'HRCN-03' },
+  { id: 'exit_drift', name: 'Exit Drift', category: 'RWD Drift set - Bright Green Lamborghini Huracan', requirement: 'Max 60', type: 'Gas', timing: 'After', effect: 'If you moved through at least 1 speed check space this turn, Speed +30 km/h.', implemented: 'true', deck_code: 'HRCN', serial_number: 'HRCN-04' },
+  { id: 'drift_extend', name: 'Drift Extend', category: 'RWD Drift set - Bright Green Lamborghini Huracan', requirement: 'Max 80', type: 'Turn', timing: 'Drive', effect: 'If you gain corner speed bonus last turn, it also applies to the speed check this turn.', implemented: 'true', deck_code: 'HRCN', serial_number: 'HRCN-05' },
+  { id: 'gutter_boost', name: 'Gutter Boost', category: 'RWD Drift set - Bright Green Lamborghini Huracan', requirement: 'Max 80', type: 'Turn', timing: 'Drive', effect: 'If you are on the inner lane, +50 km/h to the corner speed limit calculation.', implemented: 'true', deck_code: 'HRCN', serial_number: 'HRCN-06' },
+  { id: 'blind_attack', name: 'Blind Attack', category: 'RWD Drift set - Bright Green Lamborghini Huracan', requirement: 'Min 50', type: 'Turn', timing: 'Drive', effect: 'Discard all cards in your hand. If you get blocked, move to the other lane and gain 1 move point.', implemented: 'true', deck_code: 'HRCN', serial_number: 'HRCN-07' },
+  { id: 'jump_exit', name: 'Jump Exit', category: 'RWD Drift set - Bright Green Lamborghini Huracan', requirement: 'Max 30', type: 'Gas', timing: 'Drive', effect: 'You have 4 move points this turn regardless of your gear, ignore the corner speed limit.', implemented: 'true', deck_code: 'HRCN', serial_number: 'HRCN-08' },
+  { id: 'progressive_acceleration', name: 'Progressive Acceleration', category: 'AWD Grip Set - Yellow Porsche 911', requirement: 'Any', type: 'Gas', timing: 'Drive', effect: 'After each move this turn, Speed +10 km/h.', implemented: 'true', deck_code: 'P911', serial_number: 'P911-01' },
+  { id: 'early_power', name: 'Early Power', category: 'AWD Grip Set - Yellow Porsche 911', requirement: 'Max 60', type: 'Gas', timing: 'After', effect: 'If you passed all speed checks this turn, Speed +40 km/h.', implemented: 'true', deck_code: 'P911', serial_number: 'P911-02' },
+  { id: 'traction_control', name: 'Traction Control', category: 'AWD Grip Set - Yellow Porsche 911', requirement: 'Any', type: 'Brake', timing: 'Drive', effect: 'If you would understeer this turn, reduce your speed by 20 km/h and cancel that understeer.', implemented: 'true', deck_code: 'P911', serial_number: 'P911-03' },
+  { id: 'grip_line', name: 'Grip Line', category: 'AWD Grip Set - Yellow Porsche 911', requirement: 'Max 60', type: 'Turn', timing: 'Drive', effect: '+20 km/h to the speed check this turn. Discard 1 card.', implemented: 'true', deck_code: 'P911', serial_number: 'P911-04' },
+  { id: 'balanced_chassis', name: 'Balanced Chassis', category: 'AWD Grip Set - Yellow Porsche 911', requirement: 'Any', type: 'Turn', timing: 'Step', effect: 'Once this turn, you may move sideways by discard 1 card.', implemented: 'true', deck_code: 'P911', serial_number: 'P911-05' },
+  { id: 'torque_split', name: 'Torque Split', category: 'AWD Grip Set - Yellow Porsche 911', requirement: 'Any', type: 'Gas', timing: 'Before', effect: 'Choose one: Speed +30 km/h, or +40 km/h to the speed check this turn.', implemented: 'true', deck_code: 'P911', serial_number: 'P911-06' },
+  { id: 'micro_correction', name: 'Micro Correction', category: 'AWD Grip Set - Yellow Porsche 911', requirement: 'Any', type: 'Turn', timing: 'Drive', effect: 'After each speed check this turn, you may choose Speed +10 km/h or Speed -10 km/h.', implemented: 'true', deck_code: 'P911', serial_number: 'P911-07' },
+  { id: 'line_lock', name: 'Line Lock', category: 'AWD Grip Set - Yellow Porsche 911', requirement: 'Max 60', type: 'Turn', timing: 'Drive', effect: 'While you remain in your current lane , all speed checks gain +30 km/h this turn.', implemented: 'true', deck_code: 'P911', serial_number: 'P911-08' },
+  { id: 'raw_horsepower', name: 'Raw Horsepower', category: 'Muscle Car Set - Blue Mustang GT500 with Black Stripes', requirement: 'Any', type: 'Gas', timing: 'Before', effect: 'Speed +50 km/h. You may only move forward this turn.', implemented: 'true', deck_code: 'GT500', serial_number: 'GT500-01' },
+  { id: 'straight_line_monster', name: 'Straight-Line Monster', category: 'Muscle Car Set - Blue Mustang GT500 with Black Stripes', requirement: 'Any', type: 'Gas', timing: 'Before', effect: 'If you are on a straight, Speed +40 km/h. Otherwise, Speed +20 km/h', implemented: 'true', deck_code: 'GT500', serial_number: 'GT500-02' },
+  { id: 'panic_stop', name: 'Panic Stop', category: 'Muscle Car Set - Blue Mustang GT500 with Black Stripes', requirement: 'Any', type: 'Brake', timing: 'Drive', effect: 'Speed -80km/h. Discard all cards from hand.', implemented: 'true', deck_code: 'GT500', serial_number: 'GT500-03' },
+  { id: 'chrome_bumper', name: 'Chrome Bumper', category: 'Muscle Car Set - Blue Mustang GT500 with Black Stripes', requirement: 'Min 60', type: 'Attack', timing: 'Step', effect: 'When you get blocked, discard 1 card, then the blocking car loses 40 km/h.', implemented: 'true', deck_code: 'GT500', serial_number: 'GT500-04' },
+  { id: 'shove_aside', name: 'Shove Aside', category: 'Muscle Car Set - Blue Mustang GT500 with Black Stripes', requirement: 'Min 80', type: 'Attack', timing: 'Step', effect: 'Move the blocking car to the other lane. You may enter the space it left. If it cannot move, both cars spin-off.', implemented: 'true', deck_code: 'GT500', serial_number: 'GT500-05' },
+  { id: 'burn_rubber', name: 'Burn Rubber', category: 'Muscle Car Set - Blue Mustang GT500 with Black Stripes', requirement: 'Any', type: 'Gas', timing: 'After', effect: 'If you overtake this turn, Speed +60 km/h. Discard all cards.', implemented: 'true', deck_code: 'GT500', serial_number: 'GT500-06' },
+  { id: 'door_slam', name: 'Door Slam', category: 'Muscle Car Set - Blue Mustang GT500 with Black Stripes', requirement: 'Min 80', type: 'Attack', timing: 'Step', effect: 'Move to the other lane. If you get blocked the blocking car loses 20 km/h and all his remaining move points.', implemented: 'true', deck_code: 'GT500', serial_number: 'GT500-07' },
+  { id: 'no_room', name: 'No Room', category: 'Muscle Car Set - Blue Mustang GT500 with Black Stripes', requirement: 'Min 60', type: 'Attack', timing: 'Drive', effect: 'Other cars cannot move into your lane until next turn.', implemented: 'true', deck_code: 'GT500', serial_number: 'GT500-08' }
 ];
 
 const COURSE_OPTIONS = [
@@ -344,6 +376,12 @@ const CAR_OPTIONS = [
 ];
 
 const RANDOM_SIZE_CARDS = { small: 5, medium: 8, long: 12 };
+
+const PLATE_CAR_CODES = { AE86: '86', HRCN: '63', P911: '91', GT500: '50' };
+const getPlateSerial = (deckCode, serialNumber) => {
+  const match = (serialNumber || '').match(/-(\d{2})$/);
+  return `${PLATE_CAR_CODES[deckCode] || deckCode || '--'}-${match ? match[1] : '??'}`;
+};
 
 const parseCSV = (text) => {
   const rows = [];
@@ -411,6 +449,23 @@ const getOptionalDiscardCount = (effect) => {
   return match ? Number(match[1]) : 0;
 };
 
+const getForcedDiscardCount = (effect) => {
+  if (/discard all cards/i.test(effect)) return Infinity;
+  const match = effect.match(/(?:^|[.]\s*)Discard\s+(\d+)\s+cards?/i);
+  return match ? Number(match[1]) : 0;
+};
+
+const clampSpeed = (speed) => Math.max(0, Math.min(MAX_SPEED, speed));
+
+const getLaneChangeTarget = (player, track) => {
+  const current = track[player.lane][player.idx];
+  const newLane = 1 - player.lane;
+  const newIdx = current.adj[current.adj.length - 1] ?? player.idx;
+  return { lane: newLane, idx: newIdx };
+};
+
+const canOccupy = (lane, idx, otherPlayer) => !(otherPlayer.lane === lane && otherPlayer.idx === idx);
+
 const buildCardCatalog = (rows) => {
   const rowById = Object.fromEntries(rows.map(row => [row.id, row]));
 
@@ -421,16 +476,24 @@ const buildCardCatalog = (rows) => {
     const requirement = getRequirementRule(row.requirement);
     const speedDelta = getSpeedDelta(row.effect);
     const cornerBonus = getCornerLimitBonus(row.effect);
-    const cycleCards = getOptionalDiscardCount(row.effect);
-    const addCycle = player => cycleCards > 0 ? {
+    const optionalCycleCards = getOptionalDiscardCount(row.effect);
+    const forcedCycleCards = getForcedDiscardCount(row.effect);
+    const addCycle = (player, count, required = false) => count > 0 ? {
       ...player,
-      modifiers: { ...player.modifiers, cycleCards: Math.max(player.modifiers.cycleCards || 0, cycleCards) }
+      modifiers: {
+        ...player.modifiers,
+        cycleCards: Math.max(player.modifiers.cycleCards || 0, count),
+        cycleRequired: Boolean(player.modifiers.cycleRequired || required)
+      }
     } : player;
 
     const card = {
       id: row.id,
       name: row.name,
       category: row.category,
+      deckCode: row.deck_code || '',
+      serialNumber: row.serial_number || '',
+      plateSerial: getPlateSerial(row.deck_code, row.serial_number),
       type: row.type,
       timing: row.timing,
       req: requirement.label,
@@ -438,33 +501,164 @@ const buildCardCatalog = (rows) => {
       canPlay: requirement.canPlay
     };
 
-    if (id === 'accelerate' || id === 'hard_brake') {
-      card.play = player => addCycle({ ...player, speed: Math.max(0, Math.min(MAX_SPEED, player.speed + speedDelta)) });
+    if (id === 'full_throttle' || id === 'back_down' || id === 'hard_brake') {
+      card.play = player => addCycle({ ...player, speed: clampSpeed(player.speed + speedDelta) }, forcedCycleCards, forcedCycleCards > 0);
+    } else if (id === 'raw_horsepower') {
+      card.play = player => ({ ...player, speed: clampSpeed(player.speed + speedDelta), modifiers: { ...player.modifiers, forwardOnly: true } });
+    } else if (id === 'straight_line_monster') {
+      card.play = (player, track) => {
+        const current = track[player.lane][player.idx];
+        const delta = current.limit === null ? 40 : 20;
+        return { ...player, speed: clampSpeed(player.speed + delta) };
+      };
+    } else if (id === 'panic_stop') {
+      card.play = player => ({
+        ...player,
+        speed: clampSpeed(player.speed + speedDelta),
+        discard: [...player.discard, ...player.hand],
+        hand: []
+      });
     } else if (id === 'change_lane') {
       card.play = (player, track, otherPlayer) => {
-        let nextPlayer = addCycle({ ...player });
-        const current = track[nextPlayer.lane][nextPlayer.idx];
-        const newLane = 1 - nextPlayer.lane;
-        const newIdx = current.adj[current.adj.length - 1] || 0;
-        if (otherPlayer.lane === newLane && otherPlayer.idx === newIdx) return nextPlayer;
-        return { ...nextPlayer, lane: newLane, idx: newIdx, distance: track[newLane][newIdx].distance };
+        let nextPlayer = addCycle({ ...player }, forcedCycleCards, forcedCycleCards > 0);
+        const target = getLaneChangeTarget(nextPlayer, track);
+        if (!canOccupy(target.lane, target.idx, otherPlayer)) return nextPlayer;
+        return { ...nextPlayer, lane: target.lane, idx: target.idx, distance: track[target.lane][target.idx].distance };
       };
     } else if (id === 'drift') {
-      card.play = player => addCycle({ ...player, modifiers: { ...player.modifiers, driftBonus: cornerBonus } });
+      card.play = player => ({ ...player, modifiers: { ...player.modifiers, driftBonus: 30 } });
+    } else if (id === 'early_brake_cornering') {
+      card.play = (player, track, otherPlayer) => {
+        let nextPlayer = { ...player, speed: clampSpeed(player.speed + speedDelta) };
+        const current = track[nextPlayer.lane][nextPlayer.idx];
+        if (!current.isOuter) return nextPlayer;
+        const target = getLaneChangeTarget(nextPlayer, track);
+        if (!canOccupy(target.lane, target.idx, otherPlayer)) return nextPlayer;
+        return { ...nextPlayer, lane: target.lane, idx: target.idx, distance: track[target.lane][target.idx].distance };
+      };
     } else if (id === 'rocket_start') {
-      card.play = player => addCycle({ ...player, modifiers: { ...player.modifiers, rocketSpeedDelta: speedDelta } });
+      card.play = player => addCycle({ ...player, modifiers: { ...player.modifiers, rocketSpeedDelta: speedDelta } }, optionalCycleCards);
+    } else if (id === 'change_shift') {
+      card.play = player => {
+        const delta = player.speed >= MAX_SPEED ? -10 : 10;
+        return { ...player, speed: clampSpeed(player.speed + delta), modifiers: { ...player.modifiers, extraCardPlay: true } };
+      };
+    } else if (id === 'clutch_kick') {
+      card.play = player => ({ ...player, speed: clampSpeed(player.speed + speedDelta), modifiers: { ...player.modifiers, speedCheckBonusOnce: 50 } });
+    } else if (id === 'trail_braking') {
+      card.play = player => ({ ...player, modifiers: { ...player.modifiers, trailBraking: true } });
+    } else if (id === 'full_countersteer') {
+      card.play = player => ({ ...player, modifiers: { ...player.modifiers, countersteerCancel: true } });
+    } else if (id === 'exit_drift') {
+      card.play = player => ({ ...player, modifiers: { ...player.modifiers, exitDriftPending: true } });
+    } else if (id === 'drift_extend') {
+      card.play = player => player.lastCornerSpeedBonus ? {
+        ...player,
+        modifiers: { ...player.modifiers, driftBonus: Math.max(player.modifiers.driftBonus || 0, player.lastCornerSpeedBonus) }
+      } : player;
+    } else if (id === 'gutter_boost') {
+      card.play = player => ({ ...player, modifiers: { ...player.modifiers, innerLaneSpeedCheckBonus: cornerBonus || 50 } });
+    } else if (id === 'blind_attack') {
+      card.play = player => ({
+        ...player,
+        discard: [...player.discard, ...player.hand],
+        hand: [],
+        modifiers: { ...player.modifiers, blindAttack: true }
+      });
+    } else if (id === 'jump_exit') {
+      card.play = player => ({ ...player, modifiers: { ...player.modifiers, fixedMovePoints: 4, ignoreSpeedLimits: true } });
+    } else if (id === 'progressive_acceleration') {
+      card.play = player => ({ ...player, modifiers: { ...player.modifiers, progressiveAcceleration: true } });
+    } else if (id === 'early_power') {
+      card.play = player => ({ ...player, modifiers: { ...player.modifiers, earlyPowerPending: true } });
+    } else if (id === 'traction_control') {
+      card.play = player => ({ ...player, modifiers: { ...player.modifiers, tractionControl: true } });
+    } else if (id === 'grip_line') {
+      card.play = player => addCycle({ ...player, modifiers: { ...player.modifiers, driftBonus: Math.max(player.modifiers.driftBonus || 0, 20) } }, forcedCycleCards, forcedCycleCards > 0);
+    } else if (id === 'balanced_chassis') {
+      card.play = player => ({ ...player, modifiers: { ...player.modifiers, balancedChassis: true } });
+    } else if (id === 'torque_split') {
+      card.play = player => ({ ...player, speed: clampSpeed(player.speed + 30) });
+    } else if (id === 'micro_correction') {
+      card.play = player => ({ ...player, modifiers: { ...player.modifiers, microCorrection: true } });
+    } else if (id === 'line_lock') {
+      card.play = player => ({ ...player, modifiers: { ...player.modifiers, lineLockLane: player.lane, lineLockBonus: 30 } });
+    } else if (id === 'chrome_bumper') {
+      card.play = player => ({ ...player, modifiers: { ...player.modifiers, chromeBumper: true } });
+    } else if (id === 'shove_aside') {
+      card.play = player => ({ ...player, modifiers: { ...player.modifiers, shoveAside: true } });
+    } else if (id === 'burn_rubber') {
+      card.play = player => ({ ...player, modifiers: { ...player.modifiers, burnRubberPending: true } });
+    } else if (id === 'door_slam') {
+      card.play = (player, track, otherPlayer) => {
+        const target = getLaneChangeTarget(player, track);
+        const nextPlayer = canOccupy(target.lane, target.idx, otherPlayer)
+          ? { ...player, lane: target.lane, idx: target.idx, distance: track[target.lane][target.idx].distance }
+          : player;
+        return { ...nextPlayer, modifiers: { ...nextPlayer.modifiers, doorSlam: true } };
+      };
+    } else if (id === 'no_room') {
+      card.play = player => ({ ...player, modifiers: { ...player.modifiers, noRoomLane: player.lane } });
+    } else {
+      card.play = player => player;
     }
 
     return [id, card];
   }));
 };
 
-const INITIAL_DECK = [
-  'accelerate', 'accelerate', 'accelerate', 'accelerate',
-  'hard_brake', 'hard_brake', 'hard_brake',
-  'change_lane', 'change_lane', 'change_lane',
-  'drift', 'rocket_start'
-];
+const DECK_COMPOSITIONS = {
+  ae86: [
+    ['drift', 2],
+    ['full_throttle', 3],
+    ['back_down', 2],
+    ['hard_brake', 1],
+    ['change_lane', 1],
+    ['early_brake_cornering', 1],
+    ['rocket_start', 1],
+    ['change_shift', 1]
+  ],
+  huracan: [
+    ['drift', 1],
+    ['full_throttle', 3],
+    ['back_down', 2],
+    ['clutch_kick', 1],
+    ['trail_braking', 1],
+    ['full_countersteer', 1],
+    ['exit_drift', 1],
+    ['gutter_boost', 1],
+    ['jump_exit', 1]
+  ],
+  porsche911: [
+    ['drift', 1],
+    ['full_throttle', 3],
+    ['back_down', 2],
+    ['progressive_acceleration', 1],
+    ['early_power', 1],
+    ['traction_control', 1],
+    ['grip_line', 1],
+    ['torque_split', 1],
+    ['micro_correction', 1]
+  ],
+  mustang: [
+    ['full_throttle', 3],
+    ['back_down', 2],
+    ['hard_brake', 1],
+    ['raw_horsepower', 1],
+    ['straight_line_monster', 1],
+    ['panic_stop', 1],
+    ['chrome_bumper', 1],
+    ['shove_aside', 1],
+    ['door_slam', 1]
+  ]
+};
+
+const getDeckIdsForCar = (carId, rows) => {
+  const rowById = Object.fromEntries(rows.map(row => [row.id, row]));
+  const composition = DECK_COMPOSITIONS[carId] || DECK_COMPOSITIONS.ae86;
+  const deck = composition.flatMap(([id, count]) => rowById[id] && IMPLEMENTED_CARD_IDS.includes(id) ? Array.from({ length: count }, () => id) : []);
+  return deck.length > 0 ? deck : DECK_COMPOSITIONS.ae86.flatMap(([id, count]) => Array.from({ length: count }, () => id));
+};
 
 const shuffle = (array) => {
   const newArr = [...array];
@@ -516,7 +710,15 @@ const RenderCard = ({ card, scale = 1, isHovered = false, onClick, onMouseEnter,
         <span className="font-bold text-zinc-400 uppercase text-xs mr-1">{card.timing}:</span>
         {card.desc}
       </div>
-      <div className={`mt-auto text-right text-xs font-black uppercase tracking-widest ${typeColor}`}>{card.type}</div>
+      <div className="mt-auto flex items-end justify-between gap-2">
+        {card.serialNumber ? (
+          <div className="rotate-[4deg] rounded-sm border border-white/80 bg-zinc-950 bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.16)_0px,rgba(255,255,255,0.16)_2px,transparent_2px,transparent_7px)] px-2 py-0.5 text-white shadow">
+            <div className="text-[7px] font-black uppercase tracking-wider leading-none">{card.deckCode}</div>
+            <div className="text-[12px] font-black leading-tight">{card.plateSerial}</div>
+          </div>
+        ) : <span />}
+        <div className={`text-right text-xs font-black uppercase tracking-widest ${typeColor}`}>{card.type}</div>
+      </div>
       {isSelected && <div className="absolute inset-0 bg-red-500/20 rounded-xl pointer-events-none mix-blend-overlay"></div>}
     </button>
   );
@@ -640,8 +842,8 @@ export default function ArcadeRacingGame() {
       ? Date.now() + Math.floor(Math.random() * 100000)
       : selectedCourse.seed + directionOffset;
     const nextTrack = generateTrack(nextSeed, cornerCardRows, 0, cardCount);
-    const p1Draw = drawCards(shuffle(INITIAL_DECK), [], [], 4);
-    const p2Draw = drawCards(shuffle(INITIAL_DECK), [], [], 4);
+    const p1Draw = drawCards(shuffle(getDeckIdsForCar(selectedCars[0], cardRows)), [], [], 4);
+    const p2Draw = drawCards(shuffle(getDeckIdsForCar(selectedCars[1], cardRows)), [], [], 4);
 
     setTrackSeed(nextSeed);
     setTrackCardCount(cardCount);
@@ -753,8 +955,8 @@ export default function ArcadeRacingGame() {
       });
 
       const nnMpLeft = {
-        0: getGear(newPlayers[0].speed).mp,
-        1: getGear(newPlayers[1].speed).mp
+        0: newPlayers[0].modifiers.fixedMovePoints || getGear(newPlayers[0].speed).mp,
+        1: newPlayers[1].modifiers.fixedMovePoints || getGear(newPlayers[1].speed).mp
       };
       const cycleQueue = order.filter(pid => (newPlayers[pid].modifiers.cycleCards || 0) > 0 && newPlayers[pid].hand.length > 0);
 
@@ -781,7 +983,11 @@ export default function ArcadeRacingGame() {
     let moves = [];
     const current = TRACK[p.lane][p.idx];
     if (p.idx + 1 < TRACK[p.lane].length) moves.push({ lane: p.lane, idx: p.idx + 1 });
-    current.adj.forEach(adjIdx => moves.push({ lane: 1 - p.lane, idx: adjIdx }));
+    if (!p.modifiers.forwardOnly) current.adj.forEach(adjIdx => moves.push({ lane: 1 - p.lane, idx: adjIdx }));
+    const opponent = gameState?.players?.[1 - p.id];
+    if (opponent?.modifiers?.noRoomLane !== undefined) {
+      moves = moves.filter(move => move.lane !== opponent.modifiers.noRoomLane || (move.lane === opponent.lane && move.idx === opponent.idx));
+    }
     return moves;
   };
 
@@ -885,19 +1091,28 @@ export default function ArcadeRacingGame() {
     newPlayers[activePlayerId] = p;
 
     let nextPhase = 'MOVE';
-    let mp = getGear(p.speed).mp;
+    let mp = p.modifiers.fixedMovePoints || getGear(p.speed).mp;
 
     if (!isLead && p.lane === otherPlayer.lane && p.distance < otherPlayer.distance) nextPhase = 'SLIPSTREAM';
 
     const cycleMax = p.modifiers.cycleCards || 0;
     const shouldCycle = cycleMax > 0 && p.hand.length > 0;
+    const canPlayExtraCard = p.modifiers.extraCardPlay && p.hand.some(id => CARDS[id].canPlay(p));
+    if (canPlayExtraCard) {
+      const { extraCardPlay, ...remainingModifiers } = p.modifiers;
+      p.modifiers = remainingModifiers;
+      newPlayers[activePlayerId] = p;
+      nextPhase = 'PLAY_CARD';
+      mp = 0;
+      addLog(`${p.name} may play another card.`);
+    }
     setDiscardSelection([]);
     setGameState(prev => ({ 
       ...prev, 
       players: newPlayers, 
       phase: shouldCycle ? 'CARD_CYCLE' : nextPhase,
       mpLeft: mp,
-      cycleContext: shouldCycle ? { max: cycleMax, resumePhase: nextPhase, resumeMp: mp } : null,
+      cycleContext: shouldCycle ? { max: cycleMax, required: Boolean(p.modifiers.cycleRequired), resumePhase: nextPhase, resumeMp: mp } : null,
       mangaCutin: { card: cardId, player: p.name, color: p.id === 0 ? 'text-red-500' : 'text-blue-500', type: card.type }
     }));
     setHoveredCardIdx(null);
@@ -959,14 +1174,16 @@ export default function ArcadeRacingGame() {
 
   const confirmCardCycle = (overrideSelection = null) => {
     const max = gameState.phase === 'CARD_CYCLE' ? gameState.cycleContext.max : (activePlayer.modifiers.cycleCards || 1);
+    const required = gameState.phase === 'CARD_CYCLE' ? gameState.cycleContext.required : Boolean(activePlayer.modifiers.cycleRequired);
     const requested = Array.isArray(overrideSelection) ? overrideSelection : discardSelection;
     const selection = requested.filter(idx => idx >= 0 && idx < activePlayer.hand.length).slice(0, max);
+    if (required && selection.length < Math.min(max, activePlayer.hand.length)) return;
     const newPlayers = [...gameState.players];
     const player = { ...activePlayer };
     const discardedIds = selection.map(idx => player.hand[idx]);
     player.hand = player.hand.filter((_, idx) => !selection.includes(idx));
     player.discard = [...player.discard, ...discardedIds];
-    const { cycleCards, ...remainingModifiers } = player.modifiers;
+    const { cycleCards, cycleRequired, ...remainingModifiers } = player.modifiers;
     player.modifiers = remainingModifiers;
     newPlayers[activePlayerId] = player;
 
@@ -1019,13 +1236,68 @@ export default function ArcadeRacingGame() {
     let newPlayers = [...gameState.players];
     let triggeredCrash = null;
     
+    if (op.modifiers.noRoomLane !== undefined && targetLane === op.modifiers.noRoomLane && !(targetLane === op.lane && targetIdx === op.idx)) {
+      addLog(`NO ROOM: ${op.name} blocks ${p.name} from entering that lane.`);
+      return;
+    }
+
     if (targetLane === op.lane && targetIdx === op.idx) {
       addLog(`${p.name} is blocked by ${op.name}!`);
+      if (p.modifiers.chromeBumper && p.hand.length > 0) {
+        const discardedId = p.hand[0];
+        p = { ...p, hand: p.hand.slice(1), discard: [...p.discard, discardedId], modifiers: { ...p.modifiers, chromeBumper: false } };
+        op = { ...op, speed: clampSpeed(op.speed - 40) };
+        addLog(`CHROME BUMPER: ${op.name} loses 40 km/h.`);
+      }
+      if (p.modifiers.doorSlam) {
+        op = { ...op, speed: clampSpeed(op.speed - 20), modifiers: { ...op.modifiers, skipRemainingMove: true } };
+        addLog(`DOOR SLAM: ${op.name} loses 20 km/h and remaining move points.`);
+      }
+      if (p.modifiers.shoveAside) {
+        const shoveTarget = getLaneChangeTarget(op, TRACK);
+        const blockedShove = p.lane === shoveTarget.lane && p.idx === shoveTarget.idx;
+        if (!blockedShove) {
+          const oldLane = op.lane;
+          const oldIdx = op.idx;
+          op = { ...op, lane: shoveTarget.lane, idx: shoveTarget.idx, distance: TRACK[shoveTarget.lane][shoveTarget.idx].distance };
+          p = { ...p, lane: oldLane, idx: oldIdx, distance: TRACK[oldLane][oldIdx].distance, modifiers: { ...p.modifiers, shoveAside: false } };
+          addLog(`SHOVE ASIDE: ${p.name} forces ${op.name} out of the lane.`);
+          newPlayers[activePlayerId] = p;
+          newPlayers[1 - activePlayerId] = op;
+          if (isNN) advanceNNTurn(newPlayers, activePlayerId, mpAvail - 1, triggeredCrash || gameState.crashEvent);
+          else setGameState(prev => ({ ...prev, players: newPlayers, mpLeft: prev.mpLeft - 1 }));
+          return;
+        }
+        triggeredCrash = { name: `${p.name} / ${op.name}`, type: 'SPIN OFF', penalty: '-2 Gears' };
+        p.speed = getPenaltySpeed(getGear(p.speed).gear - 2);
+        op.speed = getPenaltySpeed(getGear(op.speed).gear - 2);
+        addLog(`SHOVE ASIDE: no space. Both cars spin off.`);
+      }
+      if (p.modifiers.blindAttack) {
+        const blindTarget = getLaneChangeTarget(p, TRACK);
+        const targetOccupied = op.lane === blindTarget.lane && op.idx === blindTarget.idx;
+        if (!targetOccupied) {
+          const { blindAttack, ...remainingModifiers } = p.modifiers;
+          p = {
+            ...p,
+            lane: blindTarget.lane,
+            idx: blindTarget.idx,
+            distance: TRACK[blindTarget.lane][blindTarget.idx].distance,
+            modifiers: remainingModifiers
+          };
+          addLog(`BLIND ATTACK: ${p.name} switches lanes and keeps momentum.`);
+          newPlayers[activePlayerId] = p;
+          if (isNN) advanceNNTurn(newPlayers, activePlayerId, mpAvail, triggeredCrash || gameState.crashEvent);
+          else setGameState(prev => ({ ...prev, players: newPlayers, mpLeft: prev.mpLeft }));
+          return;
+        }
+      }
       if (p.speed > op.speed) {
         p.speed = op.speed;
         addLog(`${p.name} matches speed to ${op.speed}.`);
       }
       newPlayers[activePlayerId] = p;
+      newPlayers[1 - activePlayerId] = op;
       if (isNN) advanceNNTurn(newPlayers, activePlayerId, mpAvail - 1, triggeredCrash || gameState.crashEvent);
       else setGameState(prev => ({ ...prev, players: newPlayers, mpLeft: prev.mpLeft - 1 }));
       return; 
@@ -1036,6 +1308,14 @@ export default function ArcadeRacingGame() {
     p.distance = TRACK[targetLane][targetIdx].distance;
     
     let currentMp = mpAvail - 1;
+    const movedSideways = targetLane !== activePlayer.lane;
+    if (movedSideways && p.modifiers.balancedChassis && p.hand.length > 0) {
+      const discardedId = p.hand[0];
+      const { balancedChassis, ...remainingModifiers } = p.modifiers;
+      p = { ...p, hand: p.hand.slice(1), discard: [...p.discard, discardedId], modifiers: remainingModifiers };
+      currentMp = mpAvail;
+      addLog(`BALANCED CHASSIS: ${p.name} discards 1 card for a free side step.`);
+    }
     let understeering = true;
     
     while (understeering) {
@@ -1049,10 +1329,55 @@ export default function ArcadeRacingGame() {
       }
 
       let effLimit = space.limit;
-      if (effLimit !== null && p.modifiers.driftBonus) effLimit += p.modifiers.driftBonus;
+      if (effLimit !== null) {
+        p.modifiers = { ...p.modifiers, passedSpeedCheck: true };
+        if (p.modifiers.driftBonus) {
+          effLimit += p.modifiers.driftBonus;
+          p.modifiers.usedCornerSpeedBonus = Math.max(p.modifiers.usedCornerSpeedBonus || 0, p.modifiers.driftBonus);
+        }
+        if (p.modifiers.innerLaneSpeedCheckBonus && !space.isOuter) {
+          effLimit += p.modifiers.innerLaneSpeedCheckBonus;
+          p.modifiers.usedCornerSpeedBonus = Math.max(p.modifiers.usedCornerSpeedBonus || 0, p.modifiers.innerLaneSpeedCheckBonus);
+        }
+        if (p.modifiers.lineLockBonus && p.modifiers.lineLockLane === p.lane) {
+          effLimit += p.modifiers.lineLockBonus;
+          p.modifiers.usedCornerSpeedBonus = Math.max(p.modifiers.usedCornerSpeedBonus || 0, p.modifiers.lineLockBonus);
+        }
+        if (p.modifiers.speedCheckBonusOnce) {
+          effLimit += p.modifiers.speedCheckBonusOnce;
+          p.modifiers.usedCornerSpeedBonus = Math.max(p.modifiers.usedCornerSpeedBonus || 0, p.modifiers.speedCheckBonusOnce);
+          const { speedCheckBonusOnce, ...remainingModifiers } = p.modifiers;
+          p.modifiers = remainingModifiers;
+        }
+        if (p.modifiers.trailBraking && p.speed > effLimit && p.speed - 10 >= 0) {
+          p.speed = Math.max(0, p.speed - 10);
+          addLog(`TRAIL BRAKING: ${p.name} sheds 10 km/h before the speed check.`);
+        }
+      }
 
-      if (effLimit !== null && p.speed > effLimit) {
+      if (effLimit !== null && p.speed > effLimit && !p.modifiers.ignoreSpeedLimits) {
+        if (p.modifiers.tractionControl) {
+          const { tractionControl, ...remainingModifiers } = p.modifiers;
+          p = { ...p, speed: clampSpeed(p.speed - 20), modifiers: remainingModifiers };
+          addLog(`TRACTION CONTROL: ${p.name} loses 20 km/h and cancels understeer.`);
+          understeering = false;
+          continue;
+        }
+        if (p.modifiers.countersteerCancel && p.hand.length > 0) {
+          const discardedId = p.hand[0];
+          const { countersteerCancel, ...remainingModifiers } = p.modifiers;
+          p = {
+            ...p,
+            hand: p.hand.slice(1),
+            discard: [...p.discard, discardedId],
+            modifiers: remainingModifiers
+          };
+          addLog(`FULL COUNTERSTEER: ${p.name} discards 1 card and cancels understeer.`);
+          understeering = false;
+          continue;
+        }
         addLog(`UNDERSTEER: ${p.name} speed ${p.speed} exceeds limit ${effLimit}.`);
+        p.modifiers = { ...p.modifiers, speedCheckFailed: true };
         if (space.isOuter) {
           const pGear = getGear(p.speed).gear;
           if (space.guardrail) {
@@ -1082,8 +1407,17 @@ export default function ArcadeRacingGame() {
           }
         }
       } else {
+        if (effLimit !== null && p.modifiers.microCorrection) {
+          p.speed = clampSpeed(p.speed + 10);
+          addLog(`MICRO CORRECTION: ${p.name} gains 10 km/h after the speed check.`);
+        }
         understeering = false; 
       }
+    }
+
+    if (p.modifiers.progressiveAcceleration) {
+      p.speed = clampSpeed(p.speed + 10);
+      addLog(`PROGRESSIVE ACCELERATION: ${p.name} gains 10 km/h.`);
     }
 
     newPlayers[activePlayerId] = p;
@@ -1096,6 +1430,9 @@ export default function ArcadeRacingGame() {
   const advanceNNTurn = (newPlayers, movedPlayerId, currentMp, crashEvent) => {
     setGameState(prev => {
       const newNnMpLeft = { ...prev.nnMpLeft, [movedPlayerId]: currentMp };
+      newPlayers.forEach(player => {
+        if (player.modifiers.skipRemainingMove) newNnMpLeft[player.id] = 0;
+      });
       const nextTurnIdx = getNextNNActiveTurnIdx(prev.nnActionOrder, prev.nnActiveTurnIdx, newNnMpLeft);
 
       return {
@@ -1118,9 +1455,29 @@ export default function ArcadeRacingGame() {
       [0, 1].forEach(pid => {
          let p = { ...newPlayers[pid] };
          if (p.modifiers.rocketSpeedDelta) {
-           p.speed = Math.min(MAX_SPEED, p.speed + p.modifiers.rocketSpeedDelta);
+           p.speed = clampSpeed(p.speed + p.modifiers.rocketSpeedDelta);
            newLogs.unshift(`ROCKET START: ${p.name} gains ${p.modifiers.rocketSpeedDelta} km/h.`);
          }
+         if (p.modifiers.exitDriftPending && p.modifiers.passedSpeedCheck) {
+           p.speed = clampSpeed(p.speed + 30);
+           newLogs.unshift(`EXIT DRIFT: ${p.name} gains 30 km/h.`);
+         }
+         if (p.modifiers.earlyPowerPending && p.modifiers.passedSpeedCheck && !p.modifiers.speedCheckFailed) {
+           p.speed = clampSpeed(p.speed + 40);
+           newLogs.unshift(`EARLY POWER: ${p.name} gains 40 km/h.`);
+         }
+         if (p.modifiers.burnRubberPending && p.distance > newPlayers[1 - pid].distance) {
+           p.speed = clampSpeed(p.speed + 60);
+           p.discard = [...p.discard, ...p.hand];
+           p.hand = [];
+           newLogs.unshift(`BURN RUBBER: ${p.name} gains 60 km/h and discards all cards.`);
+         }
+         p.lastCornerSpeedBonus = Math.max(
+           p.modifiers.driftBonus || 0,
+           p.modifiers.innerLaneSpeedCheckBonus || 0,
+           p.modifiers.speedCheckBonusOnce || 0,
+           p.modifiers.usedCornerSpeedBonus || 0
+         );
          p.modifiers = {};
          const drawn = drawCards(p.deck, p.discard, p.hand, 4);
          p.deck = drawn.deck; p.discard = drawn.discard; p.hand = drawn.hand;
@@ -1169,10 +1526,31 @@ export default function ArcadeRacingGame() {
       let newLogs = [...prev.logs];
 
       if (p.modifiers.rocketSpeedDelta) {
-        p.speed = Math.min(MAX_SPEED, p.speed + p.modifiers.rocketSpeedDelta);
+        p.speed = clampSpeed(p.speed + p.modifiers.rocketSpeedDelta);
            newLogs.unshift(`ROCKET START: ${p.name} gains ${p.modifiers.rocketSpeedDelta} km/h.`);
       }
+      if (p.modifiers.exitDriftPending && p.modifiers.passedSpeedCheck) {
+        p.speed = clampSpeed(p.speed + 30);
+        newLogs.unshift(`EXIT DRIFT: ${p.name} gains 30 km/h.`);
+      }
+      if (p.modifiers.earlyPowerPending && p.modifiers.passedSpeedCheck && !p.modifiers.speedCheckFailed) {
+        p.speed = clampSpeed(p.speed + 40);
+        newLogs.unshift(`EARLY POWER: ${p.name} gains 40 km/h.`);
+      }
+      const opponent = newPlayers[1 - p.id];
+      if (p.modifiers.burnRubberPending && p.distance > opponent.distance) {
+        p.speed = clampSpeed(p.speed + 60);
+        p.discard = [...p.discard, ...p.hand];
+        p.hand = [];
+        newLogs.unshift(`BURN RUBBER: ${p.name} gains 60 km/h and discards all cards.`);
+      }
 
+      p.lastCornerSpeedBonus = Math.max(
+        p.modifiers.driftBonus || 0,
+        p.modifiers.innerLaneSpeedCheckBonus || 0,
+        p.modifiers.speedCheckBonusOnce || 0,
+        p.modifiers.usedCornerSpeedBonus || 0
+      );
       p.modifiers = {};
       const drawn = drawCards(p.deck, p.discard, p.hand, 4);
       p.deck = drawn.deck;
@@ -1393,7 +1771,7 @@ export default function ArcadeRacingGame() {
                   <circle cx="14" cy={selectedCourse.id === 'haruna' ? '28' : selectedCourse.id === 'hakone' ? '78' : '70'} r="3" fill="#22c55e" stroke="white" strokeWidth="1" />
                 </svg>
                 <div className="absolute bottom-4 right-4 flex gap-2">
-                  {selectedCourse.id === 'random' ? Object.keys(RANDOM_SIZE_CARDS).map(size => <button key={size} onClick={() => setRandomMapSize(size)} className={`px-3 py-2 text-xs font-black uppercase ${randomMapSize === size ? 'bg-yellow-400 text-black' : 'border border-white/20 bg-black/70 text-zinc-300 hover:border-yellow-400'}`}>{size}<span className="ml-1 text-[9px] opacity-60">{RANDOM_SIZE_CARDS[size]} cards</span></button>) : ['downhill', 'uphill'].map(direction => <button key={direction} onClick={() => setCourseDirection(direction)} className={`px-4 py-2 text-xs font-black uppercase ${courseDirection === direction ? 'bg-yellow-400 text-black' : 'border border-white/20 bg-black/70 text-zinc-300 hover:border-yellow-400'}`}>{direction === 'downhill' ? '↓' : '↑'} {direction}</button>)}
+                  {selectedCourse.id === 'random' ? Object.keys(RANDOM_SIZE_CARDS).map(size => <button key={size} onClick={() => setRandomMapSize(size)} className={`px-3 py-2 text-xs font-black uppercase ${randomMapSize === size ? 'bg-yellow-400 text-black' : 'border border-white/20 bg-black/70 text-zinc-300 hover:border-yellow-400'}`}>{size}<span className="ml-1 text-[9px] opacity-60">{RANDOM_SIZE_CARDS[size]} cards</span></button>) : ['downhill', 'uphill'].map(direction => <button key={direction} onClick={() => setCourseDirection(direction)} className={`px-4 py-2 text-xs font-black uppercase ${courseDirection === direction ? 'bg-yellow-400 text-black' : 'border border-white/20 bg-black/70 text-zinc-300 hover:border-yellow-400'}`}>{direction === 'downhill' ? 'DOWN' : 'UP'} {direction}</button>)}
                 </div>
               </div>
               <div className="grid grid-cols-4 gap-2 p-3 lg:grid-cols-2">
@@ -1450,6 +1828,8 @@ export default function ArcadeRacingGame() {
   const nnFirstMover = nnPreviewOrder ? gameState.players[nnPreviewOrder[0]] : null;
   const nnRevealStageIndex = { faceDown: 0, revealed: 1, decision: 2 }[nnRevealStage];
   const activeCycleMax = gameState?.phase === 'CARD_CYCLE' ? (gameState.cycleContext?.max || 0) : gameState?.phase === 'NN_CARD_CYCLE' ? (activePlayer.modifiers.cycleCards || 0) : 0;
+  const activeCycleRequired = gameState?.phase === 'CARD_CYCLE' ? Boolean(gameState.cycleContext?.required) : gameState?.phase === 'NN_CARD_CYCLE' ? Boolean(activePlayer.modifiers.cycleRequired) : false;
+  const activeCycleNeeded = activeCycleRequired ? Math.min(activeCycleMax, activePlayer?.hand?.length || 0) : 0;
 
   // Calculate projected speed for speedometer preview
   let activeProjectedSpeed = null;
@@ -1883,8 +2263,8 @@ export default function ArcadeRacingGame() {
         <div className="absolute inset-0 z-[110] bg-black/65 backdrop-blur-sm flex items-end justify-center p-6 no-pan">
           <div className="w-full max-w-5xl bg-zinc-950/95 border-2 border-emerald-500 rounded-2xl shadow-[0_0_40px_rgba(16,185,129,0.25)] p-5 flex flex-col items-center">
             <div className="text-center mb-4">
-              <div className="text-xs font-black tracking-[0.3em] text-emerald-400 uppercase">Optional Hand Cycling</div>
-              <h3 className="text-xl font-black text-white mt-1">{activePlayer.name}: discard up to {activeCycleMax} card</h3>
+              <div className="text-xs font-black tracking-[0.3em] text-emerald-400 uppercase">{activeCycleRequired ? 'Required Discard' : 'Optional Hand Cycling'}</div>
+              <h3 className="text-xl font-black text-white mt-1">{activePlayer.name}: {activeCycleRequired ? `discard ${activeCycleNeeded} card` : `discard up to ${activeCycleMax} card`}</h3>
               <p className="text-sm text-zinc-400 mt-1">Selected cards go to your discard pile. Your hand refills at turn end.</p>
             </div>
             <div className="flex gap-3 max-w-full overflow-x-auto px-3 pt-2 pb-4">
@@ -1898,8 +2278,8 @@ export default function ArcadeRacingGame() {
                 />
               ))}
             </div>
-            <button onClick={() => confirmCardCycle()} className="px-8 py-3 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-black rounded-lg text-base font-black uppercase tracking-wider transition-colors">
-              {discardSelection.length > 0 ? `Discard ${discardSelection.length} & Continue` : 'Keep Hand & Continue'}
+            <button onClick={() => confirmCardCycle()} disabled={activeCycleRequired && discardSelection.length < activeCycleNeeded} className={`px-8 py-3 rounded-lg text-base font-black uppercase tracking-wider transition-colors ${activeCycleRequired && discardSelection.length < activeCycleNeeded ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-black'}`}>
+              {discardSelection.length > 0 ? `Discard ${discardSelection.length} & Continue` : activeCycleRequired ? 'Select Card' : 'Keep Hand & Continue'}
             </button>
           </div>
         </div>

@@ -1,35 +1,33 @@
-"id","name","category","requirement","type","timing","effect","implemented"
-"drift","Drift","Common / Starter Cards - Bright Red AE86","Max 60","Turn","Drive","+30 km/h to the corner speed limit calculation.","true"
-"accelerate","Accelerate","Common / Starter Cards - Bright Red AE86","Any","Gas","Before","Speed +40 km/h.","true"
-"hard_brake","Hard Brake","Common / Starter Cards - Bright Red AE86","Min 30","Brake","Before","Speed -30 km/h.","true"
-"change_lane","Change Lane","Common / Starter Cards - Bright Red AE86","Any","Turn","Before","Move to the other lane. You may discard 1 card from hand.","true"
-"early_brake_cornering","Early Brake Cornering","Common / Starter Cards - Bright Red AE86","Max 50","Turn","Before","Speed -20 km/h. Move to the inner lane. You may discard 1 card from hand.","false"
-"in_out_in","In-Out-In","Common / Starter Cards - Bright Red AE86","Max 40","Turn","Step / After","During movement, move to the inner lane. At the end of movement, move to the outer lane. You may discard 1 card from hand.","false"
-"rocket_start","Rocket Start","Common / Starter Cards - Bright Red AE86","Max 30","Gas","After","Speed +40 km/h. You may discard 1 card from hand.","true"
-"change_shift","Change Shift","Common / Starter Cards - Bright Red AE86","Any","Gas","Before","Speed +10 km/h or -10 km/h. You may discard 1 card from hand. You may then play another card.","false"
-"clutch_kick","Clutch Kick","Drift / Touge Technique Set - Bright Green Lamborghini Huracan","Min 40","Gas","Before","Speed +20 km/h. This turn, your first corner speed check gains +30 km/h.","false"
-"trail_braking","Trail Braking","Drift / Touge Technique Set - Bright Green Lamborghini Huracan","Max 60","Brake","Drive","Before each corner speed check this turn, you may reduce Speed by 10 km/h.","false"
-"full_countersteer","Full Countersteer","Drift / Touge Technique Set - Bright Green Lamborghini Huracan","Any","Turn","Drive","If you would understeer this turn, you may cancel that understeer once.","false"
-"throttle_control","Throttle Control","Drift / Touge Technique Set - Bright Green Lamborghini Huracan","Any","Gas","Drive","Once this turn, after moving into a corner speed check space, you may choose Speed +10 km/h or Speed -10 km/h.","false"
-"exit_drift","Exit Drift","Drift / Touge Technique Set - Bright Green Lamborghini Huracan","Max 80","Gas","After","If you moved through at least 1 corner speed check space this turn, Speed +30 km/h.","false"
-"drift_extend","Drift Extend","Drift / Touge Technique Set - Bright Green Lamborghini Huracan","Max 80","Turn","Drive","Your first corner speed bonus this turn also applies to the next corner speed check this turn.","false"
-"gutter_boost","Gutter Boost","Drift / Touge Technique Set - Bright Green Lamborghini Huracan","Max 60","Gas","After","If you ended movement in the inner lane of a corner, Speed +30 km/h.","false"
-"blind_attack","Blind Attack","Drift / Touge Technique Set - Bright Green Lamborghini Huracan","Min 50","Turn","Before","If you are the following car and in the same lane as the lead car, ignore blocking once this turn.","false"
-"jump_start_exit","Jump Start Exit","Drift / Touge Technique Set - Bright Green Lamborghini Huracan","Max 40","Gas","After","If you moved from inner lane to outer lane this turn, Speed +40 km/h.","false"
-"grip_acceleration","Grip Acceleration","AWD Grip Set - Yellow Porsche 911","Any","Gas","Before","Speed +20 km/h. If you are not in a corner, you may discard 1 card from hand.","false"
-"early_power","Early Power","AWD Grip Set - Yellow Porsche 911","Max 70","Gas","After","If you passed all corner speed checks this turn, Speed +30 km/h.","false"
-"traction_control","Traction Control","AWD Grip Set - Yellow Porsche 911","Any","Turn","Drive","If you would understeer this turn, reduce your speed by 10 km/h instead. Then cancel that understeer.","false"
-"grip_line","Grip Line","AWD Grip Set - Yellow Porsche 911","Max 70","Turn","Drive","+10 km/h to all corner speed limit calculations this turn. If you stay in the same lane during movement, you may discard 1 card from hand.","false"
-"balanced_chassis","Balanced Chassis","AWD Grip Set - Yellow Porsche 911","Any","Turn","Drive","Once this turn, after a speed check, you may move sideways without spending movement.","false"
-"torque_split","Torque Split","AWD Grip Set - Yellow Porsche 911","Any","Gas","Before","Choose one: Speed +20 km/h, or +30 km/h to your next corner speed check this turn.","false"
-"micro_correction","Micro Correction","AWD Grip Set - Yellow Porsche 911","Any","Turn","Step","During movement, move sideways. This does not cost movement if your speed is 80 km/h or lower.","false"
-"line_lock","Line Lock","AWD Grip Set - Yellow Porsche 911","Max 80","Turn","Drive","Choose your lane. While you remain in that lane this turn, all corner speed checks gain +30 km/h.","false"
-"raw_horsepower","Raw Horsepower","Muscle Car Set - Blue Mustang GT500 with Black Stripes","Any","Gas","Before","Speed +40 km/h. You may only move forward this turn. If you are on a straight, Speed +10 km/h again.","false"
-"straight_line_monster","Straight-Line Monster","Muscle Car Set - Blue Mustang GT500 with Black Stripes","Any","Gas","Before","If you are on a straight, Speed +50 km/h. Otherwise, Speed +20 km/h and your first corner speed check this turn gets -10 km/h.","false"
-"wide_open_throttle","Wide Open Throttle","Muscle Car Set - Blue Mustang GT500 with Black Stripes","Min 60","Gas","Drive","After each forward movement on a straight, Speed +10 km/h. This can trigger up to twice this turn.","false"
-"torque_monster","Torque Monster","Muscle Car Set - Blue Mustang GT500 with Black Stripes","Max 80","Gas","Before","Speed +30 km/h. This turn, when your forward space is occupied, the blocking car loses 10 km/h. You may then stop moving or move sideways if possible.","false"
-"shove_aside","Shove Aside","Muscle Car Set - Blue Mustang GT500 with Black Stripes","Min 40","Attack","Step","Move the blocking car 1 lane outward if possible. If it moves, you may enter the space it left. If it cannot move, both cars suffer collision and you stop moving.","false"
-"overpower","Overpower","Muscle Car Set - Blue Mustang GT500 with Black Stripes","Min 60","Attack","Step","The blocking car loses 1 Gear. You lose 10 km/h and stop moving.","false"
-"door_slam","Door Slam","Muscle Car Set - Blue Mustang GT500 with Black Stripes","Max 70","Attack","Step","That car loses 10 km/h. If it is in the outer lane, it loses 20 km/h instead.","false"
-"no_room","No Room","Muscle Car Set - Blue Mustang GT500 with Black Stripes","Any","Attack","Drive","Adjacent opponents cannot move sideways into your lane this turn.","false"
-"brake","Brake","Additional Common","Any","Brake","Before","Speed -20 km/h. You may discard 1 card from hand.","false"
+id,name,category,requirement,type,timing,effect,implemented,deck_code,serial_number
+drift,Drift,Common / Starter Cards - Bright Red AE86,Max 60,Turn,Drive,+30 km/h to the speed check this turn.,TRUE,AE86,AE86-01
+full_throttle,Full throttle,Common / Starter Cards - Bright Red AE86,Any,Gas,Before,Speed +40 km/h.,TRUE,AE86,AE86-02
+back_down,Back down,Common / Starter Cards - Bright Red AE86,Any,Brake,Before,Speed -20 km/h. Discard 1 card.,TRUE,AE86,AE86-03
+hard_brake,Hard Brake,Balance set / Starter Cards - Bright Red AE86,Min 50,Brake,Before,Speed -50 km/h. ,TRUE,AE86,AE86-04
+change_lane,Change Lane,Balance set / Starter Cards - Bright Red AE86,Any,Turn,Before,Move to the other lane. Discard 1 card.,TRUE,AE86,AE86-05
+early_brake_cornering,Early Brake Cornering,Balance set / Starter Cards - Bright Red AE86,Max 60,Turn,Before,Speed -20 km/h. Move to the inner lane.,TRUE,AE86,AE86-06
+rocket_start,Rocket Start,Balance set / Starter Cards - Bright Red AE86,Max 40,Gas,After,Speed +50 km/h. You may discard 2 cards.,TRUE,AE86,AE86-07
+change_shift,Change Shift,Balance set / Starter Cards - Bright Red AE86,Any,Gas,Before,Speed +10 km/h or -10 km/h. You may then play another card.,TRUE,AE86,AE86-08
+clutch_kick,Clutch Kick,RWD Drift set - Bright Green Lamborghini Huracan,Min 60,Gas,Before,"Speed +20 km/h. This turn, your first speed check gains +50 km/h.",TRUE,HRCN,HRCN-01
+trail_braking,Trail Braking,RWD Drift set - Bright Green Lamborghini Huracan,Max 80,Brake,Drive,"Before each speed check this turn, you may reduce Speed by 10 km/h.",TRUE,HRCN,HRCN-02
+full_countersteer,Full Countersteer,RWD Drift set - Bright Green Lamborghini Huracan,Any,Turn,Step,"If you would understeer this turn, discard 1 card and cancel that understeer once.",TRUE,HRCN,HRCN-03
+exit_drift,Exit Drift,RWD Drift set - Bright Green Lamborghini Huracan,Max 60,Gas,After,"If you moved through at least 1 speed check space this turn, Speed +30 km/h.",TRUE,HRCN,HRCN-04
+drift_extend,Drift Extend,RWD Drift set - Bright Green Lamborghini Huracan,Max 80,Turn,Drive,"If you gain corner speed bonus last turn, it also applies to the speed check this turn.",TRUE,HRCN,HRCN-05
+gutter_boost,Gutter Boost,RWD Drift set - Bright Green Lamborghini Huracan,Max 80,Turn,Drive,"If you are on the inner lane, +50 km/h to the corner speed limit calculation.",TRUE,HRCN,HRCN-06
+blind_attack,Blind Attack,RWD Drift set - Bright Green Lamborghini Huracan,Min 50,Turn,Drive,"Discard all cards in your hand. If you get blocked, move to the other lane and gain 1 move point.",TRUE,HRCN,HRCN-07
+jump_exit,Jump Exit,RWD Drift set - Bright Green Lamborghini Huracan,Max 30,Gas,Drive,"You have 4 move points this turn regardless of your gear, ignore the corner speed limit.",TRUE,HRCN,HRCN-08
+progressive_acceleration,Progressive Acceleration,AWD Grip Set - Yellow Porsche 911,Any,Gas,Drive,"After each move this turn, Speed +10 km/h.",TRUE,P911,P911-01
+early_power,Early Power,AWD Grip Set - Yellow Porsche 911,Max 60,Gas,After,"If you passed all speed checks this turn, Speed +40 km/h.",TRUE,P911,P911-02
+traction_control,Traction Control,AWD Grip Set - Yellow Porsche 911,Any,Brake,Drive,"If you would understeer this turn, reduce your speed by 20 km/h and cancel that understeer.",TRUE,P911,P911-03
+grip_line,Grip Line,AWD Grip Set - Yellow Porsche 911,Max 60,Turn,Drive,+20 km/h to the speed check this turn. Discard 1 card.,TRUE,P911,P911-04
+balanced_chassis,Balanced Chassis,AWD Grip Set - Yellow Porsche 911,Any,Turn,Step,"Once this turn, you may move sideways by discard 1 card.",TRUE,P911,P911-05
+torque_split,Torque Split,AWD Grip Set - Yellow Porsche 911,Any,Gas,Before,"Choose one: Speed +30 km/h, or +40 km/h to the speed check this turn.",TRUE,P911,P911-06
+micro_correction,Micro Correction,AWD Grip Set - Yellow Porsche 911,Any,Turn,Drive,"After each speed check this turn, you may choose Speed +10 km/h or Speed -10 km/h.",TRUE,P911,P911-07
+line_lock,Line Lock,AWD Grip Set - Yellow Porsche 911,Max 60,Turn,Drive,"While you remain in your current lane , all speed checks gain +30 km/h this turn.",TRUE,P911,P911-08
+raw_horsepower,Raw Horsepower,Muscle Car Set - Blue Mustang GT500 with Black Stripes,Any,Gas,Before,Speed +50 km/h. You may only move forward this turn.,TRUE,GT500,GT500-01
+straight_line_monster,Straight-Line Monster,Muscle Car Set - Blue Mustang GT500 with Black Stripes,Any,Gas,Before,"If you are on a straight, Speed +40 km/h. Otherwise, Speed +20 km/h",TRUE,GT500,GT500-02
+panic_stop,Panic Stop,Muscle Car Set - Blue Mustang GT500 with Black Stripes,Any,Brake,Drive,Speed -80km/h. Discard all cards from hand.,TRUE,GT500,GT500-03
+chrome_bumper,Chrome Bumper,Muscle Car Set - Blue Mustang GT500 with Black Stripes,Min 60,Attack,Step,"When you get blocked, discard 1 card, then the blocking car loses 40 km/h.",TRUE,GT500,GT500-04
+shove_aside,Shove Aside,Muscle Car Set - Blue Mustang GT500 with Black Stripes,Min 80,Attack,Step,"Move the blocking car to the other lane. You may enter the space it left. If it cannot move, both cars spin-off.",TRUE,GT500,GT500-05
+burn_rubber,Burn Rubber,Muscle Car Set - Blue Mustang GT500 with Black Stripes,Any,Gas,After,"If you overtake this turn, Speed +60 km/h. Discard all cards.",TRUE,GT500,GT500-06
+door_slam,Door Slam,Muscle Car Set - Blue Mustang GT500 with Black Stripes,Min 80,Attack,Step,Move to the other lane. If you get blocked the blocking car loses 20 km/h and all his remaining move points.,TRUE,GT500,GT500-07
+no_room,No Room,Muscle Car Set - Blue Mustang GT500 with Black Stripes,Min 60,Attack,Drive,Other cars cannot move into your lane until next turn.,TRUE,GT500,GT500-08
