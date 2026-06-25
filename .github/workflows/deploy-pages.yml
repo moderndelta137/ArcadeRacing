@@ -32,6 +32,7 @@ jobs:
         run: |
           mkdir -p _site
           cp arcade_racing.html _site/index.html
+          cp -R Assets _site/Assets
           touch _site/.nojekyll
 
       - name: Upload Pages artifact
