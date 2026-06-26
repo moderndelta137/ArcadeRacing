@@ -36,6 +36,36 @@ const FastForward = (p) => <Icon {...p}><polygon points="13 19 22 12 13 5 13 19"
 const Crosshair = (p) => <Icon {...p}><circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></Icon>;
 
 const MAX_SPEED = 140;
+const TERRAIN_BACKDROP_SIZE = 4500;
+const SPEED_METER_CARD_IMAGE = 'Assets/Speed Meter/speed_meter_circular_generated_v5_transparent.png';
+const GEAR_ACCENT_COLORS = {
+  1: '#ff4c4c',
+  2: '#ff8e24',
+  3: '#ffe12c',
+  4: '#87ff50',
+  5: '#1ed2ff'
+};
+const CARD_IMAGE_SET_FOLDERS = {
+  AE86: 'AE86_Set',
+  HRCN: 'HRCN_Set',
+  P911: 'P911_Set',
+  GT500: 'GT500_Set'
+};
+
+const slugifyCardImageName = (name) => String(name || '')
+  .trim()
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, '-')
+  .replace(/^-+|-+$/g, '');
+
+const getCardImageSrc = (row) => {
+  const folder = CARD_IMAGE_SET_FOLDERS[row.deck_code];
+  const serialNumber = row.serial_number || '';
+  const cardSlug = slugifyCardImageName(row.name);
+  const typeSlug = slugifyCardImageName(row.type);
+  if (!folder || !serialNumber || !cardSlug || !typeSlug) return '';
+  return `Assets/Card images/Implemented/${folder}/${serialNumber}_${cardSlug}_${typeSlug}.png`;
+};
 
 const getGear = (speed) => {
   if (speed <= 20) return { gear: 1, mp: 1, max: 20 };
@@ -353,6 +383,47 @@ function generateTrack(seed = Date.now(), cornerCardRows = DEFAULT_CORNER_CARD_R
   return { 0: leftTrack, 1: rightTrack, seed, roadCardCount: roadCards.length };
 }
 
+const getTrackBounds = (track) => {
+  const spaces = [...(track?.[0] || []), ...(track?.[1] || [])];
+  if (!spaces.length) {
+    return { center: { x: 0, y: 0 }, minX: 0, maxX: 0, minY: 0, maxY: 0 };
+  }
+
+  const points = spaces.flatMap(space => {
+    const tokens = (space.path.match(/[MLAZ]|-?\d+(?:\.\d+)?/g) || []);
+    const pathPoints = [];
+
+    for (let i = 0; i < tokens.length;) {
+      const command = tokens[i++];
+      if (command === 'M' || command === 'L') {
+        pathPoints.push({ x: Number(tokens[i++]), y: Number(tokens[i++]) });
+      } else if (command === 'A') {
+        i += 5;
+        pathPoints.push({ x: Number(tokens[i++]), y: Number(tokens[i++]) });
+      } else if (command !== 'Z') {
+        i++;
+      }
+    }
+
+    return [space.center, ...pathPoints];
+  });
+
+  const bounds = points.reduce((acc, point) => ({
+    minX: Math.min(acc.minX, point.x),
+    maxX: Math.max(acc.maxX, point.x),
+    minY: Math.min(acc.minY, point.y),
+    maxY: Math.max(acc.maxY, point.y)
+  }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
+
+  return {
+    ...bounds,
+    center: {
+      x: (bounds.minX + bounds.maxX) / 2,
+      y: (bounds.minY + bounds.maxY) / 2
+    }
+  };
+};
+
 const IMPLEMENTED_CARD_IDS = [
   'drift', 'full_throttle', 'back_down', 'hard_brake', 'change_lane', 'early_brake_cornering', 'rocket_start', 'change_shift',
   'clutch_kick', 'trail_braking', 'full_countersteer', 'exit_drift', 'drift_extend', 'gutter_boost', 'blind_attack', 'jump_exit',
@@ -403,10 +474,10 @@ const COURSE_OPTIONS = [
 ];
 
 const CAR_OPTIONS = [
-  { id: 'ae86', name: 'Toyota AE86', drive: 'RWD', specialty: 'Lightweight balance. Predictable drifts and fast line changes.' },
-  { id: 'huracan', name: 'Lamborghini Huracan', drive: 'AWD', specialty: 'Explosive exits. Strong grip when power comes down early.' },
-  { id: 'porsche911', name: 'Porsche 911', drive: 'RWD', specialty: 'Rear-engine traction. Precise corrections through technical bends.' },
-  { id: 'mustang', name: 'Mustang GT500', drive: 'RWD', specialty: 'Raw straight-line power. Built to pressure rivals door to door.' }
+  { id: 'ae86', name: 'Toyota AE86', drive: 'RWD', specialty: 'Lightweight balance. Predictable drifts and fast line changes.', portrait: 'Assets/Car Mugshots/toyota-ae86-mugshot.png', cutout: 'Assets/Car Mugshots/Cutouts/toyota-ae86-cutout-v3.png' },
+  { id: 'huracan', name: 'Lamborghini Huracan', drive: 'AWD', specialty: 'Explosive exits. Strong grip when power comes down early.', portrait: 'Assets/Car Mugshots/lamborghini-huracan-mugshot.png', cutout: 'Assets/Car Mugshots/Cutouts/lamborghini-huracan-cutout-v3.png' },
+  { id: 'porsche911', name: 'Porsche 911', drive: 'RWD', specialty: 'Rear-engine traction. Precise corrections through technical bends.', portrait: 'Assets/Car Mugshots/porsche-911-mugshot.png', cutout: 'Assets/Car Mugshots/Cutouts/porsche-911-cutout-v3.png' },
+  { id: 'mustang', name: 'Mustang GT500', drive: 'RWD', specialty: 'Raw straight-line power. Built to pressure rivals door to door.', portrait: 'Assets/Car Mugshots/mustang-gt500-mugshot.png', cutout: 'Assets/Car Mugshots/Cutouts/mustang-gt500-cutout-v3.png' }
 ];
 
 const RANDOM_SIZE_CARDS = { small: 5, medium: 8, long: 12 };
@@ -528,6 +599,7 @@ const buildCardCatalog = (rows) => {
       deckCode: row.deck_code || '',
       serialNumber: row.serial_number || '',
       plateSerial: getPlateSerial(row.deck_code, row.serial_number),
+      imageSrc: getCardImageSrc(row),
       type: row.type,
       timing: row.timing,
       req: requirement.label,
@@ -720,6 +792,38 @@ const RenderCard = ({ card, scale = 1, isHovered = false, onClick, onMouseEnter,
   const shadowColor = card.type === 'Gas' ? 'rgba(253,224,71,0.8)' : card.type === 'Brake' ? 'rgba(239,68,68,0.8)' : 'rgba(59,130,246,0.8)';
   const textColor = card.type === 'Gas' ? 'text-yellow-50' : card.type === 'Brake' ? 'text-red-50' : 'text-blue-50';
   const typeColor = card.type === 'Gas' ? 'text-yellow-500' : card.type === 'Brake' ? 'text-red-500' : 'text-blue-500';
+  const [spriteFailed, setSpriteFailed] = useState(false);
+  const hasSprite = Boolean(card.imageSrc && !spriteFailed);
+
+  useEffect(() => {
+    setSpriteFailed(false);
+  }, [card.imageSrc]);
+
+  if (hasSprite) {
+    return (
+      <button
+        disabled={disabled}
+        onClick={onClick}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        style={{ transform: `scale(${scale})` }}
+        aria-label={`${card.name} ${card.type} card`}
+        className={`relative h-64 w-[11.5rem] overflow-hidden rounded-xl border-2 bg-black p-0 shadow-2xl transition-colors duration-300
+        ${disabled ? 'border-zinc-900 opacity-60 cursor-not-allowed grayscale' : 'border-zinc-500 hover:border-white cursor-pointer'}
+        ${isSelected ? 'ring-4 ring-red-500 border-red-500' : ''}
+        ${extraClasses}`}
+      >
+        <img
+          src={card.imageSrc}
+          alt=""
+          draggable="false"
+          onError={() => setSpriteFailed(true)}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        {isSelected && <div className="absolute inset-0 rounded-xl bg-red-500/20 pointer-events-none mix-blend-overlay"></div>}
+      </button>
+    );
+  }
 
   return (
     <button
@@ -797,6 +901,7 @@ function ArcadeRacingGame() {
   const [trackSeed, setTrackSeed] = useState(() => Date.now());
   const [trackCardCount, setTrackCardCount] = useState(12);
   const TRACK = useMemo(() => generateTrack(trackSeed, cornerCardRows, 0, trackCardCount), [trackSeed, cornerCardRows, trackCardCount]);
+  const trackBounds = useMemo(() => getTrackBounds(TRACK), [TRACK]);
   const CARDS = useMemo(() => buildCardCatalog(cardRows), [cardRows]);
 
   useEffect(() => {
@@ -1792,43 +1897,85 @@ function ArcadeRacingGame() {
 
   const Speedometer = ({ player, position, projectedSpeed, isTurn, phase, mpLeft, isLeadStatus }) => {
     const gearInfo = getGear(player.speed);
-    const angle = (player.speed / MAX_SPEED) * 180 - 90;
-    const ghostAngle = projectedSpeed !== null ? (projectedSpeed / MAX_SPEED) * 180 - 90 : null;
+    const speedToNeedleAngle = (speed) => {
+      const points = [
+        [0, 214],
+        [20, 248],
+        [50, 306.5],
+        [80, 360],
+        [110, 415],
+        [140, 481]
+      ];
+      const clamped = Math.max(0, Math.min(MAX_SPEED, speed));
+      for (let i = 1; i < points.length; i++) {
+        const [prevSpeed, prevAngle] = points[i - 1];
+        const [nextSpeed, nextAngle] = points[i];
+        if (clamped <= nextSpeed) {
+          const t = (clamped - prevSpeed) / (nextSpeed - prevSpeed);
+          return prevAngle + (nextAngle - prevAngle) * t;
+        }
+      }
+      return points[points.length - 1][1];
+    };
+    const angle = speedToNeedleAngle(player.speed);
+    const ghostAngle = projectedSpeed !== null ? speedToNeedleAngle(projectedSpeed) : null;
     const isP1 = player.id === 0;
     const lastCard = player.lastPlayed ? CARDS[player.lastPlayed] : null;
     const isBottomLeft = position === 'bottom-left';
-    const meterPositionClass = isBottomLeft ? 'bottom-4 left-4' : 'top-12 right-4';
+    const meterPositionClass = isBottomLeft ? 'bottom-4 left-4' : 'top-4 right-4';
+    const gearAccent = GEAR_ACCENT_COLORS[gearInfo.gear] || '#ffffff';
 
     return (
-      <div className={`fixed ${meterPositionClass} z-40 flex flex-col items-center bg-zinc-900/90 backdrop-blur p-4 rounded-2xl border border-zinc-700 shadow-2xl w-64 no-pan pointer-events-none`}>
+      <div className={`fixed ${meterPositionClass} z-40 flex w-[340px] flex-col bg-zinc-950/75 backdrop-blur-md p-3 rounded-2xl border border-white/15 shadow-2xl no-pan pointer-events-none`}>
 
         {/* Lead / Following Badge */}
-        <div className={`absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg border ${isLeadStatus ? 'bg-yellow-400 text-black border-yellow-500 whitespace-nowrap' : 'bg-zinc-800 text-zinc-400 border-zinc-600 whitespace-nowrap'}`}>
+        <div className={`absolute -top-3 right-4 px-3 py-1 rounded-full text-[12px] font-black uppercase tracking-widest shadow-lg border ${isLeadStatus ? 'bg-yellow-400 text-black border-yellow-500 whitespace-nowrap' : 'bg-zinc-800 text-zinc-400 border-zinc-600 whitespace-nowrap'}`}>
           {isLeadStatus ? 'LEADING' : 'FOLLOWING'}
         </div>
 
-        <h3 className={`text-xl font-black mb-2 uppercase tracking-wider ${isP1 ? 'text-red-500' : 'text-blue-500'}`}>{player.name}</h3>
-        <div className="relative w-48 h-24 overflow-hidden mb-2">
-          <svg viewBox="0 0 200 100" className="w-full h-full">
-            <path d="M 20 100 A 80 80 0 0 1 35 60" fill="none" stroke="#3f3f46" strokeWidth="15" />
-            <path d="M 35 60 A 80 80 0 0 1 70 30" fill="none" stroke="#52525b" strokeWidth="15" />
-            <path d="M 70 30 A 80 80 0 0 1 130 30" fill="none" stroke="#71717a" strokeWidth="15" />
-            <path d="M 130 30 A 80 80 0 0 1 165 60" fill="none" stroke="#f59e0b" strokeWidth="15" />
-            <path d="M 165 60 A 80 80 0 0 1 180 100" fill="none" stroke="#ef4444" strokeWidth="15" />
-
-            {/* Hover Ghost Needle */}
-            {ghostAngle !== null && (
-              <line x1="100" y1="100" x2="100" y2="25" stroke="rgba(255,255,255,0.4)" strokeWidth="4" strokeDasharray="6 4" style={{ transform: `rotate(${ghostAngle}deg)`, transformOrigin: '100px 100px', transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)' }} />
-            )}
-
-            {/* Actual Needle */}
-            <line x1="100" y1="100" x2="100" y2="25" stroke="white" strokeWidth="4" style={{ transform: `rotate(${angle}deg)`, transformOrigin: '100px 100px', transition: 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }} />
-            <circle cx="100" cy="100" r="8" fill="white" />
-          </svg>
-          <div className="absolute bottom-0 w-full text-center font-mono text-4xl font-black text-white shadow-black drop-shadow-md">{player.speed}</div>
+        <div className="mb-1 flex items-end justify-between gap-3 pr-20">
+          <h3 className={`text-lg font-black uppercase tracking-wider leading-none ${isP1 ? 'text-red-500' : 'text-blue-500'}`}>{player.name}</h3>
         </div>
-        <div className="flex justify-between w-full text-xs font-bold text-zinc-400 px-2">
-          <span>GEAR {gearInfo.gear}</span><span>{gearInfo.mp} MP</span>
+
+        <div className="relative aspect-square w-full overflow-visible">
+          <img
+            src={SPEED_METER_CARD_IMAGE}
+            alt=""
+            className="absolute inset-0 h-full w-full object-contain select-none drop-shadow-[0_0_14px_rgba(255,255,255,0.12)]"
+            draggable="false"
+          />
+
+          <div className="absolute left-1/2 top-[40%] -translate-x-1/2 -translate-y-1/2 text-center">
+            <div className="text-sm font-black text-zinc-300/90 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">Speed</div>
+            <div className="font-mono text-4xl font-black leading-none text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.95)]">{player.speed}</div>
+          </div>
+
+          <div className="absolute right-[8%] bottom-[8%] flex items-baseline gap-1 text-right drop-shadow-[0_3px_10px_rgba(0,0,0,0.95)]">
+            <span className="text-lg font-black text-zinc-300">Gear</span>
+            <span className="text-2xl font-black leading-none" style={{ color: gearAccent }}>{gearInfo.gear}</span>
+          </div>
+
+          <div className="absolute left-1/2 bottom-[14%] grid h-16 w-20 -translate-x-1/2 place-items-center rounded-xl border-2 border-emerald-400/40 bg-emerald-950/80 shadow-[0_0_18px_rgba(16,185,129,0.28)]">
+            <div className="text-center">
+              <div className="text-3xl font-black leading-none text-emerald-300">{gearInfo.mp}</div>
+              <div className="text-xl font-black leading-none text-emerald-100/80">MP</div>
+            </div>
+          </div>
+
+          {/* Hover Ghost Needle */}
+          {ghostAngle !== null && (
+            <div
+              className="absolute left-1/2 bottom-[47%] h-[38%] w-1 -translate-x-1/2 rounded-full bg-white/35 shadow-[0_0_10px_rgba(255,255,255,0.45)]"
+              style={{ transform: `translateX(-50%) rotate(${ghostAngle}deg)`, transformOrigin: '50% 100%', transition: 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+            />
+          )}
+
+          {/* Actual Needle */}
+          <div
+            className="absolute left-1/2 bottom-[47%] h-[38%] w-1.5 -translate-x-1/2 rounded-full bg-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.9)]"
+            style={{ transform: `translateX(-50%) rotate(${angle}deg)`, transformOrigin: '50% 100%', transition: 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+          />
+          <div className="absolute left-1/2 top-[53%] h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-100 bg-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.85)]" />
         </div>
 
         {/* Moves Left Badge Pop-up */}
@@ -1866,11 +2013,15 @@ function ArcadeRacingGame() {
         <div className="text-[10px] font-black uppercase tracking-widest text-zinc-400">{title}</div>
         <div className="mt-2 h-24 rounded-lg border border-white/15 overflow-hidden">
           {isDiscard && topCard ? (
-            <div className="h-full bg-zinc-800 p-2">
-              <div className={`text-[10px] font-black uppercase ${topCard.type === 'Gas' ? 'text-yellow-400' : topCard.type === 'Brake' ? 'text-red-400' : 'text-blue-400'}`}>{topCard.type}</div>
-              <div className="mt-2 text-sm font-black leading-tight text-white">{topCard.name}</div>
-              <div className="mt-2 text-[9px] leading-tight text-zinc-400 line-clamp-3">{topCard.desc}</div>
-            </div>
+            topCard.imageSrc ? (
+              <img src={topCard.imageSrc} alt="" draggable="false" className="h-full w-full object-cover" />
+            ) : (
+              <div className="h-full bg-zinc-800 p-2">
+                <div className={`text-[10px] font-black uppercase ${topCard.type === 'Gas' ? 'text-yellow-400' : topCard.type === 'Brake' ? 'text-red-400' : 'text-blue-400'}`}>{topCard.type}</div>
+                <div className="mt-2 text-sm font-black leading-tight text-white">{topCard.name}</div>
+                <div className="mt-2 text-[9px] leading-tight text-zinc-400 line-clamp-3">{topCard.desc}</div>
+              </div>
+            )
           ) : (
             <div className="flex h-full flex-col items-center justify-center bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.08)_0px,rgba(255,255,255,0.08)_7px,transparent_7px,transparent_14px)]">
               <div className="h-8 w-8 rotate-45 border-4 border-white/50" />
@@ -1930,13 +2081,19 @@ function ArcadeRacingGame() {
     const selectedCarData = selectedCars.map(carId => CAR_OPTIONS.find(car => car.id === carId));
     const CarPortrait = ({ car, player }) => (
       <div className={`relative h-36 sm:h-44 overflow-hidden border-b-4 ${player === 0 ? 'border-red-500 bg-gradient-to-br from-red-950 to-zinc-950' : 'border-blue-500 bg-gradient-to-bl from-blue-950 to-zinc-950'}`}>
-        <div className={`absolute inset-0 opacity-20 ${player === 0 ? 'bg-[linear-gradient(135deg,transparent_35%,#ef4444_35%,#ef4444_38%,transparent_38%)]' : 'bg-[linear-gradient(45deg,transparent_35%,#3b82f6_35%,#3b82f6_38%,transparent_38%)]'}`} />
+        <div className={`absolute inset-0 opacity-25 ${player === 0 ? 'bg-[linear-gradient(135deg,transparent_32%,#ef4444_32%,#ef4444_35%,transparent_35%)]' : 'bg-[linear-gradient(45deg,transparent_32%,#3b82f6_32%,#3b82f6_35%,transparent_35%)]'}`} />
+        <div className={`absolute inset-0 ${player === 0 ? 'bg-[radial-gradient(circle_at_72%_45%,rgba(248,113,113,0.32),transparent_42%)]' : 'bg-[radial-gradient(circle_at_28%_45%,rgba(96,165,250,0.32),transparent_42%)]'}`} />
         {car ? (
-          <svg viewBox="0 0 360 170" className="absolute inset-x-0 bottom-0 h-full w-full drop-shadow-[0_12px_12px_rgba(0,0,0,0.8)]" aria-label={`${car.name} placeholder portrait`}>
-            <path d="M54 111 L83 75 Q96 57 127 52 L229 52 Q255 57 280 83 L320 97 Q333 102 336 119 L330 137 L302 139 Q295 157 273 157 Q252 157 244 139 L112 139 Q104 157 82 157 Q60 157 53 139 L31 135 L29 118 Z" fill={player === 0 ? '#ef4444' : '#3b82f6'} stroke="#f4f4f5" strokeWidth="4" />
-            <path d="M117 60 L149 60 L142 88 L91 88 Z M159 60 L224 60 Q241 65 259 87 L151 87 Z" fill="#09090b" stroke="#a1a1aa" strokeWidth="3" />
-            <circle cx="83" cy="137" r="21" fill="#09090b" stroke="#d4d4d8" strokeWidth="6"/><circle cx="273" cy="137" r="21" fill="#09090b" stroke="#d4d4d8" strokeWidth="6"/>
-          </svg>
+          <>
+            <img
+              src={car.cutout}
+              alt={`${car.name} mugshot portrait`}
+              className="absolute inset-0 h-full w-full object-contain object-center saturate-125 contrast-110 drop-shadow-[0_18px_18px_rgba(0,0,0,0.65)]"
+              style={{ transform: player === 1 ? 'scaleX(-1) scale(1.42)' : 'scale(1.42)' }}
+            />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_25%,transparent_0%,transparent_55%,rgba(0,0,0,0.58)_100%)]" />
+            <div className={`absolute inset-x-0 bottom-0 h-14 ${player === 0 ? 'bg-gradient-to-t from-red-950/80' : 'bg-gradient-to-t from-blue-950/80'} to-transparent`} />
+          </>
         ) : <div className="absolute inset-0 flex items-center justify-center text-6xl font-black italic text-white/10">SELECT</div>}
         <div className={`absolute top-3 ${player === 0 ? 'left-4' : 'right-4'} text-2xl font-black italic`}>{player === 0 ? '1P' : gameMode === 'PvE' ? 'CPU' : '2P'}</div>
       </div>
@@ -1990,8 +2147,10 @@ function ArcadeRacingGame() {
                 {CAR_OPTIONS.map((car, index) => {
                   const pickedBy = selectedCars.reduce((players, id, player) => id === car.id ? [...players, player] : players, []);
                   return <button key={car.id} onClick={() => chooseCar(car.id)} className={`group relative min-h-36 overflow-hidden border bg-zinc-950 p-3 text-left transition hover:-translate-y-1 hover:border-yellow-400 ${pickedBy.length ? 'border-yellow-500/60' : 'border-white/15'}`}>
-                    <div className="absolute -right-3 -top-4 text-7xl font-black italic text-white/[0.04]">0{index + 1}</div><div className="relative text-[10px] font-black uppercase tracking-widest text-zinc-500">{car.drive} / Machine 0{index + 1}</div><div className="relative mt-4 text-lg font-black uppercase leading-tight">{car.name}</div>
-                    <svg viewBox="0 0 160 55" className="absolute bottom-4 right-3 w-4/5 opacity-50 group-hover:opacity-90"><path d="M8 39 L25 24 L52 17 L105 17 L128 31 L151 36 L154 45 L139 47 Q133 55 123 47 L40 47 Q31 55 24 47 L8 45 Z" fill="#a1a1aa"/></svg>
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_48%,rgba(250,204,21,0.18),transparent_42%)]" />
+                    <img src={car.cutout} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-[1.34] object-contain object-center opacity-60 saturate-125 drop-shadow-[0_12px_12px_rgba(0,0,0,0.65)] transition duration-300 group-hover:scale-[1.46] group-hover:opacity-90" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-black/10" />
+                    <div className="absolute -right-3 -top-4 text-7xl font-black italic text-white/[0.07]">0{index + 1}</div><div className="relative text-[10px] font-black uppercase tracking-widest text-zinc-400">{car.drive} / Machine 0{index + 1}</div><div className="relative mt-4 text-lg font-black uppercase leading-tight drop-shadow-[0_2px_0_rgba(0,0,0,0.8)]">{car.name}</div>
                     <div className="absolute bottom-2 left-2 flex gap-1">{pickedBy.map(player => <span key={player} className={`px-2 py-1 text-[10px] font-black text-white ${player === 0 ? 'bg-red-600' : 'bg-blue-600'}`}>{player === 0 ? '1P' : gameMode === 'PvE' ? 'CPU' : '2P'}</span>)}</div>
                   </button>;
                 })}
@@ -2121,16 +2280,23 @@ function ArcadeRacingGame() {
 
           {/* Top-down terrain backdrop moves and zooms with the road. */}
           <image
-            href="Assets/Backgrounds/touge_topdown_terrain_01.png"
-            x="-2600"
-            y="-2600"
-            width="5200"
-            height="5200"
+            href="Assets/Backgrounds/snow_field_topdown_06.png"
+            x={trackBounds.center.x - TERRAIN_BACKDROP_SIZE / 2}
+            y={trackBounds.center.y - TERRAIN_BACKDROP_SIZE / 2}
+            width={TERRAIN_BACKDROP_SIZE}
+            height={TERRAIN_BACKDROP_SIZE}
             preserveAspectRatio="xMidYMid slice"
             opacity="0.88"
             className="pointer-events-none"
           />
-          <rect x="-2600" y="-2600" width="5200" height="5200" fill="rgba(2, 6, 23, 0.2)" className="pointer-events-none" />
+          <rect
+            x={trackBounds.center.x - TERRAIN_BACKDROP_SIZE / 2}
+            y={trackBounds.center.y - TERRAIN_BACKDROP_SIZE / 2}
+            width={TERRAIN_BACKDROP_SIZE}
+            height={TERRAIN_BACKDROP_SIZE}
+            fill="rgba(2, 6, 23, 0.2)"
+            className="pointer-events-none"
+          />
 
           {/* Render Track Base */}
           {[0, 1].map(lane =>
