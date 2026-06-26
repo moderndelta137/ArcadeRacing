@@ -927,6 +927,8 @@ function ArcadeRacingGame() {
     return fallbackOrder;
   };
 
+  const getTurnMovePoints = (player) => player.modifiers.fixedMovePoints ?? getGear(player.speed).mp;
+
   useEffect(() => {
     if (gameState?.overtakeEvent) {
       const timer = setTimeout(() => setGameState(prev => prev ? { ...prev, overtakeEvent: null } : prev), 3000);
@@ -997,8 +999,8 @@ function ArcadeRacingGame() {
       });
 
       const nnMpLeft = {
-        0: newPlayers[0].modifiers.fixedMovePoints || getGear(newPlayers[0].speed).mp,
-        1: newPlayers[1].modifiers.fixedMovePoints || getGear(newPlayers[1].speed).mp
+        0: getTurnMovePoints(newPlayers[0]),
+        1: getTurnMovePoints(newPlayers[1])
       };
       const cycleQueue = order.filter(pid => (newPlayers[pid].modifiers.cycleCards || 0) > 0 && newPlayers[pid].hand.length > 0);
 
@@ -1138,7 +1140,7 @@ function ArcadeRacingGame() {
     newPlayers[activePlayerId] = p;
 
     let nextPhase = 'MOVE';
-    let mp = p.modifiers.fixedMovePoints || getGear(p.speed).mp;
+    let mp = getTurnMovePoints(p);
 
     if (!isLead && p.lane === otherPlayer.lane && p.distance < otherPlayer.distance) nextPhase = 'SLIPSTREAM';
 
@@ -1331,7 +1333,7 @@ function ArcadeRacingGame() {
     }
 
     newPlayers[activePlayerId] = p;
-    setGameState(prev => ({ ...prev, players: newPlayers, phase: 'MOVE', mpLeft: getGear(p.speed).mp }));
+    setGameState(prev => ({ ...prev, players: newPlayers, phase: 'MOVE', mpLeft: getTurnMovePoints(p) }));
   };
 
   const attemptMove = (targetLane, targetIdx) => {
@@ -1378,8 +1380,13 @@ function ArcadeRacingGame() {
         }
         triggeredCrash = { name: `${p.name} / ${op.name}`, type: 'SPIN OFF', penalty: '-2 Gears' };
         p.speed = getPenaltySpeed(getGear(p.speed).gear - 2);
-        op.speed = getPenaltySpeed(getGear(op.speed).gear - 2);
-        addLog(`SHOVE ASIDE: no space. Both cars spin off.`);
+        op = { ...op, speed: getPenaltySpeed(getGear(op.speed).gear - 2), modifiers: { ...op.modifiers, skipRemainingMove: true } };
+        addLog(`SHOVE ASIDE: no space. Both cars spin off and lose remaining move points.`);
+        newPlayers[activePlayerId] = p;
+        newPlayers[1 - activePlayerId] = op;
+        if (isNN) advanceNNTurn(newPlayers, activePlayerId, 0, triggeredCrash || gameState.crashEvent);
+        else setGameState(prev => ({ ...prev, players: newPlayers, mpLeft: 0, crashEvent: triggeredCrash || prev.crashEvent, mangaCutin: null }));
+        return;
       }
       if (p.modifiers.blindAttack) {
         const blindTarget = getLaneChangeTarget(p, TRACK);
@@ -1490,13 +1497,14 @@ function ArcadeRacingGame() {
           const pGear = getGear(p.speed).gear;
           if (space.guardrail) {
             triggeredCrash = { name: p.name, type: 'GUARDRAIL', penalty: '-1 Gear' };
-            addLog(`CRASH: ${p.name} hits the guardrail. (-1 Gear)`);
+            addLog(`CRASH: ${p.name} hits the guardrail. (-1 Gear, remaining move points lost)`);
             p.speed = getPenaltySpeed(pGear - 1);
           } else {
             triggeredCrash = { name: p.name, type: 'SPIN OFF', penalty: '-2 Gears' };
-            addLog(`SPIN OFF: ${p.name} leaves the road. (-2 Gears)`);
+            addLog(`SPIN OFF: ${p.name} leaves the road. (-2 Gears, remaining move points lost)`);
             p.speed = getPenaltySpeed(pGear - 2);
           }
+          currentMp = 0;
           understeering = false;
         } else {
           // Push outward
@@ -2110,6 +2118,19 @@ function ArcadeRacingGame() {
         <rect width="100%" height="100%" fill="url(#forest)" />
 
         <g transform={`translate(${winSize.w/2 - 140}, ${winSize.h/2}) scale(${zoom}) translate(${-cameraTarget.x + panOffset.x}, ${-cameraTarget.y + panOffset.y})`} style={{ transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)' }}>
+
+          {/* Top-down terrain backdrop moves and zooms with the road. */}
+          <image
+            href="Assets/Backgrounds/touge_topdown_terrain_01.png"
+            x="-2600"
+            y="-2600"
+            width="5200"
+            height="5200"
+            preserveAspectRatio="xMidYMid slice"
+            opacity="0.88"
+            className="pointer-events-none"
+          />
+          <rect x="-2600" y="-2600" width="5200" height="5200" fill="rgba(2, 6, 23, 0.2)" className="pointer-events-none" />
 
           {/* Render Track Base */}
           {[0, 1].map(lane =>
