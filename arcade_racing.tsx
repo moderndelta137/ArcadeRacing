@@ -1437,14 +1437,17 @@ export default function ArcadeRacingGame() {
     const nextTrack = generateTrack(nextSeed, cornerCardRows, 0, cardCount);
     const p1Draw = drawCards(shuffle(getDeckIdsForCar(selectedCars[0], cardRows)), [], [], 4);
     const p2Draw = drawCards(shuffle(getDeckIdsForCar(selectedCars[1], cardRows)), [], [], 4);
+    const startLane = 0;
+    const p2StartIdx = 0;
+    const p1StartIdx = Math.min(1, nextTrack[startLane].length - 1);
 
     setTrackSeed(nextSeed);
     setTrackCardCount(cardCount);
     setGameState({
       raceSetup: { courseId: selectedCourse.id, direction: selectedCourse.id === 'random' ? null : courseDirection, size: selectedCourse.id === 'random' ? randomMapSize : null, cars: [...selectedCars], backgroundImage },
       players: [
-        { id: 0, name: 'Player 1', carId: selectedCars[0], color: 'red', speed: 20, lane: 0, idx: 0, distance: nextTrack[0][0].distance, ...p1Draw, modifiers: {}, lastPlayed: null },
-        { id: 1, name: gameMode === 'PvE' ? 'AI Racer' : 'Player 2', carId: selectedCars[1], color: 'blue', speed: 20, lane: 1, idx: 0, distance: nextTrack[1][0].distance, ...p2Draw, modifiers: {}, lastPlayed: null }
+        { id: 0, name: 'Player 1', carId: selectedCars[0], color: 'red', speed: 20, lane: startLane, idx: p1StartIdx, distance: nextTrack[startLane][p1StartIdx].distance, ...p1Draw, modifiers: {}, lastPlayed: null },
+        { id: 1, name: gameMode === 'PvE' ? 'AI Racer' : 'Player 2', carId: selectedCars[1], color: 'blue', speed: 20, lane: startLane, idx: p2StartIdx, distance: nextTrack[startLane][p2StartIdx].distance, ...p2Draw, modifiers: {}, lastPlayed: null }
       ],
       turnOrder: [0, 1],
       activePlayerIdx: 0,
@@ -1453,6 +1456,7 @@ export default function ArcadeRacingGame() {
       logs: ['Race started! Player 1 is the Lead Player.'],
       winner: null,
       overtakeEvent: null,
+      bonusTurnPlayerId: null,
       crashEvent: null,
       mangaCutin: null,
       nnSelections: null,
@@ -1539,6 +1543,7 @@ export default function ArcadeRacingGame() {
 
   const resolveNNReveal = () => {
     if (nnRevealStage !== 'decision') return;
+    if (gameMode === 'OnlinePvP' && onlineSession.role !== 'host') return;
     setDiscardSelection([]);
     setGameState(prev => {
       let newPlayers = [...prev.players];
@@ -1593,6 +1598,11 @@ export default function ArcadeRacingGame() {
   const activePlayerId = gameState?.phase === 'NN_MOVE' ? gameState.nnActionOrder[gameState.nnActiveTurnIdx] : gameState?.phase === 'NN_CARD_CYCLE' ? gameState.cycleQueue[gameState.cycleQueueIndex] : gameState?.turnOrder[gameState?.activePlayerIdx];
   const activePlayer = gameState?.players[activePlayerId];
   const otherPlayer = gameState?.players[1 - activePlayerId];
+  const isOnlineGame = gameMode === 'OnlinePvP';
+  const localPlayerId = isOnlineGame ? (onlineSession.role === 'guest' ? 1 : 0) : activePlayerId;
+  const localPlayer = gameState?.players?.[localPlayerId] || activePlayer;
+  const isLocalPlayersTurn = !isOnlineGame || localPlayerId === activePlayerId;
+  const canAdvanceAutomaticState = !isOnlineGame || onlineSession.role === 'host';
   const isLead = gameState?.activePlayerIdx === 0 && !gameState?.isNNRound;
 
   useEffect(() => {
@@ -1628,17 +1638,19 @@ export default function ArcadeRacingGame() {
 
   useEffect(() => {
     if (appState !== 'PLAYING' || !gameState || gameState.winner) return;
+    if (!canAdvanceAutomaticState) return;
 
     // Auto end move phase if no points left
     if (gameState.phase === 'MOVE' && gameState.mpLeft <= 0) {
       const timer = setTimeout(() => endTurn(), 400);
       return () => clearTimeout(timer);
     }
-  }, [appState, gameState?.phase, gameState?.mpLeft, gameState?.winner]);
+  }, [appState, canAdvanceAutomaticState, gameState?.phase, gameState?.mpLeft, gameState?.winner]);
 
   useEffect(() => {
     if (
       appState !== 'PLAYING' ||
+      !canAdvanceAutomaticState ||
       gameState?.phase !== 'NN_MOVE' ||
       !gameState.nnMpLeft ||
       gameState.nnMpLeft[0] > 0 ||
@@ -1647,7 +1659,7 @@ export default function ArcadeRacingGame() {
 
     const timer = setTimeout(() => finalizeNNRound(), 400);
     return () => clearTimeout(timer);
-  }, [appState, gameState?.phase, gameState?.nnMpLeft?.[0], gameState?.nnMpLeft?.[1]]);
+  }, [appState, canAdvanceAutomaticState, gameState?.phase, gameState?.nnMpLeft?.[0], gameState?.nnMpLeft?.[1]]);
 
   useEffect(() => {
     if (appState !== 'PLAYING' || gameMode !== 'PvE' || !gameState || gameState.winner || activePlayerId !== 1 || gameState.phase === 'NN_REVEAL') return;
@@ -1697,6 +1709,7 @@ export default function ArcadeRacingGame() {
   }, [gameState, appState, gameMode, discardSelection, activePlayerId]);
 
   const playCard = (cardId, handIndex) => {
+    if (isOnlineGame && !isLocalPlayersTurn) return;
     const card = CARDS[cardId];
 
     if (gameState.phase === 'NN_SELECT_CARD') {
@@ -1761,16 +1774,19 @@ export default function ArcadeRacingGame() {
   };
 
   const skipToDiscard = () => {
+    if (isOnlineGame && !isLocalPlayersTurn) return;
     addLog(`${activePlayer.name} skips card play.`);
     setDiscardSelection([]);
     setGameState(prev => ({ ...prev, phase: 'DISCARD' }));
   };
 
   const toggleDiscardSelection = (idx) => {
+    if (isOnlineGame && !isLocalPlayersTurn) return;
     setDiscardSelection(prev => prev.includes(idx) ? prev.filter(i => i !== idx) : [...prev, idx]);
   };
 
   const confirmDiscard = (overrideSelection = null) => {
+    if (isOnlineGame && !isLocalPlayersTurn) return;
     let newPlayers = [...gameState.players];
     let p = { ...activePlayer };
 
@@ -1806,6 +1822,7 @@ export default function ArcadeRacingGame() {
   };
 
   const toggleCardCycleSelection = (idx) => {
+    if (isOnlineGame && !isLocalPlayersTurn) return;
     const max = gameState.phase === 'CARD_CYCLE' ? gameState.cycleContext.max : (activePlayer.modifiers.cycleCards || 1);
     setDiscardSelection(prev => {
       if (prev.includes(idx)) return prev.filter(i => i !== idx);
@@ -1815,6 +1832,7 @@ export default function ArcadeRacingGame() {
   };
 
   const confirmCardCycle = (overrideSelection = null) => {
+    if (isOnlineGame && !isLocalPlayersTurn) return;
     const max = gameState.phase === 'CARD_CYCLE' ? gameState.cycleContext.max : (activePlayer.modifiers.cycleCards || 1);
     const required = gameState.phase === 'CARD_CYCLE' ? gameState.cycleContext.required : Boolean(activePlayer.modifiers.cycleRequired);
     const requested = Array.isArray(overrideSelection) ? overrideSelection : discardSelection;
@@ -1856,6 +1874,7 @@ export default function ArcadeRacingGame() {
   const resolveCardChoice = (choice) => {
     if (gameState.phase !== 'CARD_CHOICE' || !gameState.choiceContext) return;
     const context = gameState.choiceContext;
+    if (isOnlineGame && localPlayerId !== context.playerId) return;
     const newPlayers = [...gameState.players];
     let player = { ...newPlayers[context.playerId] };
     let logs = [];
@@ -1913,6 +1932,7 @@ export default function ArcadeRacingGame() {
   };
 
   const acceptSlipstream = (accept) => {
+    if (isOnlineGame && !isLocalPlayersTurn) return;
     let newPlayers = [...gameState.players];
     let p = { ...activePlayer };
 
@@ -1928,6 +1948,7 @@ export default function ArcadeRacingGame() {
   };
 
   const attemptMove = (targetLane, targetIdx) => {
+    if (isOnlineGame && !isLocalPlayersTurn) return;
     const isNN = gameState.phase === 'NN_MOVE';
     const mpAvail = isNN ? gameState.nnMpLeft[activePlayerId] : gameState.mpLeft;
     if (mpAvail <= 0) return;
@@ -2245,7 +2266,7 @@ export default function ArcadeRacingGame() {
          ...prev, players: newPlayers, turnOrder: newTurnOrder,
          activePlayerIdx: 0,
          phase: isNextNN ? 'NN_SELECT_CARD' : 'PLAY_CARD',
-         mpLeft: 0, logs: newLogs.slice(0, 20), overtakeEvent: newOvertakeEvent,
+         mpLeft: 0, logs: newLogs.slice(0, 20), overtakeEvent: newOvertakeEvent, bonusTurnPlayerId: null,
          nnSelections: isNextNN ? {0:null, 1:null} : null,
          isNNRound: isNextNN
       };
@@ -2307,6 +2328,7 @@ export default function ArcadeRacingGame() {
           phase: 'NN_SELECT_CARD',
           mpLeft: 0,
           logs: newLogs.slice(0, 20),
+          bonusTurnPlayerId: null,
           nnSelections: { 0: null, 1: null },
           nnActionOrder: null,
           nnActiveTurnIdx: null,
@@ -2318,6 +2340,7 @@ export default function ArcadeRacingGame() {
       let nextIdx = prev.activePlayerIdx + 1;
       let newTurnOrder = prev.turnOrder;
       let newOvertakeEvent = prev.overtakeEvent;
+      let bonusTurnPlayerId = null;
       let nextPhase = 'PLAY_CARD';
       let isNN = false;
 
@@ -2334,7 +2357,7 @@ export default function ArcadeRacingGame() {
 
         if (newTurnOrder[0] !== prev.turnOrder[0]) {
           newOvertakeEvent = newPlayers[newTurnOrder[0]].name;
-        newLogs.unshift(`OVERTAKE: ${newPlayers[newTurnOrder[0]].name} takes the lead!`);
+          newLogs.unshift(`OVERTAKE: ${newPlayers[newTurnOrder[0]].name} takes the lead!`);
         }
 
         newLogs.unshift(`-- Round End. ${newPlayers[newTurnOrder[0]].name} is Lead. --`);
@@ -2347,11 +2370,14 @@ export default function ArcadeRacingGame() {
       }
 
       const nextActiveId = newTurnOrder[nextIdx];
+      if (nextActiveId === p.id && newTurnOrder[0] !== prev.turnOrder[0]) {
+        bonusTurnPlayerId = nextActiveId;
+      }
       newPlayers[nextActiveId].lastPlayed = null;
 
       return {
         ...prev, players: newPlayers, turnOrder: newTurnOrder, activePlayerIdx: nextIdx,
-        phase: nextPhase, mpLeft: 0, logs: newLogs.slice(0, 20), overtakeEvent: newOvertakeEvent,
+        phase: nextPhase, mpLeft: 0, logs: newLogs.slice(0, 20), overtakeEvent: newOvertakeEvent, bonusTurnPlayerId,
         nnSelections: isNN ? {0:null, 1:null} : null, isNNRound: isNN
       };
     });
@@ -2410,6 +2436,8 @@ export default function ArcadeRacingGame() {
     const isBottomLeft = position === 'bottom-left';
     const meterPositionClass = isBottomLeft ? 'bottom-4 left-4' : 'top-4 right-4';
     const gearAccent = GEAR_ACCENT_COLORS[gearInfo.gear] || '#ffffff';
+    const isMovePhase = isTurn && (phase === 'MOVE' || phase === 'NN_MOVE');
+    const movePointsLeft = Math.max(0, mpLeft || 0);
 
     return (
       <div className={`fixed ${meterPositionClass} z-40 flex w-[340px] flex-col bg-zinc-950/75 backdrop-blur-md p-3 rounded-2xl border border-white/15 shadow-2xl no-pan pointer-events-none`}>
@@ -2441,12 +2469,17 @@ export default function ArcadeRacingGame() {
             <span className="text-2xl font-black leading-none" style={{ color: gearAccent }}>{gearInfo.gear}</span>
           </div>
 
-          <div className="absolute left-1/2 bottom-[14%] grid h-16 w-20 -translate-x-1/2 place-items-center rounded-xl border-2 border-emerald-400/40 bg-emerald-950/80 shadow-[0_0_18px_rgba(16,185,129,0.28)]">
-            <div className="text-center">
-              <div className="text-3xl font-black leading-none text-emerald-300">{gearInfo.mp}</div>
-              <div className="text-xl font-black leading-none text-emerald-100/80">MP</div>
+          {isMovePhase && (
+            <div
+              className="absolute left-1/2 bottom-[14%] grid h-16 w-20 -translate-x-1/2 place-items-center rounded-xl border-2 border-emerald-400/40 bg-emerald-950/80 shadow-[0_0_18px_rgba(16,185,129,0.28)]"
+              style={{ animation: 'movement_breathe 1.45s ease-in-out infinite' }}
+            >
+              <div className="text-center">
+                <div className="text-3xl font-black leading-none text-emerald-300">{movePointsLeft}</div>
+                <div className="text-xl font-black leading-none text-emerald-100/80">MP</div>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Hover Ghost Needle */}
           {ghostAngle !== null && (
@@ -2463,14 +2496,6 @@ export default function ArcadeRacingGame() {
           />
           <div className="absolute left-1/2 top-[53%] h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-amber-100 bg-amber-300 shadow-[0_0_14px_rgba(251,191,36,0.85)]" />
         </div>
-
-        {/* Moves Left Badge Pop-up */}
-        {isTurn && (phase === 'MOVE' || phase === 'NN_MOVE') && mpLeft > 0 && (
-          <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-zinc-900/90 backdrop-blur px-6 py-2 rounded-xl border-2 border-green-500 shadow-2xl pointer-events-auto flex items-center gap-3">
-            <div className="text-3xl font-black text-green-400 leading-none">{mpLeft}</div>
-            <div className="text-[10px] text-zinc-300 uppercase tracking-widest text-left leading-tight">Moves<br/>Left</div>
-          </div>
-        )}
 
         {/* Full Played Card Display anchored near each driver's meter. */}
         {lastCard && (
@@ -2911,7 +2936,8 @@ export default function ArcadeRacingGame() {
   };
   const isAITurn = gameMode === 'PvE' && activePlayerId === 1;
   const showRecenter = Math.abs(panOffset.x) > 10 || Math.abs(panOffset.y) > 10;
-  const validMovesList = gameState && (gameState.phase === 'MOVE' || gameState.phase === 'NN_MOVE') && !isAITurn && ((gameState.phase === 'MOVE' && gameState.mpLeft > 0) || (gameState.phase === 'NN_MOVE' && gameState.nnMpLeft[activePlayerId] > 0)) ? getValidMoves(activePlayer) : [];
+  const canControlActivePlayer = !isAITurn && isLocalPlayersTurn;
+  const validMovesList = gameState && (gameState.phase === 'MOVE' || gameState.phase === 'NN_MOVE') && canControlActivePlayer && ((gameState.phase === 'MOVE' && gameState.mpLeft > 0) || (gameState.phase === 'NN_MOVE' && gameState.nnMpLeft[activePlayerId] > 0)) ? getValidMoves(activePlayer) : [];
 
   const p1 = gameState?.players[0];
   const p2 = gameState?.players[1];
@@ -2923,15 +2949,19 @@ export default function ArcadeRacingGame() {
   const activeCycleRequired = gameState?.phase === 'CARD_CYCLE' ? Boolean(gameState.cycleContext?.required) : gameState?.phase === 'NN_CARD_CYCLE' ? Boolean(activePlayer.modifiers.cycleRequired) : false;
   const activeCycleNeeded = activeCycleRequired ? Math.min(activeCycleMax, activePlayer?.hand?.length || 0) : 0;
   const activeChoiceType = gameState?.phase === 'CARD_CHOICE' ? gameState.choiceContext?.type : null;
-  const activeDiscardTopCard = activePlayer?.discard?.length ? CARDS[activePlayer.discard[activePlayer.discard.length - 1]] : null;
-  const activeHandVisible = !isAITurn && (gameState.phase === 'PLAY_CARD' || gameState.phase === 'NN_SELECT_CARD' || gameState.phase === 'MOVE' || gameState.phase === 'NN_MOVE');
-  const activeHandCanPlay = gameState.phase === 'PLAY_CARD' || gameState.phase === 'NN_SELECT_CARD';
+  const visiblePilePlayer = isOnlineGame ? localPlayer : activePlayer;
+  const visibleDiscardTopCard = visiblePilePlayer?.discard?.length ? CARDS[visiblePilePlayer.discard[visiblePilePlayer.discard.length - 1]] : null;
+  const visibleHandPlayer = isOnlineGame ? localPlayer : activePlayer;
+  const shouldShowLocalHand = !isAITurn && (!isOnlineGame || isLocalPlayersTurn);
+  const activeHandVisible = shouldShowLocalHand && (gameState.phase === 'PLAY_CARD' || gameState.phase === 'NN_SELECT_CARD' || gameState.phase === 'MOVE' || gameState.phase === 'NN_MOVE');
+  const activeHandCanPlay = isLocalPlayersTurn && (gameState.phase === 'PLAY_CARD' || gameState.phase === 'NN_SELECT_CARD');
   const activeHandTucked = !activeHandCanPlay;
+  const showBonusTurnPrompt = gameState?.bonusTurnPlayerId === activePlayerId && gameState.phase === 'PLAY_CARD';
 
   // Calculate projected speed for speedometer preview
   let activeProjectedSpeed = null;
-  if (gameState && !isAITurn && hoveredCardIdx !== null && activePlayer && (gameState.phase === 'PLAY_CARD' || gameState.phase === 'NN_SELECT_CARD')) {
-    const cardId = activePlayer.hand[hoveredCardIdx];
+  if (gameState && canControlActivePlayer && hoveredCardIdx !== null && activePlayer && (gameState.phase === 'PLAY_CARD' || gameState.phase === 'NN_SELECT_CARD')) {
+    const cardId = visibleHandPlayer.hand[hoveredCardIdx];
     const card = CARDS[cardId];
     if (card && card.canPlay(activePlayer)) {
       activeProjectedSpeed = card.play({...activePlayer, discard:[], hand:[]}, TRACK, otherPlayer).speed;
@@ -2990,6 +3020,16 @@ export default function ArcadeRacingGame() {
           15% { transform: translateY(0) scale(1.04); opacity: 1; filter: blur(0); }
           78% { transform: translateY(0) scale(1); opacity: 1; filter: blur(0); }
           100% { transform: translateY(-12px) scale(0.97); opacity: 0; filter: blur(3px); }
+        }
+        @keyframes movement_breathe {
+          0%, 100% {
+            opacity: 0.62;
+            filter: drop-shadow(0 0 5px rgba(16, 185, 129, 0.55));
+          }
+          50% {
+            opacity: 1;
+            filter: drop-shadow(0 0 18px rgba(16, 185, 129, 0.95));
+          }
         }
         .nn-card-stage { perspective: 1000px; transform-style: preserve-3d; }
         .nn-card-deal-left { animation: nn-card-deal-left 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
@@ -3127,7 +3167,16 @@ export default function ArcadeRacingGame() {
 
           {/* Valid Move Overlays */}
           {validMovesList.map(m => (
-            <path key={`move-${m.lane}-${m.idx}`} d={TRACK[m.lane][m.idx].path} fill="rgba(255, 255, 255, 0.3)" className="cursor-pointer hover:fill-white/50 transition-colors" onClick={() => attemptMove(m.lane, m.idx)} />
+            <path
+              key={`move-${m.lane}-${m.idx}`}
+              d={TRACK[m.lane][m.idx].path}
+              fill="rgba(16, 185, 129, 0.42)"
+              stroke="rgba(110, 231, 183, 0.95)"
+              strokeWidth="8"
+              className="cursor-pointer transition-colors hover:fill-emerald-300/70"
+              style={{ animation: 'movement_breathe 1.45s ease-in-out infinite' }}
+              onClick={() => attemptMove(m.lane, m.idx)}
+            />
           ))}
 
           {/* Render Cars - Initial D Manga Style */}
@@ -3247,15 +3296,15 @@ export default function ArcadeRacingGame() {
       {gameState && (
         <>
           <Speedometer
-            player={gameState.players[0]} position={activePlayerId === 1 ? 'top-right' : 'bottom-left'}
-            projectedSpeed={activePlayerId === 0 ? activeProjectedSpeed : null}
+            player={gameState.players[0]} position={isOnlineGame ? (localPlayerId === 0 ? 'bottom-left' : 'top-right') : activePlayerId === 1 ? 'top-right' : 'bottom-left'}
+            projectedSpeed={activePlayerId === 0 && isLocalPlayersTurn ? activeProjectedSpeed : null}
             isTurn={activePlayerId === 0} phase={gameState.phase}
             mpLeft={gameState.phase === 'NN_MOVE' ? gameState.nnMpLeft[0] : gameState.mpLeft}
             isLeadStatus={gameState.turnOrder[0] === 0}
           />
           <Speedometer
-            player={gameState.players[1]} position={activePlayerId === 1 ? 'bottom-left' : 'top-right'}
-            projectedSpeed={activePlayerId === 1 ? activeProjectedSpeed : null}
+            player={gameState.players[1]} position={isOnlineGame ? (localPlayerId === 1 ? 'bottom-left' : 'top-right') : activePlayerId === 1 ? 'bottom-left' : 'top-right'}
+            projectedSpeed={activePlayerId === 1 && isLocalPlayersTurn ? activeProjectedSpeed : null}
             isTurn={activePlayerId === 1} phase={gameState.phase}
             mpLeft={gameState.phase === 'NN_MOVE' ? gameState.nnMpLeft[1] : gameState.mpLeft}
             isLeadStatus={gameState.turnOrder[0] === 1}
@@ -3265,25 +3314,25 @@ export default function ArcadeRacingGame() {
 
       {gameState && (
         <div className="fixed bottom-5 right-5 z-40 flex items-end gap-3 no-pan">
-          <PileWidget type="discard" count={activePlayer.discard.length} topCard={activeDiscardTopCard} onClick={() => activePlayer.discard.length > 0 && setInspectDiscardOpen(true)} />
-          <PileWidget type="deck" count={activePlayer.deck.length} />
+          <PileWidget type="discard" count={visiblePilePlayer.discard.length} topCard={visibleDiscardTopCard} onClick={() => visiblePilePlayer.discard.length > 0 && setInspectDiscardOpen(true)} />
+          <PileWidget type="deck" count={visiblePilePlayer.deck.length} />
         </div>
       )}
 
-      {inspectDiscardOpen && activePlayer && (
+      {inspectDiscardOpen && visiblePilePlayer && (
         <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/75 backdrop-blur-sm p-5 no-pan pointer-events-auto">
           <div className="w-full max-w-5xl max-h-[88vh] overflow-hidden rounded-2xl border-2 border-orange-500 bg-zinc-950 shadow-[0_0_50px_rgba(249,115,22,0.25)]">
             <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
               <div>
-                <div className="text-[10px] font-black uppercase tracking-[0.35em] text-orange-400">{activePlayer.name}</div>
-                <h2 className="text-2xl font-black uppercase text-white">Discard Pile ({activePlayer.discard.length})</h2>
+                <div className="text-[10px] font-black uppercase tracking-[0.35em] text-orange-400">{visiblePilePlayer.name}</div>
+                <h2 className="text-2xl font-black uppercase text-white">Discard Pile ({visiblePilePlayer.discard.length})</h2>
               </div>
               <button onClick={() => setInspectDiscardOpen(false)} className="rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-black uppercase text-zinc-300 hover:border-white hover:text-white">Close</button>
             </div>
             <div className="max-h-[70vh] overflow-y-auto p-5">
-              {activePlayer.discard.length > 0 ? (
+              {visiblePilePlayer.discard.length > 0 ? (
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                  {activePlayer.discard.slice().reverse().map((cardId, idx) => (
+                  {visiblePilePlayer.discard.slice().reverse().map((cardId, idx) => (
                     <div key={`${cardId}-${idx}`} className="flex justify-center">
                       <RenderCard card={CARDS[cardId]} scale={0.78} extraClasses="cursor-default" />
                     </div>
@@ -3359,9 +3408,15 @@ export default function ArcadeRacingGame() {
                   </div>
                   <div className="text-xs text-zinc-400 mt-1">Then movement alternates one point at a time.</div>
                 </div>
-                <button onClick={resolveNNReveal} className="nn-decision-pop mt-5 px-8 py-3 bg-yellow-400 hover:bg-yellow-300 active:bg-yellow-500 text-black text-lg font-black uppercase tracking-wider rounded-lg shadow-[0_0_25px_rgba(250,204,21,0.4)] transition-colors">
-                  Close Banner & Start Movement
-                </button>
+                {gameMode !== 'OnlinePvP' || onlineSession.role === 'host' ? (
+                  <button onClick={resolveNNReveal} className="nn-decision-pop mt-5 px-8 py-3 bg-yellow-400 hover:bg-yellow-300 active:bg-yellow-500 text-black text-lg font-black uppercase tracking-wider rounded-lg shadow-[0_0_25px_rgba(250,204,21,0.4)] transition-colors">
+                    Close Banner & Start Movement
+                  </button>
+                ) : (
+                  <div className="nn-decision-pop mt-5 rounded-full border border-zinc-700 bg-black/70 px-6 py-3 text-sm font-black uppercase tracking-widest text-zinc-300">
+                    Waiting for host to start movement
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -3371,9 +3426,13 @@ export default function ArcadeRacingGame() {
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex flex-col items-center no-pan">
         {isAITurn ? (
            <div className="bg-black/80 px-6 py-3 rounded-full border border-zinc-700 flex items-center gap-3 animate-pulse shadow-2xl"><Bot className="text-blue-400" /><span className="font-bold text-lg">AI is thinking...</span></div>
+        ) : showBonusTurnPrompt ? (
+           <div className="bg-black/80 px-6 py-3 rounded-full border border-zinc-700 flex items-center gap-3 shadow-2xl"><FastForward className="text-yellow-300" /><span className="font-bold text-lg">Bonus turn</span></div>
+        ) : isOnlineGame && !isLocalPlayersTurn && ['PLAY_CARD', 'NN_SELECT_CARD', 'MOVE', 'NN_MOVE', 'DISCARD', 'CARD_CYCLE', 'NN_CARD_CYCLE', 'SLIPSTREAM', 'CARD_CHOICE'].includes(gameState.phase) ? (
+           <div className="bg-black/80 px-6 py-3 rounded-full border border-zinc-700 flex items-center gap-3 shadow-2xl"><Radio className="text-blue-300" /><span className="font-bold text-lg">Waiting for {activePlayer.name}</span></div>
         ) : (
           <>
-            {gameState.phase === 'SLIPSTREAM' && (
+            {canControlActivePlayer && gameState.phase === 'SLIPSTREAM' && (
               <div className="bg-black/90 p-6 rounded-2xl border border-zinc-700 shadow-2xl text-center pointer-events-auto">
                 <h3 className="text-xl font-black text-yellow-400 mb-4">SLIPSTREAM AVAILABLE</h3>
                 <div className="flex gap-4">
@@ -3382,7 +3441,7 @@ export default function ArcadeRacingGame() {
                 </div>
               </div>
             )}
-            {gameState.phase === 'CARD_CHOICE' && (
+            {canControlActivePlayer && gameState.phase === 'CARD_CHOICE' && (
               <div className="bg-black/90 p-6 rounded-2xl border border-yellow-500 shadow-2xl text-center pointer-events-auto min-w-[360px]">
                 <h3 className="text-xl font-black text-yellow-400 mb-2">
                   {activeChoiceType === 'torque_split' ? 'TORQUE SPLIT' : activeChoiceType === 'micro_correction' ? 'MICRO CORRECTION' : 'CHANGE SHIFT'}
@@ -3417,10 +3476,10 @@ export default function ArcadeRacingGame() {
              <div className={`absolute -top-12 px-6 py-2 rounded-full border text-sm font-bold shadow-2xl ${gameState.phase === 'NN_SELECT_CARD' ? 'bg-yellow-900/90 border-yellow-500 text-yellow-200 animate-pulse' : activeHandTucked ? 'bg-zinc-950/90 border-zinc-700 text-zinc-500' : 'bg-black/80 border-zinc-800 text-zinc-300'}`}>
                {gameState.phase === 'NN_SELECT_CARD' ? 'Lock in 1 Card Face Down!' : activeHandTucked ? 'Hand Locked During Movement' : 'Play 1 Driving Card'}
              </div>
-             {activePlayer.hand.map((cardId, idx) => {
+             {visibleHandPlayer.hand.map((cardId, idx) => {
                const card = CARDS[cardId];
                const playable = activeHandCanPlay && card.canPlay(activePlayer);
-               const offset = idx - (activePlayer.hand.length - 1) / 2;
+               const offset = idx - (visibleHandPlayer.hand.length - 1) / 2;
                const rot = offset * 10;
                const drop = Math.abs(offset) * 12;
                const transX = offset * 110;
@@ -3456,7 +3515,7 @@ export default function ArcadeRacingGame() {
       )}
 
       {/* Discard Phase UI */}
-      {!isAITurn && gameState.phase === 'DISCARD' && (
+      {canControlActivePlayer && gameState.phase === 'DISCARD' && (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center justify-end z-40 w-full no-pan max-w-4xl h-64">
              <div className="absolute -top-16 bg-red-900/90 px-6 py-2 rounded-full border border-red-500 text-sm font-bold text-white shadow-2xl animate-pulse">
                 Select cards to discard (Optional)
@@ -3478,7 +3537,7 @@ export default function ArcadeRacingGame() {
       )}
 
       {/* Optional Card Cycling */}
-      {!isAITurn && (gameState.phase === 'CARD_CYCLE' || gameState.phase === 'NN_CARD_CYCLE') && (
+      {canControlActivePlayer && (gameState.phase === 'CARD_CYCLE' || gameState.phase === 'NN_CARD_CYCLE') && (
         <div className="absolute inset-0 z-[110] bg-black/65 backdrop-blur-sm flex items-end justify-center p-6 no-pan">
           <div className="w-full max-w-5xl bg-zinc-950/95 border-2 border-emerald-500 rounded-2xl shadow-[0_0_40px_rgba(16,185,129,0.25)] p-5 flex flex-col items-center">
             <div className="text-center mb-4">
