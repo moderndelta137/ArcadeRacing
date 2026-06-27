@@ -32,6 +32,8 @@ jobs:
         run: |
           mkdir -p _site
           cp arcade_racing.html _site/index.html
+          cp racing_cards.csv _site/racing_cards.csv
+          cp racing_corner_cards.csv _site/racing_corner_cards.csv
           cp -R Assets _site/Assets
           touch _site/.nojekyll
 

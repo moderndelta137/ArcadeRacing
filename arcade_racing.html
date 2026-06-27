@@ -23,6 +23,16 @@
         filter: drop-shadow(0 0 18px rgba(16, 185, 129, 0.95));
       }
     }
+    @keyframes movement_warning_breathe {
+      0%, 100% {
+        opacity: 0.68;
+        filter: drop-shadow(0 0 5px rgba(250, 204, 21, 0.58));
+      }
+      50% {
+        opacity: 1;
+        filter: drop-shadow(0 0 18px rgba(250, 204, 21, 0.95));
+      }
+    }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
     }
@@ -613,6 +623,41 @@ const getLaneChangeTarget = (player, track) => {
   return { lane: newLane, idx: newIdx };
 };
 
+const getUndersteerTarget = (lane, idx, track) => {
+  const current = track[lane][idx];
+  const outLane = 1 - lane;
+  const adjacent = current.adj.filter(adjIdx => track[outLane]?.[adjIdx]);
+  const ahead = adjacent
+    .filter(adjIdx => track[outLane][adjIdx].distance >= current.distance)
+    .sort((a, b) => track[outLane][a].distance - track[outLane][b].distance)[0];
+  const fallback = adjacent
+    .sort((a, b) => track[outLane][b].distance - track[outLane][a].distance)[0];
+
+  return { lane: outLane, idx: ahead ?? fallback ?? idx };
+};
+
+const getEffectiveSpeedCheck = (player, space) => {
+  if (!space || space.limit === null || player.modifiers.ignoreSpeedLimits) return null;
+
+  let effectiveLimit = space.limit;
+  if (player.modifiers.driftBonus) effectiveLimit += player.modifiers.driftBonus;
+  if (player.modifiers.innerLaneSpeedCheckBonus && !space.isOuter) effectiveLimit += player.modifiers.innerLaneSpeedCheckBonus;
+  if (player.modifiers.lineLockBonus && player.modifiers.lineLockLane === player.lane) effectiveLimit += player.modifiers.lineLockBonus;
+  if (player.modifiers.speedCheckBonusOnce) effectiveLimit += player.modifiers.speedCheckBonusOnce;
+
+  const effectiveSpeed = player.modifiers.trailBraking && player.speed > effectiveLimit && player.speed - 10 >= 0
+    ? player.speed - 10
+    : player.speed;
+
+  return { effectiveLimit, effectiveSpeed };
+};
+
+const willMoveUndersteer = (player, lane, idx, track) => {
+  const space = track[lane]?.[idx];
+  const speedCheck = getEffectiveSpeedCheck({ ...player, lane }, space);
+  return Boolean(speedCheck && speedCheck.effectiveSpeed > speedCheck.effectiveLimit);
+};
+
 const canOccupy = (lane, idx, otherPlayer) => !(otherPlayer.lane === lane && otherPlayer.idx === idx);
 
 const buildCardCatalog = (rows) => {
@@ -1101,6 +1146,121 @@ const ONLINE_SESSION_INITIAL = {
   message: ''
 };
 
+const TUTORIAL_STEPS = [
+  {
+    id: 'race-start',
+    target: 'active-car',
+    title: 'Race Start',
+    body: 'This is the full race view. Your goal is simple: cross the finish before your rival. The driver currently in front is the Lead Driver, which matters because the lead usually acts first each turn. If someone overtakes, that order can change.',
+    trigger: ({ gameState, canControlActivePlayer }) => canControlActivePlayer && gameState.phase === 'PLAY_CARD' && gameState.logs?.some(log => log.includes('Race started'))
+  },
+  {
+    id: 'speedometer',
+    target: 'speedometer-active',
+    title: 'Speed, Gear, and MP',
+    body: 'The speedometer is your main status panel. Speed is how fast your car is moving, Gear is the speed band you are in, and MP means Move Points. Higher speed gives you a higher gear and more MP, but it also makes tight corners more dangerous.',
+    trigger: ({ gameState, canControlActivePlayer }) => canControlActivePlayer && gameState.phase === 'PLAY_CARD' && gameState.tutorial?.seen?.['turn-flow']
+  },
+  {
+    id: 'turn-flow',
+    target: 'prompt',
+    title: 'One Turn, Two Drivers',
+    body: 'A normal round starts with the Lead Driver, then alternates to the Following Driver. On your turn you choose a card or skip, resolve any card choices, move using MP, then clean up and draw back up to 4 cards. After both drivers act, the game checks who is leading and starts the next round.',
+    trigger: ({ gameState, canControlActivePlayer }) => canControlActivePlayer && gameState.phase === 'PLAY_CARD' && gameState.tutorial?.seen?.['race-start']
+  },
+  {
+    id: 'hand',
+    target: 'hand',
+    title: 'Driving Cards',
+    body: 'These are your driving cards: the moves your driver can commit to before the car moves. Gas cards build speed, Brake cards slow you down, Turn cards help with cornering and lane control, and Attack cards pressure the other racer.',
+    trigger: ({ activeHandVisible, activeHandCanPlay }) => activeHandVisible && activeHandCanPlay
+  },
+  {
+    id: 'card-requirements',
+    target: 'hand',
+    title: 'Card Requirements',
+    body: 'Some cards have speed requirements, such as Min 60 or Max 80. That means the card only works when your current speed is inside that range. If a card is dimmed, your car is not in the right speed window yet.',
+    trigger: ({ activeHandVisible, activeHandCanPlay, visibleHandPlayer, activePlayer, CARDS }) => activeHandVisible && activeHandCanPlay && visibleHandPlayer?.hand?.some(id => !CARDS[id]?.canPlay(activePlayer))
+  },
+  {
+    id: 'skip-turn',
+    target: 'hand',
+    title: 'Skip Turn and Dig',
+    body: 'Skip Turn means you choose not to play a driving card this turn. That is not always wasted: it opens the discard step, lets you throw away cards you do not want, and helps dig through the deck. At the end of the turn, your hand draws back up to 4 cards.',
+    trigger: ({ gameState, activePlayer, canControlActivePlayer }) => canControlActivePlayer && gameState.phase === 'PLAY_CARD' && activePlayer?.id === 0 && (gameState.playerTurnsStarted?.[0] || 0) >= 2
+  },
+  {
+    id: 'movement',
+    target: 'movement',
+    title: 'Move Points',
+    body: 'Move Points, or MP, are the number of spaces your car can spend this movement step. The highlighted spaces are legal choices right now. Moving forward advances the race, while changing lanes can set up a cleaner corner line or an overtake.',
+    trigger: ({ gameState, canControlActivePlayer, validMovesList }) => canControlActivePlayer && ['MOVE', 'NN_MOVE'].includes(gameState.phase) && validMovesList.length > 0
+  },
+  {
+    id: 'speed-limit',
+    target: 'speed-limit',
+    title: 'Corner Speed Limits',
+    body: 'A corner speed limit is the safe speed for that part of the road. Red asphalt and roadside signs mark speed checks. If your speed is above the limit when you pass one, the car understeers: it pushes wide and takes a penalty.',
+    trigger: ({ gameState, canControlActivePlayer, activePlayer, TRACK }) => {
+      if (!canControlActivePlayer || !['MOVE', 'NN_MOVE'].includes(gameState.phase)) return false;
+      const lane = TRACK[activePlayer.lane] || [];
+      return lane.slice(activePlayer.idx, activePlayer.idx + 5).some(space => space?.limit);
+    }
+  },
+  {
+    id: 'slipstream',
+    target: 'prompt',
+    title: 'Slipstream',
+    body: 'Slipstream is the draft behind another car. When you are following in the same lane, you can use that pocket of air to gain speed. It is a catch-up tool, but extra speed can also make the next corner riskier.',
+    trigger: ({ gameState, canControlActivePlayer }) => canControlActivePlayer && gameState.phase === 'SLIPSTREAM'
+  },
+  {
+    id: 'neck-and-neck',
+    target: 'prompt',
+    title: 'Neck and Neck',
+    body: 'Neck and Neck means both racers are side by side and fighting for the same stretch of road. In this state, both drivers commit cards face down, reveal together, then alternate movement one point at a time.',
+    trigger: ({ gameState, canControlActivePlayer }) => canControlActivePlayer && ['NN_SELECT_CARD', 'NN_REVEAL', 'NN_MOVE'].includes(gameState.phase)
+  },
+  {
+    id: 'nn-action-order',
+    target: 'prompt',
+    title: 'Simultaneous Reveal',
+    body: 'During the reveal, both face-down cards are shown before movement begins. The first movement step is decided by the cars before card effects fully resolve: higher speed acts first, then the inside lane wins ties, and if it is still tied the previous order is used.',
+    trigger: ({ gameState, nnRevealStage }) => gameState.phase === 'NN_REVEAL' && nnRevealStage === 'decision'
+  },
+  {
+    id: 'overtake',
+    target: 'active-car',
+    title: 'Overtakes',
+    body: 'An overtake happens when one car passes the other on the road. It is more than a flashy moment: it can change who counts as the Lead Driver, which usually changes who acts first on the next turn.',
+    trigger: ({ gameState }) => Boolean(gameState.overtakeEvent)
+  },
+  {
+    id: 'crash-understeer',
+    target: 'speed-limit',
+    title: 'Understeer and Crashes',
+    body: 'Understeer means the car is going too fast to hold the corner, so it slides wide instead of following the line. If the mistake is severe, it can become a crash or spin-off. Brake early or use cornering cards to stay in control.',
+    trigger: ({ gameState }) => Boolean(gameState.crashEvent)
+  }
+];
+
+const TutorialOverlay = ({ step, onDismiss, onSkip }) => {
+  if (!step) return null;
+  return (
+    <div className="fixed left-1/2 top-24 z-[150] w-[min(92vw,430px)] -translate-x-1/2 no-pan pointer-events-auto">
+      <div className="border-2 border-yellow-300 bg-zinc-950/95 p-5 shadow-[0_0_40px_rgba(250,204,21,0.28)] backdrop-blur-md">
+        <div className="text-[10px] font-black uppercase tracking-[0.35em] text-yellow-300">Tutorial</div>
+        <h3 className="mt-2 text-2xl font-black italic uppercase text-white">{step.title}</h3>
+        <p className="mt-3 text-sm font-bold leading-relaxed text-zinc-300">{step.body}</p>
+        <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
+          <button onClick={onSkip} className="border border-zinc-700 bg-zinc-900 px-4 py-2 text-xs font-black uppercase tracking-widest text-zinc-400 transition hover:border-white hover:text-white">Skip Tutorial</button>
+          <button onClick={onDismiss} className="bg-yellow-400 px-5 py-2 text-sm font-black uppercase tracking-wider text-black transition hover:bg-yellow-300">Got It</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const createRoomKey = () => {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   return Array.from({ length: 6 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join('');
@@ -1151,6 +1311,8 @@ function ArcadeRacingGame() {
   const [randomMapSize, setRandomMapSize] = useState('medium');
   const [selectedCars, setSelectedCars] = useState([null, null]);
   const [activeCarPlayer, setActiveCarPlayer] = useState(0);
+  const [tutorialEnabled, setTutorialEnabled] = useState(false);
+  const [activeTutorialId, setActiveTutorialId] = useState(null);
   const [onlineSession, setOnlineSession] = useState(ONLINE_SESSION_INITIAL);
   const [codexTab, setCodexTab] = useState('racing');
   const [codexHoveredId, setCodexHoveredId] = useState(null);
@@ -1338,6 +1500,7 @@ function ArcadeRacingGame() {
         setRandomMapSize(message.selection.randomMapSize);
         setSelectedCars(message.selection.selectedCars);
         setActiveCarPlayer(message.selection.activeCarPlayer);
+        if (typeof message.selection.tutorialEnabled === 'boolean') setTutorialEnabled(message.selection.tutorialEnabled);
         setTimeout(() => { applyingRemoteSelectionRef.current = false; }, 0);
       }
 
@@ -1347,6 +1510,8 @@ function ArcadeRacingGame() {
         setTrackSeed(message.trackSeed);
         setTrackCardCount(message.trackCardCount);
         setGameState(message.gameState);
+        if (typeof message.gameState.tutorial?.enabled === 'boolean') setTutorialEnabled(message.gameState.tutorial.enabled);
+        setActiveTutorialId(null);
         setAppState(message.appState || 'PLAYING');
         setTimeout(() => { applyingRemoteGameStateRef.current = false; }, 0);
       }
@@ -1388,9 +1553,9 @@ function ArcadeRacingGame() {
       type: 'selection-state',
       roomKey: onlineSession.roomKey,
       senderRole: onlineSession.role,
-      selection: { selectedCourseId, courseDirection, randomMapSize, selectedCars, activeCarPlayer }
+      selection: { selectedCourseId, courseDirection, randomMapSize, selectedCars, activeCarPlayer, tutorialEnabled }
     });
-  }, [gameMode, appState, onlineSession.roomKey, onlineSession.role, selectedCourseId, courseDirection, randomMapSize, selectedCars, activeCarPlayer]);
+  }, [gameMode, appState, onlineSession.roomKey, onlineSession.role, selectedCourseId, courseDirection, randomMapSize, selectedCars, activeCarPlayer, tutorialEnabled]);
 
   useEffect(() => {
     if (gameMode !== 'OnlinePvP' || !gameState || !['PLAYING', 'GAMEOVER'].includes(appState)) return;
@@ -1416,6 +1581,8 @@ function ArcadeRacingGame() {
     setRandomMapSize('medium');
     setSelectedCars([null, mode === 'PvE' ? 'huracan' : null]);
     setActiveCarPlayer(0);
+    setTutorialEnabled(false);
+    setActiveTutorialId(null);
     setAppState('SELECT');
   };
 
@@ -1431,6 +1598,8 @@ function ArcadeRacingGame() {
     setRandomMapSize('medium');
     setSelectedCars([null, null]);
     setActiveCarPlayer(0);
+    setTutorialEnabled(false);
+    setActiveTutorialId(null);
     setAppState('MATCHMAKING');
   };
 
@@ -1502,10 +1671,12 @@ function ArcadeRacingGame() {
     setTrackCardCount(cardCount);
     setGameState({
       raceSetup: { courseId: selectedCourse.id, direction: selectedCourse.id === 'random' ? null : courseDirection, size: selectedCourse.id === 'random' ? randomMapSize : null, cars: [...selectedCars], backgroundImage },
+      tutorial: { enabled: tutorialEnabled, seen: {} },
       players: [
         { id: 0, name: 'Player 1', carId: selectedCars[0], color: 'red', speed: 20, lane: startLane, idx: p1StartIdx, distance: nextTrack[startLane][p1StartIdx].distance, ...p1Draw, modifiers: {}, lastPlayed: null },
         { id: 1, name: gameMode === 'PvE' ? 'AI Racer' : 'Player 2', carId: selectedCars[1], color: 'blue', speed: 20, lane: startLane, idx: p2StartIdx, distance: nextTrack[startLane][p2StartIdx].distance, ...p2Draw, modifiers: {}, lastPlayed: null }
       ],
+      playerTurnsStarted: { 0: 1, 1: 0 },
       turnOrder: [0, 1],
       activePlayerIdx: 0,
       phase: 'PLAY_CARD',
@@ -1523,9 +1694,11 @@ function ArcadeRacingGame() {
       cycleContext: null,
       cycleQueue: null,
       cycleQueueIndex: 0,
+      drawAnimation: null,
       isNNRound: false
     });
     setInspectDiscardOpen(false);
+    setActiveTutorialId(null);
     setPanOffset({ x: 0, y: 0 });
     setZoom(0.65);
     setAppState('PLAYING');
@@ -1539,6 +1712,7 @@ function ArcadeRacingGame() {
     setIsRadioOpen(false);
     setNNRevealStage('faceDown');
     setTurnBanner(null);
+    setActiveTutorialId(null);
     setAppState('TITLE');
   };
 
@@ -1582,6 +1756,13 @@ function ArcadeRacingGame() {
       return () => clearTimeout(timer);
     }
   }, [gameState?.mangaCutin]);
+
+  useEffect(() => {
+    if (gameState?.drawAnimation) {
+      const timer = setTimeout(() => setGameState(prev => prev ? { ...prev, drawAnimation: null } : prev), 900);
+      return () => clearTimeout(timer);
+    }
+  }, [gameState?.drawAnimation]);
 
   useEffect(() => {
     if (gameState?.phase !== 'NN_REVEAL') {
@@ -1692,6 +1873,91 @@ function ArcadeRacingGame() {
     }
     return moves;
   };
+
+  const activeTutorialStep = TUTORIAL_STEPS.find(step => step.id === activeTutorialId) || null;
+  const activeTutorialTarget = activeTutorialStep?.target || null;
+
+  const markTutorialSeen = (id) => {
+    if (!id) return;
+    setGameState(prev => {
+      if (!prev?.tutorial) return prev;
+      return {
+        ...prev,
+        tutorial: {
+          ...prev.tutorial,
+          seen: { ...(prev.tutorial.seen || {}), [id]: true }
+        }
+      };
+    });
+  };
+
+  const dismissTutorial = () => {
+    markTutorialSeen(activeTutorialId);
+    setActiveTutorialId(null);
+  };
+
+  const skipTutorial = () => {
+    setGameState(prev => prev?.tutorial ? { ...prev, tutorial: { ...prev.tutorial, enabled: false } } : prev);
+    setActiveTutorialId(null);
+  };
+
+  useEffect(() => {
+    if (appState !== 'PLAYING' || !gameState?.tutorial?.enabled || gameState.winner || activeTutorialId) return;
+    const tutorialActivePlayerId = gameState.phase === 'NN_MOVE'
+      ? gameState.nnActionOrder?.[gameState.nnActiveTurnIdx]
+      : gameState.phase === 'NN_CARD_CYCLE'
+        ? gameState.cycleQueue?.[gameState.cycleQueueIndex]
+        : gameState.turnOrder?.[gameState.activePlayerIdx];
+    const tutorialActivePlayer = gameState.players?.[tutorialActivePlayerId];
+    if (!tutorialActivePlayer) return;
+    const tutorialIsOnlineGame = gameMode === 'OnlinePvP';
+    const tutorialLocalPlayerId = tutorialIsOnlineGame ? (onlineSession.role === 'guest' ? 1 : 0) : tutorialActivePlayerId;
+    const tutorialIsLocalPlayersTurn = !tutorialIsOnlineGame || tutorialLocalPlayerId === tutorialActivePlayerId;
+    const tutorialIsAITurn = gameMode === 'PvE' && tutorialActivePlayerId === 1;
+    const tutorialCanControlActivePlayer = !tutorialIsAITurn && tutorialIsLocalPlayersTurn;
+    const tutorialShouldShowLocalHand = !tutorialIsAITurn && (!tutorialIsOnlineGame || tutorialIsLocalPlayersTurn);
+    const tutorialActiveHandVisible = tutorialShouldShowLocalHand && ['PLAY_CARD', 'NN_SELECT_CARD', 'MOVE', 'NN_MOVE'].includes(gameState.phase);
+    const tutorialActiveHandCanPlay = tutorialIsLocalPlayersTurn && ['PLAY_CARD', 'NN_SELECT_CARD'].includes(gameState.phase);
+    const tutorialVisibleHandPlayer = tutorialIsOnlineGame ? gameState.players?.[tutorialLocalPlayerId] : tutorialActivePlayer;
+    const tutorialValidMovesList = ['MOVE', 'NN_MOVE'].includes(gameState.phase) && tutorialCanControlActivePlayer
+      && ((gameState.phase === 'MOVE' && gameState.mpLeft > 0) || (gameState.phase === 'NN_MOVE' && gameState.nnMpLeft?.[tutorialActivePlayerId] > 0))
+      ? getValidMoves(tutorialActivePlayer)
+      : [];
+
+    const context = {
+      gameState,
+      activePlayer: tutorialActivePlayer,
+      canControlActivePlayer: tutorialCanControlActivePlayer,
+      activeHandVisible: tutorialActiveHandVisible,
+      activeHandCanPlay: tutorialActiveHandCanPlay,
+      visibleHandPlayer: tutorialVisibleHandPlayer,
+      validMovesList: tutorialValidMovesList,
+      nnRevealStage,
+      CARDS,
+      TRACK
+    };
+    const nextStep = TUTORIAL_STEPS.find(step => !gameState.tutorial.seen?.[step.id] && step.trigger(context));
+    if (nextStep) setActiveTutorialId(nextStep.id);
+  }, [
+    appState,
+    gameState?.phase,
+    gameState?.activePlayerIdx,
+    gameState?.nnActiveTurnIdx,
+    gameState?.mpLeft,
+    gameState?.nnMpLeft?.[0],
+    gameState?.nnMpLeft?.[1],
+    gameState?.overtakeEvent,
+    gameState?.crashEvent,
+    gameState?.tutorial?.enabled,
+    gameState?.tutorial?.seen,
+    activeTutorialId,
+    nnRevealStage,
+    gameMode,
+    onlineSession.role,
+    activePlayerId,
+    CARDS,
+    TRACK
+  ]);
 
   useEffect(() => {
     if (appState !== 'PLAYING' || !gameState || gameState.winner) return;
@@ -2177,8 +2443,7 @@ function ArcadeRacingGame() {
           understeering = false;
         } else {
           // Push outward
-          const outLane = 1 - p.lane;
-          const outIdx = space.adj[space.adj.length - 1] || 0;
+          const { lane: outLane, idx: outIdx } = getUndersteerTarget(p.lane, p.idx, TRACK);
           p.lane = outLane;
           p.idx = outIdx;
           p.distance = TRACK[outLane][outIdx].distance;
@@ -2292,11 +2557,15 @@ function ArcadeRacingGame() {
            p.modifiers.usedCornerSpeedBonus || 0
          );
          p.modifiers = {};
+         const handCountBeforeDraw = p.hand.length;
          const drawn = drawCards(p.deck, p.discard, p.hand, 4);
          p.deck = drawn.deck; p.discard = drawn.discard; p.hand = drawn.hand;
+         p.cardsDrawnLastCleanup = Math.max(0, p.hand.length - handCountBeforeDraw);
          p.lastPlayed = null;
          newPlayers[pid] = p;
       });
+      const totalCardsDrawn = newPlayers.reduce((sum, player) => sum + (player.cardsDrawnLastCleanup || 0), 0);
+      newPlayers = newPlayers.map(({ cardsDrawnLastCleanup, ...player }) => player);
 
       const p1 = newPlayers[0], p2 = newPlayers[1];
       let newTurnOrder = prev.turnOrder;
@@ -2318,13 +2587,19 @@ function ArcadeRacingGame() {
       newLogs.unshift(`-- N&N Complete. ${newPlayers[newTurnOrder[0]].name} is Lead. --`);
 
       const isNextNN = p1.lane !== p2.lane && TRACK[p1.lane][p1.idx].adj.includes(p2.idx);
+      const nextStarted = !isNextNN ? {
+        ...(prev.playerTurnsStarted || {}),
+        [newTurnOrder[0]]: ((prev.playerTurnsStarted || {})[newTurnOrder[0]] || 0) + 1
+      } : (prev.playerTurnsStarted || {});
 
       return {
          ...prev, players: newPlayers, turnOrder: newTurnOrder,
          activePlayerIdx: 0,
+         playerTurnsStarted: nextStarted,
          phase: isNextNN ? 'NN_SELECT_CARD' : 'PLAY_CARD',
          mpLeft: 0, logs: newLogs.slice(0, 20), overtakeEvent: newOvertakeEvent, bonusTurnPlayerId: null,
          nnSelections: isNextNN ? {0:null, 1:null} : null,
+         drawAnimation: totalCardsDrawn > 0 ? { key: Date.now(), playerId: 'both', count: totalCardsDrawn } : null,
          isNNRound: isNextNN
       };
     });
@@ -2365,10 +2640,12 @@ function ArcadeRacingGame() {
         p.modifiers.usedCornerSpeedBonus || 0
       );
       p.modifiers = {};
+      const handCountBeforeDraw = p.hand.length;
       const drawn = drawCards(p.deck, p.discard, p.hand, 4);
       p.deck = drawn.deck;
       p.discard = drawn.discard;
       p.hand = drawn.hand;
+      const cardsDrawn = Math.max(0, p.hand.length - handCountBeforeDraw);
 
       newPlayers[p.id] = p;
 
@@ -2390,6 +2667,7 @@ function ArcadeRacingGame() {
           nnActionOrder: null,
           nnActiveTurnIdx: null,
           nnMpLeft: null,
+          drawAnimation: cardsDrawn > 0 ? { key: Date.now(), playerId: p.id, count: cardsDrawn } : null,
           isNNRound: true
         };
       }
@@ -2427,6 +2705,10 @@ function ArcadeRacingGame() {
       }
 
       const nextActiveId = newTurnOrder[nextIdx];
+      const nextStarted = nextPhase === 'PLAY_CARD' ? {
+        ...(prev.playerTurnsStarted || {}),
+        [nextActiveId]: ((prev.playerTurnsStarted || {})[nextActiveId] || 0) + 1
+      } : (prev.playerTurnsStarted || {});
       if (nextActiveId === p.id && newTurnOrder[0] !== prev.turnOrder[0]) {
         bonusTurnPlayerId = nextActiveId;
       }
@@ -2434,8 +2716,11 @@ function ArcadeRacingGame() {
 
       return {
         ...prev, players: newPlayers, turnOrder: newTurnOrder, activePlayerIdx: nextIdx,
+        playerTurnsStarted: nextStarted,
         phase: nextPhase, mpLeft: 0, logs: newLogs.slice(0, 20), overtakeEvent: newOvertakeEvent, bonusTurnPlayerId,
-        nnSelections: isNN ? {0:null, 1:null} : null, isNNRound: isNN
+        nnSelections: isNN ? {0:null, 1:null} : null,
+        drawAnimation: cardsDrawn > 0 ? { key: Date.now(), playerId: p.id, count: cardsDrawn } : null,
+        isNNRound: isNN
       };
     });
   };
@@ -2464,7 +2749,7 @@ function ArcadeRacingGame() {
     setZoom(z => Math.max(0.3, Math.min(2.5, z - e.deltaY * 0.001)));
   };
 
-  const Speedometer = ({ player, position, projectedSpeed, isTurn, phase, mpLeft, isLeadStatus }) => {
+  const Speedometer = ({ player, position, projectedSpeed, isTurn, phase, mpLeft, isLeadStatus, isTutorialTarget = false }) => {
     const gearInfo = getGear(player.speed);
     const speedToNeedleAngle = (speed) => {
       const points = [
@@ -2497,7 +2782,7 @@ function ArcadeRacingGame() {
     const movePointsLeft = Math.max(0, mpLeft || 0);
 
     return (
-      <div className={`fixed ${meterPositionClass} z-40 flex w-[340px] flex-col bg-zinc-950/75 backdrop-blur-md p-3 rounded-2xl border border-white/15 shadow-2xl no-pan pointer-events-none`}>
+      <div className={`fixed ${meterPositionClass} z-40 flex w-[340px] flex-col bg-zinc-950/75 backdrop-blur-md p-3 rounded-2xl border border-white/15 shadow-2xl no-pan pointer-events-none ${isTutorialTarget ? 'tutorial-highlight' : ''}`}>
 
         {/* Lead / Following Badge */}
         <div className={`absolute -top-3 right-4 px-3 py-1 rounded-full text-[12px] font-black uppercase tracking-widest shadow-lg border ${isLeadStatus ? 'bg-yellow-400 text-black border-yellow-500 whitespace-nowrap' : 'bg-zinc-800 text-zinc-400 border-zinc-600 whitespace-nowrap'}`}>
@@ -2575,11 +2860,11 @@ function ArcadeRacingGame() {
         type="button"
         onClick={onClick}
         disabled={!isDiscard || count === 0}
-        className={`relative h-36 w-28 rounded-xl border-2 p-2 text-left shadow-2xl transition no-pan ${isDiscard ? 'border-orange-500/70 bg-zinc-900 hover:border-orange-300 hover:-translate-y-1 cursor-pointer' : 'border-zinc-600 bg-zinc-950 cursor-not-allowed'}`}
+        className={`relative h-44 w-32 rounded-xl border-2 p-2 text-left shadow-2xl transition no-pan ${isDiscard ? 'border-orange-500/70 bg-zinc-900 hover:border-orange-300 hover:-translate-y-1 cursor-pointer' : 'border-zinc-600 bg-zinc-950 cursor-not-allowed'}`}
       >
         <div className="absolute -right-2 -top-2 flex h-8 min-w-8 items-center justify-center rounded-full border border-white/20 bg-black px-2 text-sm font-black text-white shadow-xl">{count}</div>
         <div className="text-[10px] font-black uppercase tracking-widest text-zinc-400">{title}</div>
-        <div className="mt-2 h-24 rounded-lg border border-white/15 overflow-hidden">
+        <div className="mt-2 h-32 rounded-lg border border-white/15 overflow-hidden">
           {isDiscard && topCard ? (
             topCard.imageSrc ? (
               <img src={topCard.imageSrc} alt="" draggable="false" className="h-full w-full object-cover" />
@@ -2598,6 +2883,30 @@ function ArcadeRacingGame() {
           )}
         </div>
       </button>
+    );
+  };
+
+  const DrawAnimation = ({ event }) => {
+    if (!event) return null;
+    const cardCount = Math.min(event.count || 1, 4);
+    return (
+      <div key={event.key} className="fixed bottom-24 right-24 z-[95] pointer-events-none no-pan">
+        {Array.from({ length: cardCount }).map((_, index) => (
+          <div
+            key={index}
+            className="absolute h-24 w-16 rounded-lg border-2 border-yellow-200 bg-zinc-950 shadow-[0_0_18px_rgba(250,204,21,0.45)]"
+            style={{
+              animation: `deck-card-draw 0.82s ${index * 0.08}s cubic-bezier(0.22, 1, 0.36, 1) forwards`,
+              transform: `translate(${index * -5}px, ${index * -4}px) rotate(${index * 5 - 8}deg)`
+            }}
+          >
+            <div className="flex h-full w-full flex-col items-center justify-center rounded-md bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.1)_0px,rgba(255,255,255,0.1)_6px,transparent_6px,transparent_12px)]">
+              <div className="h-7 w-7 rotate-45 border-4 border-yellow-200/80" />
+              <div className="mt-3 text-[8px] font-black tracking-[0.2em] text-yellow-100/70">DRAW</div>
+            </div>
+          </div>
+        ))}
+      </div>
     );
   };
 
@@ -2922,7 +3231,21 @@ function ArcadeRacingGame() {
           <header className="mx-auto flex max-w-7xl items-center justify-between border-b border-white/15 pb-3">
             <button onClick={() => setAppState('TITLE')} className="flex items-center gap-1 text-xs font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white"><ChevronLeft size={18}/> Mode Select</button>
             <div className="text-center"><div className="text-2xl sm:text-4xl font-black italic tracking-tight">RACE SETUP</div><div className="text-[10px] font-bold tracking-[0.35em] text-yellow-400">COURSE & MACHINE SELECT</div></div>
-            <div className="rounded border border-white/20 bg-black/40 px-3 py-2 text-xs font-black uppercase text-zinc-300">{gameMode === 'PvE' ? '1P vs CPU' : gameMode === 'OnlinePvP' ? 'Online 2P' : 'Local 2P'}</div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                disabled={!canEditCourse}
+                onClick={() => canEditCourse && setTutorialEnabled(enabled => !enabled)}
+                className={`flex items-center gap-3 border-2 border-yellow-300 px-4 py-2 text-xs font-black uppercase tracking-widest shadow-[0_0_18px_rgba(250,204,21,0.22)] transition ${!canEditCourse ? 'cursor-not-allowed bg-zinc-900 text-zinc-600 opacity-60' : tutorialEnabled ? 'bg-yellow-400 text-black' : 'bg-black/60 text-yellow-200 hover:bg-yellow-400 hover:text-black'}`}
+                aria-pressed={tutorialEnabled}
+              >
+                <span className={`h-4 w-8 border p-0.5 transition ${tutorialEnabled ? 'border-black/40 bg-black/20' : 'border-yellow-300/60 bg-zinc-950'}`}>
+                  <span className={`block h-full w-3 bg-current transition-transform ${tutorialEnabled ? 'translate-x-3' : 'translate-x-0'}`} />
+                </span>
+                Tutorial {tutorialEnabled ? 'On' : 'Off'}
+              </button>
+              <div className="rounded border border-white/20 bg-black/40 px-3 py-2 text-xs font-black uppercase text-zinc-300">{gameMode === 'PvE' ? '1P vs CPU' : gameMode === 'OnlinePvP' ? 'Online 2P' : 'Local 2P'}</div>
+            </div>
           </header>
 
           <main className="mx-auto grid max-w-7xl gap-4 py-4 lg:grid-rows-[minmax(270px,42vh)_minmax(300px,1fr)]">
@@ -3078,6 +3401,25 @@ function ArcadeRacingGame() {
           78% { transform: translateY(0) scale(1); opacity: 1; filter: blur(0); }
           100% { transform: translateY(-12px) scale(0.97); opacity: 0; filter: blur(3px); }
         }
+        @keyframes tutorial-glow {
+          0%, 100% { box-shadow: 0 0 0 3px rgba(250,204,21,0.95), 0 0 28px rgba(250,204,21,0.45); }
+          50% { box-shadow: 0 0 0 6px rgba(250,204,21,0.7), 0 0 44px rgba(250,204,21,0.72); }
+        }
+        @keyframes tutorial-svg-glow {
+          0%, 100% { opacity: 0.35; }
+          50% { opacity: 0.75; }
+        }
+        @keyframes deck-card-draw {
+          0% { opacity: 0; transform: translate(0, 0) scale(0.78) rotate(-10deg); }
+          18% { opacity: 1; }
+          100% { opacity: 0; transform: translate(-46vw, -20vh) scale(1.08) rotate(8deg); }
+        }
+        .tutorial-highlight {
+          animation: tutorial-glow 1.2s ease-in-out infinite;
+        }
+        .tutorial-svg-highlight {
+          animation: tutorial-svg-glow 1.2s ease-in-out infinite;
+        }
         .nn-card-stage { perspective: 1000px; transform-style: preserve-3d; }
         .nn-card-deal-left { animation: nn-card-deal-left 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
         .nn-card-deal-right { animation: nn-card-deal-right 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
@@ -3182,6 +3524,7 @@ function ArcadeRacingGame() {
                return (
                   <g key={`limit-${lane}-${i}`} transform={`translate(${s.center.x}, ${s.center.y}) rotate(${s.angle})`}>
                     <g transform={`translate(${xOffset}, 0)`}>
+                      {activeTutorialTarget === 'speed-limit' && <circle r="36" fill="none" stroke="#facc15" strokeWidth="7" className="tutorial-svg-highlight" />}
                       <rect x="-4" y="0" width="8" height="35" fill="#9ca3af" stroke="#4b5563" strokeWidth="1" filter="drop-shadow(0 4px 4px rgba(0,0,0,0.5))" />
                       <circle r="26" fill="#fff" filter="drop-shadow(0 5px 5px rgba(0,0,0,0.5))" />
                       <circle r="22" fill="none" stroke="#dc2626" strokeWidth="6" />
@@ -3213,18 +3556,38 @@ function ArcadeRacingGame() {
           )}
 
           {/* Valid Move Overlays */}
-          {validMovesList.map(m => (
-            <path
-              key={`move-${m.lane}-${m.idx}`}
-              d={TRACK[m.lane][m.idx].path}
-              fill="rgba(16, 185, 129, 0.42)"
-              stroke="rgba(110, 231, 183, 0.95)"
-              strokeWidth="8"
-              className="cursor-pointer transition-colors hover:fill-emerald-300/70"
-              style={{ animation: 'movement_breathe 1.45s ease-in-out infinite' }}
-              onClick={() => attemptMove(m.lane, m.idx)}
-            />
-          ))}
+          {validMovesList.map(m => {
+            const space = TRACK[m.lane][m.idx];
+            const isUndersteerDanger = willMoveUndersteer(activePlayer, m.lane, m.idx, TRACK);
+            const isTutorialMovement = activeTutorialTarget === 'movement';
+            const fill = isUndersteerDanger || isTutorialMovement ? 'rgba(250, 204, 21, 0.42)' : 'rgba(16, 185, 129, 0.42)';
+            const stroke = isUndersteerDanger || isTutorialMovement ? 'rgba(250, 204, 21, 0.98)' : 'rgba(110, 231, 183, 0.95)';
+            const animation = isUndersteerDanger ? 'movement_warning_breathe 1.45s ease-in-out infinite' : 'movement_breathe 1.45s ease-in-out infinite';
+
+            return (
+              <g key={`move-${m.lane}-${m.idx}`}>
+                <path
+                  d={space.path}
+                  fill={fill}
+                  stroke={stroke}
+                  strokeWidth="8"
+                  className={`cursor-pointer transition-colors ${isUndersteerDanger ? 'hover:fill-yellow-300/70' : 'hover:fill-emerald-300/70'} ${isTutorialMovement ? 'tutorial-svg-highlight' : ''}`}
+                  style={{ animation }}
+                  onClick={() => attemptMove(m.lane, m.idx)}
+                />
+                {isUndersteerDanger && (
+                  <g
+                    transform={`translate(${space.center.x}, ${space.center.y})`}
+                    style={{ pointerEvents: 'none', animation }}
+                  >
+                    <path d="M 0 -28 L 30 24 L -30 24 Z" fill="rgba(250, 204, 21, 0.95)" stroke="#111827" strokeWidth="5" />
+                    <path d="M 0 -28 L 30 24 L -30 24 Z" fill="none" stroke="rgba(255,255,255,0.8)" strokeWidth="2" />
+                    <text x="0" y="13" fill="#111827" fontSize="36" fontWeight="900" fontFamily="sans-serif" textAnchor="middle">!</text>
+                  </g>
+                )}
+              </g>
+            );
+          })}
 
           {/* Render Cars - Initial D Manga Style */}
           {gameState && gameState.players.map(p => {
@@ -3236,6 +3599,10 @@ function ArcadeRacingGame() {
 
             return (
               <g key={`car-${p.id}`} transform={`translate(${s.center.x}, ${s.center.y}) rotate(${s.angle})`} style={{ transition: 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)' }} className="pointer-events-none">
+
+                {activeTutorialTarget === 'active-car' && p.id === activePlayerId && (
+                  <ellipse cx="0" cy="0" rx="48" ry="68" fill="rgba(250,204,21,0.18)" stroke="#facc15" strokeWidth="8" className="tutorial-svg-highlight" />
+                )}
 
                 {/* Dynamic Manga Skidmarks & Flames */}
                 {isTurn && (
@@ -3348,6 +3715,7 @@ function ArcadeRacingGame() {
             isTurn={activePlayerId === 0} phase={gameState.phase}
             mpLeft={gameState.phase === 'NN_MOVE' ? gameState.nnMpLeft[0] : gameState.mpLeft}
             isLeadStatus={gameState.turnOrder[0] === 0}
+            isTutorialTarget={activeTutorialTarget === 'speedometer-active' && activePlayerId === 0}
           />
           <Speedometer
             player={gameState.players[1]} position={isOnlineGame ? (localPlayerId === 1 ? 'bottom-left' : 'top-right') : activePlayerId === 1 ? 'bottom-left' : 'top-right'}
@@ -3355,16 +3723,19 @@ function ArcadeRacingGame() {
             isTurn={activePlayerId === 1} phase={gameState.phase}
             mpLeft={gameState.phase === 'NN_MOVE' ? gameState.nnMpLeft[1] : gameState.mpLeft}
             isLeadStatus={gameState.turnOrder[0] === 1}
+            isTutorialTarget={activeTutorialTarget === 'speedometer-active' && activePlayerId === 1}
           />
         </>
       )}
 
       {gameState && (
-        <div className="fixed bottom-5 right-5 z-40 flex items-end gap-3 no-pan">
+        <div className={`fixed bottom-5 right-5 z-40 flex items-end gap-3 no-pan ${activeTutorialTarget === 'piles' ? 'tutorial-highlight' : ''}`}>
           <PileWidget type="discard" count={visiblePilePlayer.discard.length} topCard={visibleDiscardTopCard} onClick={() => visiblePilePlayer.discard.length > 0 && setInspectDiscardOpen(true)} />
           <PileWidget type="deck" count={visiblePilePlayer.deck.length} />
         </div>
       )}
+
+      <DrawAnimation event={gameState?.drawAnimation} />
 
       {inspectDiscardOpen && visiblePilePlayer && (
         <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/75 backdrop-blur-sm p-5 no-pan pointer-events-auto">
@@ -3398,6 +3769,8 @@ function ArcadeRacingGame() {
           <Crosshair size={18} /> Recenter
         </button>
       )}
+
+      <TutorialOverlay step={activeTutorialStep} onDismiss={dismissTutorial} onSkip={skipTutorial} />
 
       {/* N&N Top Info Banner */}
       {gameState?.isNNRound && (
@@ -3470,7 +3843,7 @@ function ArcadeRacingGame() {
         </div>
       )}
       {/* Prompts Overlay */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex flex-col items-center no-pan">
+      <div className={`absolute top-1/4 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex flex-col items-center no-pan ${activeTutorialTarget === 'prompt' ? 'tutorial-highlight' : ''}`}>
         {isAITurn ? (
            <div className="bg-black/80 px-6 py-3 rounded-full border border-zinc-700 flex items-center gap-3 animate-pulse shadow-2xl"><Bot className="text-blue-400" /><span className="font-bold text-lg">AI is thinking...</span></div>
         ) : showBonusTurnPrompt ? (
@@ -3518,8 +3891,9 @@ function ArcadeRacingGame() {
 
       {/* Fanned Cards UI */}
       {activeHandVisible && (
-        <div className={`absolute ${activeHandTucked ? '-bottom-28' : 'bottom-8'} left-[55%] -translate-x-1/2 flex items-end justify-center z-40 w-full no-pan transition-all duration-300`} style={{ perspective: '1200px' }}>
+        <div className={`absolute ${activeHandTucked ? '-bottom-28' : 'bottom-8'} left-[40%] -translate-x-1/2 flex items-end justify-center z-40 w-full no-pan transition-all duration-300`} style={{ perspective: '1200px' }}>
           <div className="relative flex justify-center h-64 items-end w-full max-w-[1200px]">
+             {activeTutorialTarget === 'hand' && <div className="pointer-events-none absolute bottom-[-2px] left-1/2 h-[270px] w-[min(660px,82vw)] -translate-x-1/2 rounded-xl border-2 border-yellow-300 shadow-[0_0_34px_rgba(250,204,21,0.55)] tutorial-svg-highlight" />}
              <div className={`absolute -top-12 px-6 py-2 rounded-full border text-sm font-bold shadow-2xl ${gameState.phase === 'NN_SELECT_CARD' ? 'bg-yellow-900/90 border-yellow-500 text-yellow-200 animate-pulse' : activeHandTucked ? 'bg-zinc-950/90 border-zinc-700 text-zinc-500' : 'bg-black/80 border-zinc-800 text-zinc-300'}`}>
                {gameState.phase === 'NN_SELECT_CARD' ? 'Lock in 1 Card Face Down!' : activeHandTucked ? 'Hand Locked During Movement' : 'Play 1 Driving Card'}
              </div>
@@ -3527,9 +3901,9 @@ function ArcadeRacingGame() {
                const card = CARDS[cardId];
                const playable = activeHandCanPlay && card.canPlay(activePlayer);
                const offset = idx - (visibleHandPlayer.hand.length - 1) / 2;
-               const rot = offset * 10;
+               const rot = offset * 6;
                const drop = Math.abs(offset) * 12;
-               const transX = offset * 110;
+               const transX = offset * 130;
                const isHovered = hoveredCardIdx === idx && (playable || activeHandTucked);
 
                return (
@@ -3557,7 +3931,7 @@ function ArcadeRacingGame() {
                );
              })}
           </div>
-          {activeHandCanPlay && <button onClick={skipToDiscard} className="absolute -bottom-2 right-[10%] px-6 py-3 bg-red-950/80 hover:bg-red-900 border border-red-900 rounded-lg text-sm font-bold text-red-200 transition-colors shadow-2xl">Skip Turn</button>}
+          {activeHandCanPlay && <button onClick={skipToDiscard} className="absolute -bottom-2 right-[25%] px-9 py-6 bg-red-950/80 hover:bg-red-900 border border-red-900 rounded-lg text-m font-bold text-red-200 transition-colors shadow-2xl">Skip/Refresh</button>}
         </div>
       )}
 
