@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -35,6 +35,12 @@ const Radio = (p) => <Icon {...p}><circle cx="12" cy="12" r="2"/><path d="M16.24
 const FastForward = (p) => <Icon {...p}><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></Icon>;
 const Crosshair = (p) => <Icon {...p}><circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></Icon>;
 const BookOpen = (p) => <Icon {...p}><path d="M12 7v14M3 18a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></Icon>;
+
+
+
+
+
+
 
 const MAX_SPEED = 140;
 const TERRAIN_BACKDROP_SIZE = 4500;
@@ -893,49 +899,221 @@ const RenderCardBack = ({ playerId }) => (
   </div>
 );
 
-const RoadCardPreview = ({ card }) => {
-  const segments = card?.segments || [];
-  const speedLimits = segments.filter(segment => segment.type === 'curve').map(segment => segment.speed_limit);
-  const minLimit = speedLimits.length ? Math.min(...speedLimits) : null;
-  const hasStraight = segments.some(segment => segment.type === 'straight');
+const buildRoadCardGeometry = (segments, width = 160, height = 120, padding = 14, entrySpaces = 0, exitSpaces = 0) => {
+  const laneWidth = 28;
+  const straightLength = 38;
+  let x = 0;
+  let y = 0;
+  let heading = -Math.PI / 2;
+  let lastTurn = 1;
+  const cells = [];
+  const signs = [];
+  const allPoints = [];
+
+  const addPoints = (points) => {
+    allPoints.push(...points);
+    return points;
+  };
+
+  const pointAt = (baseX, baseY, angle, forward, lateral) => ({
+    x: baseX + Math.cos(angle) * forward + Math.cos(angle + Math.PI / 2) * lateral,
+    y: baseY + Math.sin(angle) * forward + Math.sin(angle + Math.PI / 2) * lateral
+  });
+
+  const arcPoint = (centerX, centerY, radius, angle) => ({
+    x: centerX + Math.cos(angle) * radius,
+    y: centerY + Math.sin(angle) * radius
+  });
+
+  const makePath = (points) => points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ') + ' Z';
+
+  const addStraight = (spaces) => {
+    for (let i = 0; i < spaces; i++) {
+      const start = i * straightLength;
+      const end = (i + 1) * straightLength;
+      [
+        [-laneWidth, 0],
+        [0, laneWidth]
+      ].forEach(([innerOffset, outerOffset]) => {
+        const points = addPoints([
+          pointAt(x, y, heading, start, innerOffset),
+          pointAt(x, y, heading, start, outerOffset),
+          pointAt(x, y, heading, end, outerOffset),
+          pointAt(x, y, heading, end, innerOffset)
+        ]);
+        cells.push({ points, limit: null, isOuterExtra: false });
+      });
+    }
+    x += Math.cos(heading) * spaces * straightLength;
+    y += Math.sin(heading) * spaces * straightLength;
+  };
+
+  const addCurveLane = (centerX, centerY, startAngle, sweep, direction, count, innerRadius, outerRadius, limit, showExtraAsOpen, signSide = 'outer') => {
+    const steps = Math.max(3, Math.ceil(Math.abs(sweep) / (Math.PI / 18)));
+    for (let i = 0; i < count; i++) {
+      const a0 = startAngle + direction * sweep * (i / count);
+      const a1 = startAngle + direction * sweep * ((i + 1) / count);
+      const outerPoints = [];
+      const innerPoints = [];
+      for (let step = 0; step <= steps; step++) {
+        const angle = a0 + (a1 - a0) * (step / steps);
+        outerPoints.push(arcPoint(centerX, centerY, outerRadius, angle));
+        innerPoints.push(arcPoint(centerX, centerY, innerRadius, angle));
+      }
+      const points = addPoints(direction > 0
+        ? [...innerPoints, ...outerPoints.slice().reverse()]
+        : [...outerPoints, ...innerPoints.slice().reverse()]);
+      const isOuterExtra = showExtraAsOpen && i < showExtraAsOpen;
+      cells.push({ points, limit: isOuterExtra ? null : limit, isOuterExtra });
+      if (!isOuterExtra && limit) {
+        const midAngle = (a0 + a1) / 2;
+        const signOffset = signSide === 'inner' ? innerRadius - 16 : outerRadius + 14;
+        signs.push({
+          x: centerX + Math.cos(midAngle) * signOffset,
+          y: centerY + Math.sin(midAngle) * signOffset,
+          angle: midAngle * 180 / Math.PI + 90,
+          limit
+        });
+      }
+    }
+  };
+
+  addStraight(Math.max(0, Number(entrySpaces || 0)));
+
+  segments.forEach(segment => {
+    if (segment.type === 'straight') {
+      addStraight(Math.max(1, Number(segment.spaces || 1)));
+      return;
+    }
+
+    const direction = segment.direction === 'opposite' ? -lastTurn : segment.direction === 'same' ? lastTurn : lastTurn;
+    lastTurn = direction;
+    const sweep = (Number(segment.angle || 45) * Math.PI) / 180;
+    const radius = Math.max(44, Math.min(92, Number(segment.radius || 350) * 0.16));
+    const inSpaces = Math.max(1, Number(segment.in_spaces || 1));
+    const outSpaces = Math.max(1, Number(segment.out_spaces || inSpaces));
+    const limit = Number(segment.speed_limit || 0);
+    const centerX = x + Math.cos(heading + direction * Math.PI / 2) * radius;
+    const centerY = y + Math.sin(heading + direction * Math.PI / 2) * radius;
+    const startAngle = heading - direction * Math.PI / 2;
+    const extraOuterSpaces = Math.max(0, outSpaces - inSpaces);
+
+    if (direction > 0) {
+      addCurveLane(centerX, centerY, startAngle, sweep, direction, outSpaces, radius, radius + laneWidth, limit, extraOuterSpaces, 'outer');
+      addCurveLane(centerX, centerY, startAngle, sweep, direction, inSpaces, radius - laneWidth, radius, limit, 0, 'inner');
+    } else {
+      addCurveLane(centerX, centerY, startAngle, sweep, direction, inSpaces, radius - laneWidth, radius, limit, 0, 'inner');
+      addCurveLane(centerX, centerY, startAngle, sweep, direction, outSpaces, radius, radius + laneWidth, limit, extraOuterSpaces, 'outer');
+    }
+
+    const endAngle = startAngle + direction * sweep;
+    x = centerX + Math.cos(endAngle) * radius;
+    y = centerY + Math.sin(endAngle) * radius;
+    heading += direction * sweep;
+  });
+
+  addStraight(Math.max(0, Number(exitSpaces || 0)));
+
+  const bounds = [...allPoints, ...signs].reduce((acc, point) => ({
+    minX: Math.min(acc.minX, point.x),
+    maxX: Math.max(acc.maxX, point.x),
+    minY: Math.min(acc.minY, point.y),
+    maxY: Math.max(acc.maxY, point.y)
+  }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
+  const roadWidth = Math.max(1, bounds.maxX - bounds.minX);
+  const roadHeight = Math.max(1, bounds.maxY - bounds.minY);
+  const scale = Math.min((width - padding * 2) / roadWidth, (height - padding * 2) / roadHeight);
+  const offsetX = (width - roadWidth * scale) / 2 - bounds.minX * scale;
+  const offsetY = (height - roadHeight * scale) / 2 - bounds.minY * scale;
+
+  const fit = (point) => ({
+    x: point.x * scale + offsetX,
+    y: point.y * scale + offsetY
+  });
+
+  return {
+    cells: cells.map(cell => ({ ...cell, d: makePath(cell.points.map(fit)) })),
+    signs: signs.map(sign => ({ ...sign, ...fit(sign), size: Math.max(8, 13 * scale) }))
+  };
+};
+
+const RoadSegmentSvg = ({ segments, entrySpaces = 0, exitSpaces = 0, viewWidth = 160, viewHeight = 120, className = "h-32 w-full", showSigns = true }) => {
+  const geometry = buildRoadCardGeometry(segments || [], viewWidth, viewHeight, 14, entrySpaces, exitSpaces);
 
   return (
-    <div className="relative h-64 w-[11.5rem] overflow-hidden rounded-xl border-2 border-zinc-500 bg-[#10130d] p-4 shadow-2xl">
+    <svg viewBox={`0 0 ${viewWidth} ${viewHeight}`} className={className} aria-hidden="true">
+      {geometry.cells.map((cell, index) => (
+        <path
+          key={`cell-${index}`}
+          d={cell.d}
+          fill={cell.limit ? '#a80f14' : '#242426'}
+          stroke={cell.limit ? '#f59e0b' : '#a1a1aa'}
+          strokeWidth="1.6"
+          strokeDasharray={cell.limit ? undefined : '5 3'}
+          strokeLinejoin="round"
+        />
+      ))}
+      {showSigns && geometry.signs.map((sign, index) => (
+        <g key={`sign-${index}`} transform={`translate(${sign.x} ${sign.y}) rotate(${sign.angle})`}>
+          <line x1="0" y1="0" x2="0" y2={sign.size * 0.9} stroke="#a1a1aa" strokeWidth="2" />
+          <circle r={sign.size} fill="#f8fafc" stroke="#dc2626" strokeWidth="3" />
+          <text fill="#111827" fontSize={sign.size * 0.95} fontWeight="900" fontFamily="sans-serif" textAnchor="middle" dy={sign.size * 0.34}>{sign.limit}</text>
+        </g>
+      ))}
+    </svg>
+  );
+};
+
+const RoadCardPreview = ({ card }) => {
+  const segments = card?.segments || [];
+
+  return (
+    <div className="relative h-64 w-[11.5rem] overflow-hidden rounded-xl border-2 border-zinc-500 bg-[#10130d] p-2 shadow-2xl">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_16%,rgba(250,204,21,0.2),transparent_34%),linear-gradient(145deg,rgba(24,24,27,0.9),rgba(5,5,5,0.96))]" />
       <div className="absolute inset-0 opacity-30 bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.1)_0px,rgba(255,255,255,0.1)_2px,transparent_2px,transparent_18px)]" />
-      <div className="relative flex h-full flex-col">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-black uppercase tracking-[0.24em] text-yellow-400">Road Card</span>
-          <span className="rounded border border-white/20 bg-black/50 px-2 py-1 text-[10px] font-black text-zinc-300">W{card.weight}</span>
-        </div>
-        <div className="mt-5 flex flex-1 items-center justify-center">
-          <svg viewBox="0 0 160 120" className="h-32 w-full drop-shadow-[0_0_18px_rgba(250,204,21,0.18)]" aria-hidden="true">
-            <path d="M22 96 C42 72 42 48 66 42 S113 47 128 18" fill="none" stroke="#27272a" strokeWidth="28" strokeLinecap="round" />
-            <path d="M22 96 C42 72 42 48 66 42 S113 47 128 18" fill="none" stroke="#f4f4f5" strokeWidth="8" strokeLinecap="round" />
-            <path d="M22 96 C42 72 42 48 66 42 S113 47 128 18" fill="none" stroke="#facc15" strokeWidth="2" strokeLinecap="round" strokeDasharray="5 8" />
-            <circle cx="22" cy="96" r="6" fill="#22c55e" stroke="white" strokeWidth="2" />
-            <circle cx="128" cy="18" r="6" fill="#ef4444" stroke="white" strokeWidth="2" />
-          </svg>
-        </div>
-        <div className="text-2xl font-black uppercase leading-none text-white drop-shadow-[0_0_10px_rgba(250,204,21,0.22)]">{card.name}</div>
-        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-          <div className="border border-white/10 bg-black/45 p-2">
-            <div className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Entry</div>
-            <div className="text-lg font-black text-white">{card.entrySpaces}</div>
-          </div>
-          <div className="border border-white/10 bg-black/45 p-2">
-            <div className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Exit</div>
-            <div className="text-lg font-black text-white">{card.exitSpaces}</div>
-          </div>
-          <div className="border border-white/10 bg-black/45 p-2">
-            <div className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Limit</div>
-            <div className="text-lg font-black text-yellow-300">{minLimit || (hasStraight ? 'STR' : '--')}</div>
-          </div>
-        </div>
-      </div>
+      <RoadSegmentSvg segments={segments} entrySpaces={card.entrySpaces} exitSpaces={card.exitSpaces} viewWidth={184} viewHeight={256} className="relative h-full w-full drop-shadow-[0_0_18px_rgba(250,204,21,0.18)]" />
     </div>
   );
 };
+
+const ONLINE_SESSION_INITIAL = {
+  role: null,
+  roomKey: '',
+  guestInput: '',
+  guestConnected: false,
+  guestReady: false,
+  message: ''
+};
+
+const createRoomKey = () => {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({ length: 6 }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join('');
+};
+
+const PEER_SCRIPT_URL = 'https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js';
+
+const loadPeerLibrary = () => new Promise((resolve, reject) => {
+  if (typeof window === 'undefined') {
+    reject(new Error('Peer networking is only available in a browser.'));
+    return;
+  }
+  if (window.Peer) {
+    resolve(window.Peer);
+    return;
+  }
+  const existing = document.querySelector(`script[src="${PEER_SCRIPT_URL}"]`);
+  if (existing) {
+    existing.addEventListener('load', () => resolve(window.Peer), { once: true });
+    existing.addEventListener('error', () => reject(new Error('Peer networking failed to load.')), { once: true });
+    return;
+  }
+  const script = document.createElement('script');
+  script.src = PEER_SCRIPT_URL;
+  script.async = true;
+  script.onload = () => window.Peer ? resolve(window.Peer) : reject(new Error('Peer networking is unavailable.'));
+  script.onerror = () => reject(new Error('Peer networking failed to load.'));
+  document.head.appendChild(script);
+});
 
 function ArcadeRacingGame() {
   const [appState, setAppState] = useState('TITLE');
@@ -957,6 +1135,7 @@ function ArcadeRacingGame() {
   const [randomMapSize, setRandomMapSize] = useState('medium');
   const [selectedCars, setSelectedCars] = useState([null, null]);
   const [activeCarPlayer, setActiveCarPlayer] = useState(0);
+  const [onlineSession, setOnlineSession] = useState(ONLINE_SESSION_INITIAL);
   const [codexTab, setCodexTab] = useState('racing');
   const [codexHoveredId, setCodexHoveredId] = useState(null);
   const [codexLockedId, setCodexLockedId] = useState(null);
@@ -967,6 +1146,15 @@ function ArcadeRacingGame() {
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const panStart = useRef({ x: 0, y: 0 });
+  const onlineClientIdRef = useRef(`${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const onlineChannelRef = useRef(null);
+  const onlinePeerRef = useRef(null);
+  const onlinePeerConnectionRef = useRef(null);
+  const onlineMessageHandlerRef = useRef(null);
+  const onlineRoleRef = useRef(null);
+  const onlineRoomKeyRef = useRef('');
+  const applyingRemoteSelectionRef = useRef(false);
+  const applyingRemoteGameStateRef = useRef(false);
 
   const [trackSeed, setTrackSeed] = useState(() => Date.now());
   const [trackCardCount, setTrackCardCount] = useState(12);
@@ -1033,12 +1221,241 @@ function ArcadeRacingGame() {
     return () => window.removeEventListener('resize', updateSize);
   }, []);
 
+  useEffect(() => {
+    onlineRoleRef.current = onlineSession.role;
+    onlineRoomKeyRef.current = onlineSession.roomKey;
+  }, [onlineSession.role, onlineSession.roomKey]);
+
+  const postOnlineMessage = (message) => {
+    const payload = {
+      ...message,
+      roomKey: message.roomKey || onlineRoomKeyRef.current,
+      senderId: onlineClientIdRef.current,
+      messageId: `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    };
+    if (onlinePeerConnectionRef.current?.open) {
+      onlinePeerConnectionRef.current.send(payload);
+    }
+    onlineChannelRef.current?.postMessage(payload);
+    if (typeof window !== 'undefined' && window.localStorage && payload.roomKey) {
+      window.localStorage.setItem(`arcade-racing-room-${payload.roomKey}-message`, JSON.stringify(payload));
+    }
+  };
+
+  const attachPeerConnection = (connection) => {
+    onlinePeerConnectionRef.current = connection;
+    connection.on('open', () => {
+      if (onlineRoleRef.current === 'host') {
+        setOnlineSession(current => ({ ...current, guestConnected: true, message: 'Guest connected. Waiting for ready signal.' }));
+        postOnlineMessage({ type: 'host-ack', roomKey: onlineRoomKeyRef.current, senderRole: 'host' });
+      } else {
+        setOnlineSession(current => ({ ...current, guestConnected: true, message: 'Connected to host. Mark ready when you are set.' }));
+        postOnlineMessage({ type: 'guest-join', roomKey: onlineRoomKeyRef.current, senderRole: 'guest' });
+      }
+    });
+    connection.on('data', message => onlineMessageHandlerRef.current?.(message));
+    connection.on('close', () => {
+      onlinePeerConnectionRef.current = null;
+      setOnlineSession(current => ({ ...current, guestConnected: false, guestReady: false, message: 'Connection closed. Rejoin or host a new room.' }));
+    });
+    connection.on('error', () => {
+      setOnlineSession(current => ({ ...current, message: 'Peer connection error. Check the room key or retry.' }));
+    });
+  };
+
+  const startPeerNetworking = async (role, roomKey) => {
+    try {
+      const Peer = await loadPeerLibrary();
+      onlinePeerConnectionRef.current?.close?.();
+      onlinePeerRef.current?.destroy?.();
+      const peerId = role === 'host' ? `arcade-racing-${roomKey}` : undefined;
+      const peer = new Peer(peerId);
+      onlinePeerRef.current = peer;
+      peer.on('connection', attachPeerConnection);
+      peer.on('error', () => {
+        setOnlineSession(current => ({ ...current, message: 'Online broker unavailable. Same-browser fallback is still active.' }));
+      });
+      if (role === 'guest') {
+        peer.on('open', () => {
+          attachPeerConnection(peer.connect(`arcade-racing-${roomKey}`, { reliable: true }));
+        });
+      }
+    } catch {
+      setOnlineSession(current => ({ ...current, message: 'Online networking could not load. Same-browser fallback is still active.' }));
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    if (!onlineSession.role || !onlineSession.roomKey || appState === 'TITLE' || appState === 'CODEX') return undefined;
+
+    const handleOnlineMessage = (message) => {
+      if (message.senderId === onlineClientIdRef.current || message.roomKey !== onlineRoomKeyRef.current) return;
+
+      if (onlineRoleRef.current === 'host') {
+        if (message.type === 'guest-join') {
+          setOnlineSession(current => ({ ...current, guestConnected: true, message: 'Guest connected. Waiting for ready signal.' }));
+          postOnlineMessage({ type: 'host-ack', roomKey: onlineRoomKeyRef.current, senderRole: 'host' });
+        }
+        if (message.type === 'guest-ready') {
+          setOnlineSession(current => ({ ...current, guestConnected: true, guestReady: true, message: 'Guest is ready. You can start the race setup.' }));
+        }
+      }
+
+      if (onlineRoleRef.current === 'guest') {
+        if (message.type === 'host-ack') {
+          setOnlineSession(current => ({ ...current, guestConnected: true, message: 'Connected to host. Mark ready when you are set.' }));
+        }
+        if (message.type === 'start-select') {
+          setGameMode('OnlinePvP');
+          setSelectedCars([null, null]);
+          setActiveCarPlayer(0);
+          setAppState('SELECT');
+        }
+      }
+
+      if (message.type === 'selection-state' && message.selection) {
+        applyingRemoteSelectionRef.current = true;
+        setGameMode('OnlinePvP');
+        setSelectedCourseId(message.selection.selectedCourseId);
+        setCourseDirection(message.selection.courseDirection);
+        setRandomMapSize(message.selection.randomMapSize);
+        setSelectedCars(message.selection.selectedCars);
+        setActiveCarPlayer(message.selection.activeCarPlayer);
+        setTimeout(() => { applyingRemoteSelectionRef.current = false; }, 0);
+      }
+
+      if (message.type === 'game-state' && message.gameState) {
+        applyingRemoteGameStateRef.current = true;
+        setGameMode('OnlinePvP');
+        setTrackSeed(message.trackSeed);
+        setTrackCardCount(message.trackCardCount);
+        setGameState(message.gameState);
+        setAppState(message.appState || 'PLAYING');
+        setTimeout(() => { applyingRemoteGameStateRef.current = false; }, 0);
+      }
+    };
+    onlineMessageHandlerRef.current = handleOnlineMessage;
+
+    let channel = null;
+    if (window.BroadcastChannel) {
+      channel = new BroadcastChannel(`arcade-racing-room-${onlineSession.roomKey}`);
+      onlineChannelRef.current = channel;
+      channel.onmessage = (event) => handleOnlineMessage(event.data || {});
+    }
+
+    const handleStorage = (event) => {
+      if (event.key !== `arcade-racing-room-${onlineSession.roomKey}-message` || !event.newValue) return;
+      try {
+        handleOnlineMessage(JSON.parse(event.newValue));
+      } catch {
+        // Ignore malformed room traffic from another tab.
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    if (onlineSession.role === 'guest') {
+      postOnlineMessage({ type: 'guest-join', roomKey: onlineSession.roomKey, senderRole: 'guest' });
+    }
+
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      channel?.close();
+      if (onlineChannelRef.current === channel) onlineChannelRef.current = null;
+      if (onlineMessageHandlerRef.current === handleOnlineMessage) onlineMessageHandlerRef.current = null;
+    };
+  }, [appState, onlineSession.role, onlineSession.roomKey]);
+
+  useEffect(() => {
+    if (gameMode !== 'OnlinePvP' || appState !== 'SELECT' || applyingRemoteSelectionRef.current) return;
+    postOnlineMessage({
+      type: 'selection-state',
+      roomKey: onlineSession.roomKey,
+      senderRole: onlineSession.role,
+      selection: { selectedCourseId, courseDirection, randomMapSize, selectedCars, activeCarPlayer }
+    });
+  }, [gameMode, appState, onlineSession.roomKey, onlineSession.role, selectedCourseId, courseDirection, randomMapSize, selectedCars, activeCarPlayer]);
+
+  useEffect(() => {
+    if (gameMode !== 'OnlinePvP' || !gameState || !['PLAYING', 'GAMEOVER'].includes(appState)) return;
+    if (applyingRemoteGameStateRef.current) {
+      applyingRemoteGameStateRef.current = false;
+      return;
+    }
+    postOnlineMessage({
+      type: 'game-state',
+      roomKey: onlineSession.roomKey,
+      senderRole: onlineSession.role,
+      appState,
+      trackSeed,
+      trackCardCount,
+      gameState
+    });
+  }, [gameMode, appState, gameState, onlineSession.roomKey, onlineSession.role, trackSeed, trackCardCount]);
+
   const beginSetup = (mode) => {
     setGameMode(mode);
     setSelectedCourseId('akagi');
     setCourseDirection('downhill');
     setRandomMapSize('medium');
     setSelectedCars([null, mode === 'PvE' ? 'huracan' : null]);
+    setActiveCarPlayer(0);
+    setAppState('SELECT');
+  };
+
+  const openOnlineMatchmaking = () => {
+    setGameMode('OnlinePvP');
+    onlinePeerConnectionRef.current?.close?.();
+    onlinePeerRef.current?.destroy?.();
+    onlinePeerConnectionRef.current = null;
+    onlinePeerRef.current = null;
+    setOnlineSession(ONLINE_SESSION_INITIAL);
+    setSelectedCourseId('akagi');
+    setCourseDirection('downhill');
+    setRandomMapSize('medium');
+    setSelectedCars([null, null]);
+    setActiveCarPlayer(0);
+    setAppState('MATCHMAKING');
+  };
+
+  const createOnlineRoom = () => {
+    const roomKey = createRoomKey();
+    setOnlineSession({
+      ...ONLINE_SESSION_INITIAL,
+      role: 'host',
+      roomKey,
+      message: 'Share this room key with your guest.'
+    });
+    startPeerNetworking('host', roomKey);
+  };
+
+  const joinOnlineRoom = () => {
+    const roomKey = onlineSession.guestInput.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+    if (!roomKey) {
+      setOnlineSession(current => ({ ...current, message: 'Enter a room key first.' }));
+      return;
+    }
+    setOnlineSession(current => ({
+      ...current,
+      role: 'guest',
+      roomKey,
+      guestReady: false,
+      guestConnected: false,
+      message: 'Looking for host...'
+    }));
+    startPeerNetworking('guest', roomKey);
+  };
+
+  const setGuestReady = () => {
+    postOnlineMessage({ type: 'guest-ready', roomKey: onlineSession.roomKey, senderRole: 'guest' });
+    setOnlineSession(current => ({ ...current, guestReady: true, message: 'Ready sent. Waiting for the host to start.' }));
+  };
+
+  const startOnlineSelection = () => {
+    if (!onlineSession.guestConnected || !onlineSession.guestReady) return;
+    postOnlineMessage({ type: 'start-select', roomKey: onlineSession.roomKey, senderRole: 'host' });
+    setGameMode('OnlinePvP');
+    setSelectedCars([null, null]);
     setActiveCarPlayer(0);
     setAppState('SELECT');
   };
@@ -2161,14 +2578,18 @@ function ArcadeRacingGame() {
           className="mb-8 max-h-[50vh] w-[min(92vw,940px)] object-contain drop-shadow-[0_0_28px_rgba(239,68,68,0.45)]"
         />
         <p className="text-zinc-400 font-mono tracking-widest mb-12">TACTICAL DRIFT CARD BATTLES</p>
-        <div className="flex gap-6">
+        <div className="flex flex-wrap justify-center gap-4">
           <button onClick={() => beginSetup('PvE')} className="group relative px-8 py-4 bg-zinc-900 border-2 border-zinc-700 rounded-xl hover:border-red-500 hover:bg-zinc-800 transition-all shadow-xl overflow-hidden">
             <div className="absolute inset-0 bg-red-500/20 translate-y-full group-hover:translate-y-0 transition-transform"></div>
             <div className="relative flex items-center gap-3 text-xl font-bold"><Bot className="text-zinc-400 group-hover:text-red-400" /><span>VS AI Racers</span></div>
           </button>
           <button onClick={() => beginSetup('PvP')} className="group relative px-8 py-4 bg-zinc-900 border-2 border-zinc-700 rounded-xl hover:border-blue-500 hover:bg-zinc-800 transition-all shadow-xl overflow-hidden">
             <div className="absolute inset-0 bg-blue-500/20 translate-y-full group-hover:translate-y-0 transition-transform"></div>
-            <div className="relative flex items-center gap-3 text-xl font-bold"><Users className="text-zinc-400 group-hover:text-blue-400" /><span>VS Player 2</span></div>
+            <div className="relative flex items-center gap-3 text-xl font-bold"><Users className="text-zinc-400 group-hover:text-blue-400" /><span>Local 2 Player</span></div>
+          </button>
+          <button onClick={openOnlineMatchmaking} className="group relative px-8 py-4 bg-zinc-900 border-2 border-zinc-700 rounded-xl hover:border-emerald-400 hover:bg-zinc-800 transition-all shadow-xl overflow-hidden">
+            <div className="absolute inset-0 bg-emerald-400/20 translate-y-full group-hover:translate-y-0 transition-transform"></div>
+            <div className="relative flex items-center gap-3 text-xl font-bold"><Radio className="text-zinc-400 group-hover:text-emerald-300" /><span>Online 2 Player</span></div>
           </button>
         </div>
         <button onClick={openCodex} className="group relative mt-5 min-w-64 overflow-hidden rounded-xl border-2 border-zinc-700 bg-zinc-950/90 px-8 py-3 shadow-xl transition-all hover:border-yellow-400 hover:bg-zinc-900">
@@ -2185,6 +2606,97 @@ function ArcadeRacingGame() {
     );
   }
 
+  if (appState === 'MATCHMAKING') {
+    const cleanGuestInput = onlineSession.guestInput.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const canHostStart = onlineSession.role === 'host' && onlineSession.guestConnected && onlineSession.guestReady;
+
+    return (
+      <div className="h-screen w-full overflow-y-auto bg-[#060808] text-white">
+        <div className="flex min-h-screen flex-col bg-[radial-gradient(circle_at_48%_18%,rgba(16,185,129,0.2),transparent_36%),linear-gradient(125deg,rgba(127,29,29,0.18),transparent_34%,rgba(30,64,175,0.18))] px-4 py-5 sm:px-8">
+          <header className="mx-auto flex w-full max-w-6xl items-center justify-between border-b border-white/15 pb-4">
+            <button onClick={() => setAppState(gameMode === 'OnlinePvP' ? 'MATCHMAKING' : 'TITLE')} className="flex items-center gap-1 text-xs font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white"><ChevronLeft size={18}/> {gameMode === 'OnlinePvP' ? 'Matchmaking' : 'Mode Select'}</button>
+            <div className="text-center">
+              <div className="text-3xl font-black italic uppercase tracking-tight sm:text-5xl">Online 2 Player</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.35em] text-emerald-300">Room Matchmaking</div>
+            </div>
+            <div className="hidden rounded border border-emerald-400/30 bg-emerald-950/40 px-3 py-2 text-xs font-black uppercase text-emerald-200 sm:block">{onlineSession.role || 'Choose Role'}</div>
+          </header>
+
+          <main className="mx-auto grid w-full max-w-6xl flex-1 items-stretch gap-4 py-6 lg:grid-cols-2">
+            <section className={`border bg-black/68 p-5 shadow-2xl transition ${onlineSession.role === 'host' ? 'border-emerald-300 shadow-[0_0_28px_rgba(16,185,129,0.18)]' : 'border-white/15'}`}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.32em] text-emerald-300">Host</div>
+                  <h2 className="mt-2 text-3xl font-black italic uppercase">Create Room</h2>
+                </div>
+                <Radio className="text-emerald-300" size={34}/>
+              </div>
+              <p className="mt-4 text-sm font-bold leading-relaxed text-zinc-400">Generate a room key, wait for the guest to connect, then start once their ready light is on.</p>
+              <button onClick={createOnlineRoom} className="mt-6 w-full border-2 border-emerald-300 bg-emerald-400 px-5 py-3 text-base font-black uppercase text-black transition hover:bg-emerald-300">Host A Room</button>
+
+              <div className="mt-6 border border-white/10 bg-zinc-950/80 p-4">
+                <div className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">Room Key</div>
+                <div className="mt-3 flex min-h-20 items-center justify-center border border-dashed border-emerald-400/40 bg-black font-mono text-5xl font-black tracking-[0.22em] text-emerald-200">{onlineSession.role === 'host' ? onlineSession.roomKey : '------'}</div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className={`border px-4 py-3 ${onlineSession.guestConnected ? 'border-emerald-400 bg-emerald-400/10 text-emerald-200' : 'border-white/15 bg-black/45 text-zinc-500'}`}>
+                  <div className="text-[10px] font-black uppercase tracking-widest">Guest</div>
+                  <div className="mt-1 text-sm font-black uppercase">{onlineSession.guestConnected ? 'Connected' : 'Waiting'}</div>
+                </div>
+                <div className={`border px-4 py-3 ${onlineSession.guestReady ? 'border-yellow-300 bg-yellow-300/10 text-yellow-200' : 'border-white/15 bg-black/45 text-zinc-500'}`}>
+                  <div className="text-[10px] font-black uppercase tracking-widest">Ready</div>
+                  <div className="mt-1 text-sm font-black uppercase">{onlineSession.guestReady ? 'Locked In' : 'Not Yet'}</div>
+                </div>
+              </div>
+
+              <button onClick={startOnlineSelection} disabled={!canHostStart} className={`mt-6 flex w-full items-center justify-center gap-3 border-2 px-5 py-4 text-lg font-black italic uppercase transition ${canHostStart ? 'border-yellow-300 bg-yellow-400 text-black hover:bg-yellow-300' : 'cursor-not-allowed border-white/10 bg-zinc-900 text-zinc-600'}`}>Start Setup <Play size={20}/></button>
+            </section>
+
+            <section className={`border bg-black/68 p-5 shadow-2xl transition ${onlineSession.role === 'guest' ? 'border-blue-300 shadow-[0_0_28px_rgba(59,130,246,0.18)]' : 'border-white/15'}`}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.32em] text-blue-300">Guest</div>
+                  <h2 className="mt-2 text-3xl font-black italic uppercase">Join Room</h2>
+                </div>
+                <Users className="text-blue-300" size={34}/>
+              </div>
+              <p className="mt-4 text-sm font-bold leading-relaxed text-zinc-400">Enter the host room key. Once connected, mark ready and wait for the host to launch setup.</p>
+              <div className="mt-6">
+                <label className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">Room Key</label>
+                <input
+                  value={onlineSession.guestInput}
+                  onChange={event => setOnlineSession(current => ({ ...current, guestInput: event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) }))}
+                  className="mt-3 w-full border-2 border-white/15 bg-zinc-950 px-4 py-4 text-center font-mono text-3xl font-black uppercase tracking-[0.18em] text-white outline-none transition focus:border-blue-300"
+                  placeholder="ABC123"
+                  maxLength={8}
+                />
+              </div>
+              <button onClick={joinOnlineRoom} disabled={!cleanGuestInput} className={`mt-4 w-full border-2 px-5 py-3 text-base font-black uppercase transition ${cleanGuestInput ? 'border-blue-300 bg-blue-400 text-black hover:bg-blue-300' : 'cursor-not-allowed border-white/10 bg-zinc-900 text-zinc-600'}`}>Join As Guest</button>
+
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <div className={`border px-4 py-3 ${onlineSession.role === 'guest' && onlineSession.guestConnected ? 'border-blue-300 bg-blue-400/10 text-blue-100' : 'border-white/15 bg-black/45 text-zinc-500'}`}>
+                  <div className="text-[10px] font-black uppercase tracking-widest">Host</div>
+                  <div className="mt-1 text-sm font-black uppercase">{onlineSession.role === 'guest' && onlineSession.guestConnected ? 'Found' : 'Searching'}</div>
+                </div>
+                <div className={`border px-4 py-3 ${onlineSession.role === 'guest' && onlineSession.guestReady ? 'border-yellow-300 bg-yellow-300/10 text-yellow-200' : 'border-white/15 bg-black/45 text-zinc-500'}`}>
+                  <div className="text-[10px] font-black uppercase tracking-widest">Ready</div>
+                  <div className="mt-1 text-sm font-black uppercase">{onlineSession.role === 'guest' && onlineSession.guestReady ? 'Sent' : 'Open'}</div>
+                </div>
+              </div>
+
+              <button onClick={setGuestReady} disabled={onlineSession.role !== 'guest' || !onlineSession.guestConnected || onlineSession.guestReady} className={`mt-6 w-full border-2 px-5 py-4 text-lg font-black italic uppercase transition ${onlineSession.role === 'guest' && onlineSession.guestConnected && !onlineSession.guestReady ? 'border-yellow-300 bg-yellow-400 text-black hover:bg-yellow-300' : 'cursor-not-allowed border-white/10 bg-zinc-900 text-zinc-600'}`}>Ready</button>
+            </section>
+          </main>
+
+          <div className="mx-auto mb-4 w-full max-w-6xl border border-white/15 bg-black/70 px-4 py-3 text-center text-xs font-black uppercase tracking-[0.18em] text-zinc-300">
+            {onlineSession.message || 'Choose host or guest to begin matchmaking.'}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (appState === 'CODEX') {
     const activeList = codexTab === 'racing' ? racingCodexCards : ROAD_CARDS;
     const activeItem = activeList.find(item => item.id === (codexLockedId || codexHoveredId)) || activeList[0];
@@ -2196,8 +2708,6 @@ function ArcadeRacingGame() {
     const renderCodexGridCard = (card) => {
       const isActive = selectedId === card.id;
       const typeTone = card.type === 'Gas' ? 'border-yellow-400/70' : card.type === 'Brake' ? 'border-red-400/70' : card.type === 'Attack' ? 'border-orange-400/70' : 'border-blue-400/70';
-      const speedLimits = card.segments?.filter(segment => segment.type === 'curve').map(segment => segment.speed_limit) || [];
-      const minLimit = speedLimits.length ? Math.min(...speedLimits) : null;
 
       return (
         <button
@@ -2212,19 +2722,7 @@ function ArcadeRacingGame() {
           ) : (
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_14%,rgba(250,204,21,0.22),transparent_34%),linear-gradient(145deg,rgba(39,39,42,0.95),rgba(5,5,5,1))]">
               <div className="absolute inset-0 opacity-30 bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.12)_0px,rgba(255,255,255,0.12)_1px,transparent_1px,transparent_10px)]" />
-              <svg viewBox="0 0 120 92" className="absolute left-2 right-2 top-7 h-[46%] w-[calc(100%-1rem)]" aria-hidden="true">
-                <path d="M16 76 C31 56 30 39 49 34 S85 36 99 13" fill="none" stroke="#27272a" strokeWidth="20" strokeLinecap="round" />
-                <path d="M16 76 C31 56 30 39 49 34 S85 36 99 13" fill="none" stroke="#e4e4e7" strokeWidth="6" strokeLinecap="round" />
-                <path d="M16 76 C31 56 30 39 49 34 S85 36 99 13" fill="none" stroke="#facc15" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="4 6" />
-              </svg>
-              <div className="absolute left-2 right-2 top-2 flex justify-between text-[8px] font-black uppercase tracking-widest text-yellow-300">
-                <span>Road</span>
-                <span>{minLimit ? `${minLimit}` : 'STR'}</span>
-              </div>
-              <div className="absolute inset-x-2 bottom-2 text-left">
-                <div className="text-[10px] font-black uppercase leading-tight text-white">{card.name}</div>
-                <div className="mt-1 text-[8px] font-black uppercase tracking-widest text-zinc-400">E{card.entrySpaces} / X{card.exitSpaces}</div>
-              </div>
+              <RoadSegmentSvg segments={card.segments} entrySpaces={card.entrySpaces} exitSpaces={card.exitSpaces} viewWidth={120} viewHeight={168} showSigns={false} className="absolute inset-1 h-[calc(100%-0.5rem)] w-[calc(100%-0.5rem)]" />
             </div>
           )}
           {codexTab === 'racing' && !card.imageSrc && (
@@ -2348,10 +2846,13 @@ function ArcadeRacingGame() {
 
   if (appState === 'SELECT') {
     const selectedCourse = COURSE_OPTIONS.find(course => course.id === selectedCourseId) || COURSE_OPTIONS[0];
-    const activePicker = gameMode === 'PvE' ? 0 : activeCarPlayer;
+    const onlineRole = gameMode === 'OnlinePvP' ? onlineSession.role : null;
+    const activePicker = gameMode === 'PvE' ? 0 : onlineRole === 'guest' ? 1 : onlineRole === 'host' ? 0 : activeCarPlayer;
+    const canEditCourse = gameMode !== 'OnlinePvP' || onlineRole === 'host';
+    const canStartRaceSetup = selectedCars.every(Boolean) && (gameMode !== 'OnlinePvP' || onlineRole === 'host');
     const chooseCar = (carId) => {
       setSelectedCars(current => current.map((car, index) => index === activePicker ? carId : car));
-      if (gameMode === 'PvP' && activePicker === 0 && selectedCars[1] === null) setActiveCarPlayer(1);
+      if (gameMode !== 'PvE' && activePicker === 0 && selectedCars[1] === null) setActiveCarPlayer(1);
     };
     const selectedCarData = selectedCars.map(carId => CAR_OPTIONS.find(car => car.id === carId));
     const CarPortrait = ({ car, player }) => (
@@ -2370,7 +2871,7 @@ function ArcadeRacingGame() {
             <div className={`absolute inset-x-0 bottom-0 h-14 ${player === 0 ? 'bg-gradient-to-t from-red-950/80' : 'bg-gradient-to-t from-blue-950/80'} to-transparent`} />
           </>
         ) : <div className="absolute inset-0 flex items-center justify-center text-6xl font-black italic text-white/10">SELECT</div>}
-        <div className={`absolute top-3 ${player === 0 ? 'left-4' : 'right-4'} text-2xl font-black italic`}>{player === 0 ? '1P' : gameMode === 'PvE' ? 'CPU' : '2P'}</div>
+        <div className={`absolute top-3 ${player === 0 ? 'left-4' : 'right-4'} text-2xl font-black italic`}>{player === 0 ? '1P' : gameMode === 'PvE' ? 'CPU' : gameMode === 'OnlinePvP' ? '2P NET' : '2P'}</div>
       </div>
     );
 
@@ -2380,7 +2881,7 @@ function ArcadeRacingGame() {
           <header className="mx-auto flex max-w-7xl items-center justify-between border-b border-white/15 pb-3">
             <button onClick={() => setAppState('TITLE')} className="flex items-center gap-1 text-xs font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white"><ChevronLeft size={18}/> Mode Select</button>
             <div className="text-center"><div className="text-2xl sm:text-4xl font-black italic tracking-tight">RACE SETUP</div><div className="text-[10px] font-bold tracking-[0.35em] text-yellow-400">COURSE & MACHINE SELECT</div></div>
-            <div className="rounded border border-white/20 bg-black/40 px-3 py-2 text-xs font-black uppercase text-zinc-300">{gameMode === 'PvE' ? '1P vs CPU' : '1P vs 2P'}</div>
+            <div className="rounded border border-white/20 bg-black/40 px-3 py-2 text-xs font-black uppercase text-zinc-300">{gameMode === 'PvE' ? '1P vs CPU' : gameMode === 'OnlinePvP' ? 'Online 2P' : 'Local 2P'}</div>
           </header>
 
           <main className="mx-auto grid max-w-7xl gap-4 py-4 lg:grid-rows-[minmax(270px,42vh)_minmax(300px,1fr)]">
@@ -2393,11 +2894,11 @@ function ArcadeRacingGame() {
                   <circle cx="14" cy={selectedCourse.id === 'haruna' ? '28' : selectedCourse.id === 'hakone' ? '78' : '70'} r="3" fill="#22c55e" stroke="white" strokeWidth="1" />
                 </svg>
                 <div className="absolute bottom-4 right-4 flex gap-2">
-                  {selectedCourse.id === 'random' ? Object.keys(RANDOM_SIZE_CARDS).map(size => <button key={size} onClick={() => setRandomMapSize(size)} className={`px-3 py-2 text-xs font-black uppercase ${randomMapSize === size ? 'bg-yellow-400 text-black' : 'border border-white/20 bg-black/70 text-zinc-300 hover:border-yellow-400'}`}>{size}<span className="ml-1 text-[9px] opacity-60">{RANDOM_SIZE_CARDS[size]} cards</span></button>) : ['downhill', 'uphill'].map(direction => <button key={direction} onClick={() => setCourseDirection(direction)} className={`px-4 py-2 text-xs font-black uppercase ${courseDirection === direction ? 'bg-yellow-400 text-black' : 'border border-white/20 bg-black/70 text-zinc-300 hover:border-yellow-400'}`}>{direction === 'downhill' ? 'DOWN' : 'UP'} {direction}</button>)}
+                  {selectedCourse.id === 'random' ? Object.keys(RANDOM_SIZE_CARDS).map(size => <button key={size} disabled={!canEditCourse} onClick={() => canEditCourse && setRandomMapSize(size)} className={`px-3 py-2 text-xs font-black uppercase ${!canEditCourse ? 'cursor-not-allowed opacity-50' : ''} ${randomMapSize === size ? 'bg-yellow-400 text-black' : 'border border-white/20 bg-black/70 text-zinc-300 hover:border-yellow-400'}`}>{size}<span className="ml-1 text-[9px] opacity-60">{RANDOM_SIZE_CARDS[size]} cards</span></button>) : ['downhill', 'uphill'].map(direction => <button key={direction} disabled={!canEditCourse} onClick={() => canEditCourse && setCourseDirection(direction)} className={`px-4 py-2 text-xs font-black uppercase ${!canEditCourse ? 'cursor-not-allowed opacity-50' : ''} ${courseDirection === direction ? 'bg-yellow-400 text-black' : 'border border-white/20 bg-black/70 text-zinc-300 hover:border-yellow-400'}`}>{direction === 'downhill' ? 'DOWN' : 'UP'} {direction}</button>)}
                 </div>
               </div>
               <div className="grid grid-cols-4 gap-2 p-3 lg:grid-cols-2">
-                {COURSE_OPTIONS.map((course, index) => <button key={course.id} onClick={() => setSelectedCourseId(course.id)} className={`group relative min-h-24 overflow-hidden border p-3 text-left transition ${selectedCourseId === course.id ? 'border-yellow-400 bg-yellow-400/15' : 'border-white/15 bg-zinc-950/80 hover:border-white/50'}`}>
+                {COURSE_OPTIONS.map((course, index) => <button key={course.id} disabled={!canEditCourse} onClick={() => canEditCourse && setSelectedCourseId(course.id)} className={`group relative min-h-24 overflow-hidden border p-3 text-left transition ${!canEditCourse ? 'cursor-not-allowed opacity-60' : ''} ${selectedCourseId === course.id ? 'border-yellow-400 bg-yellow-400/15' : 'border-white/15 bg-zinc-950/80 hover:border-white/50'}`}>
                   <span className="text-[10px] font-black text-zinc-500">0{index + 1}</span><div className="mt-2 text-xs sm:text-base font-black uppercase leading-tight">{course.name}</div><div className="mt-1 hidden text-[10px] uppercase tracking-widest text-zinc-500 sm:block">{course.difficulty} / {course.id === 'random' ? `${RANDOM_SIZE_CARDS[randomMapSize]} cards` : `${course.length} / ${course.cardCount} cards`}</div>
                   {selectedCourseId === course.id && <span className="absolute right-2 top-2 h-2 w-2 bg-yellow-400 shadow-[0_0_10px_#facc15]"/>}
                 </button>)}
@@ -2408,12 +2909,13 @@ function ArcadeRacingGame() {
               {[0, 1].map(player => {
                 const car = selectedCarData[player];
                 const waiting = activePicker === player;
-                return <button type="button" key={player} onClick={() => !(player === 1 && gameMode === 'PvE') && setActiveCarPlayer(player)} className={`overflow-hidden border bg-black/65 text-left ${player === 1 ? 'lg:col-start-3' : ''} ${player === 1 && gameMode === 'PvE' ? 'cursor-default' : 'cursor-pointer hover:border-white/50'} ${waiting ? player === 0 ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.25)]' : 'border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.25)]' : 'border-white/15'}`}>
+                const lockedByOnlineRole = gameMode === 'OnlinePvP' && ((onlineRole === 'host' && player === 1) || (onlineRole === 'guest' && player === 0));
+                return <button type="button" key={player} onClick={() => !(player === 1 && gameMode === 'PvE') && !lockedByOnlineRole && setActiveCarPlayer(player)} className={`overflow-hidden border bg-black/65 text-left ${player === 1 ? 'lg:col-start-3' : ''} ${player === 1 && gameMode === 'PvE' || lockedByOnlineRole ? 'cursor-default' : 'cursor-pointer hover:border-white/50'} ${waiting ? player === 0 ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.25)]' : 'border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.25)]' : 'border-white/15'}`}>
                   <CarPortrait car={car} player={player}/>
                   <div className={`p-4 ${player === 1 ? 'text-right' : ''}`}>
                     <div className="flex items-center justify-between gap-3"><h3 className="text-xl font-black uppercase">{car?.name || (waiting ? 'Choose Machine' : 'Waiting...')}</h3>{car && <span className="border border-yellow-500/50 bg-yellow-500/10 px-2 py-1 text-xs font-black text-yellow-300">{car.drive}</span>}</div>
-                    <p className="mt-2 min-h-10 text-xs leading-relaxed text-zinc-400">{car?.specialty || (player === 1 && gameMode === 'PvE' ? 'CPU machine locked.' : 'Select from machine grid.')}</p>
-                    {car && !(player === 1 && gameMode === 'PvE') && <div className="mt-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">Press panel, then press any machine</div>}
+                    <p className="mt-2 min-h-10 text-xs leading-relaxed text-zinc-400">{car?.specialty || (player === 1 && gameMode === 'PvE' ? 'CPU machine locked.' : lockedByOnlineRole ? 'Remote player machine slot.' : 'Select from machine grid.')}</p>
+                    {car && !(player === 1 && gameMode === 'PvE') && !lockedByOnlineRole && <div className="mt-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">Press panel, then press any machine</div>}
                   </div>
                 </button>;
               })}
@@ -2426,11 +2928,11 @@ function ArcadeRacingGame() {
                     <img src={car.cutout} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-[1.34] object-contain object-center opacity-60 saturate-125 drop-shadow-[0_12px_12px_rgba(0,0,0,0.65)] transition duration-300 group-hover:scale-[1.46] group-hover:opacity-90" />
                     <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-black/10" />
                     <div className="absolute -right-3 -top-4 text-7xl font-black italic text-white/[0.07]">0{index + 1}</div><div className="relative text-[10px] font-black uppercase tracking-widest text-zinc-400">{car.drive} / Machine 0{index + 1}</div><div className="relative mt-4 text-lg font-black uppercase leading-tight drop-shadow-[0_2px_0_rgba(0,0,0,0.8)]">{car.name}</div>
-                    <div className="absolute bottom-2 left-2 flex gap-1">{pickedBy.map(player => <span key={player} className={`px-2 py-1 text-[10px] font-black text-white ${player === 0 ? 'bg-red-600' : 'bg-blue-600'}`}>{player === 0 ? '1P' : gameMode === 'PvE' ? 'CPU' : '2P'}</span>)}</div>
+                    <div className="absolute bottom-2 left-2 flex gap-1">{pickedBy.map(player => <span key={player} className={`px-2 py-1 text-[10px] font-black text-white ${player === 0 ? 'bg-red-600' : 'bg-blue-600'}`}>{player === 0 ? '1P' : gameMode === 'PvE' ? 'CPU' : gameMode === 'OnlinePvP' ? '2P NET' : '2P'}</span>)}</div>
                   </button>;
                 })}
                 <div className="col-span-2 flex min-h-14 items-center justify-center">
-                  {selectedCars.every(Boolean) ? <button onClick={initGame} className="group flex items-center gap-3 border-2 border-yellow-300 bg-yellow-400 px-8 py-3 text-lg font-black italic uppercase text-black shadow-[0_0_26px_rgba(250,204,21,0.4)] transition hover:scale-105 hover:bg-yellow-300">Start Your Engines <Play size={20}/></button> : <div className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">{activePicker === 0 ? 'Player 1: choose machine' : 'Player 2: choose machine'}</div>}
+                  {canStartRaceSetup ? <button onClick={initGame} className="group flex items-center gap-3 border-2 border-yellow-300 bg-yellow-400 px-8 py-3 text-lg font-black italic uppercase text-black shadow-[0_0_26px_rgba(250,204,21,0.4)] transition hover:scale-105 hover:bg-yellow-300">Start Your Engines <Play size={20}/></button> : <div className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">{gameMode === 'OnlinePvP' && onlineRole === 'guest' ? 'Waiting for host to start' : activePicker === 0 ? 'Player 1: choose machine' : 'Player 2: choose machine'}</div>}
                 </div>
               </div>
             </section>
@@ -3089,3 +3591,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(<ArcadeRacingGame />
   </script>
 </body>
 </html>
+
+
+
+
+
+
