@@ -34,9 +34,24 @@ const ChevronLeft = (p) => <Icon {...p}><path d="m15 18-6-6 6-6"/></Icon>;
 const Radio = (p) => <Icon {...p}><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 16.24a6 6 0 0 1 0-8.49M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"/></Icon>;
 const FastForward = (p) => <Icon {...p}><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></Icon>;
 const Crosshair = (p) => <Icon {...p}><circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></Icon>;
+const BookOpen = (p) => <Icon {...p}><path d="M12 7v14M3 18a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></Icon>;
 
 const MAX_SPEED = 140;
 const TERRAIN_BACKDROP_SIZE = 4500;
+const TERRAIN_BACKDROP_PADDING = TERRAIN_BACKDROP_SIZE / 2;
+const BACKGROUND_ASSET_DIR = 'Assets/Backgrounds';
+const COURSE_BACKGROUNDS = {
+  akagi: `${BACKGROUND_ASSET_DIR}/touge_topdown_forest_02.png`,
+  haruna: `${BACKGROUND_ASSET_DIR}/snow_field_topdown_06.png`,
+  hakone: `${BACKGROUND_ASSET_DIR}/touge_topdown_night_forest_03.png`
+};
+const WILDCARD_BACKGROUNDS = [
+  `${BACKGROUND_ASSET_DIR}/snow_field_topdown_06.png`,
+  `${BACKGROUND_ASSET_DIR}/tokyo_night_buildings_05.png`,
+  `${BACKGROUND_ASSET_DIR}/touge_topdown_forest_02.png`,
+  `${BACKGROUND_ASSET_DIR}/touge_topdown_night_forest_03.png`,
+  `${BACKGROUND_ASSET_DIR}/touge_topdown_terrain_01.png`
+];
 const SPEED_METER_CARD_IMAGE = 'Assets/Speed Meter/speed_meter_circular_generated_v5_transparent.png';
 const GEAR_ACCENT_COLORS = {
   1: '#ff4c4c',
@@ -65,6 +80,13 @@ const getCardImageSrc = (row) => {
   const typeSlug = slugifyCardImageName(row.type);
   if (!folder || !serialNumber || !cardSlug || !typeSlug) return '';
   return `Assets/Card images/Implemented/${folder}/${serialNumber}_${cardSlug}_${typeSlug}.png`;
+};
+
+const getCourseBackground = (courseId) => {
+  if (courseId === 'random') {
+    return WILDCARD_BACKGROUNDS[Math.floor(Math.random() * WILDCARD_BACKGROUNDS.length)];
+  }
+  return COURSE_BACKGROUNDS[courseId] || COURSE_BACKGROUNDS.akagi;
 };
 
 const getGear = (speed) => {
@@ -871,6 +893,50 @@ const RenderCardBack = ({ playerId }) => (
   </div>
 );
 
+const RoadCardPreview = ({ card }) => {
+  const segments = card?.segments || [];
+  const speedLimits = segments.filter(segment => segment.type === 'curve').map(segment => segment.speed_limit);
+  const minLimit = speedLimits.length ? Math.min(...speedLimits) : null;
+  const hasStraight = segments.some(segment => segment.type === 'straight');
+
+  return (
+    <div className="relative h-64 w-[11.5rem] overflow-hidden rounded-xl border-2 border-zinc-500 bg-[#10130d] p-4 shadow-2xl">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_16%,rgba(250,204,21,0.2),transparent_34%),linear-gradient(145deg,rgba(24,24,27,0.9),rgba(5,5,5,0.96))]" />
+      <div className="absolute inset-0 opacity-30 bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.1)_0px,rgba(255,255,255,0.1)_2px,transparent_2px,transparent_18px)]" />
+      <div className="relative flex h-full flex-col">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-black uppercase tracking-[0.24em] text-yellow-400">Road Card</span>
+          <span className="rounded border border-white/20 bg-black/50 px-2 py-1 text-[10px] font-black text-zinc-300">W{card.weight}</span>
+        </div>
+        <div className="mt-5 flex flex-1 items-center justify-center">
+          <svg viewBox="0 0 160 120" className="h-32 w-full drop-shadow-[0_0_18px_rgba(250,204,21,0.18)]" aria-hidden="true">
+            <path d="M22 96 C42 72 42 48 66 42 S113 47 128 18" fill="none" stroke="#27272a" strokeWidth="28" strokeLinecap="round" />
+            <path d="M22 96 C42 72 42 48 66 42 S113 47 128 18" fill="none" stroke="#f4f4f5" strokeWidth="8" strokeLinecap="round" />
+            <path d="M22 96 C42 72 42 48 66 42 S113 47 128 18" fill="none" stroke="#facc15" strokeWidth="2" strokeLinecap="round" strokeDasharray="5 8" />
+            <circle cx="22" cy="96" r="6" fill="#22c55e" stroke="white" strokeWidth="2" />
+            <circle cx="128" cy="18" r="6" fill="#ef4444" stroke="white" strokeWidth="2" />
+          </svg>
+        </div>
+        <div className="text-2xl font-black uppercase leading-none text-white drop-shadow-[0_0_10px_rgba(250,204,21,0.22)]">{card.name}</div>
+        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+          <div className="border border-white/10 bg-black/45 p-2">
+            <div className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Entry</div>
+            <div className="text-lg font-black text-white">{card.entrySpaces}</div>
+          </div>
+          <div className="border border-white/10 bg-black/45 p-2">
+            <div className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Exit</div>
+            <div className="text-lg font-black text-white">{card.exitSpaces}</div>
+          </div>
+          <div className="border border-white/10 bg-black/45 p-2">
+            <div className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Limit</div>
+            <div className="text-lg font-black text-yellow-300">{minLimit || (hasStraight ? 'STR' : '--')}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 function ArcadeRacingGame() {
   const [appState, setAppState] = useState('TITLE');
   const [gameMode, setGameMode] = useState('PvE');
@@ -881,6 +947,7 @@ function ArcadeRacingGame() {
   const [discardSelection, setDiscardSelection] = useState([]);
   const [inspectDiscardOpen, setInspectDiscardOpen] = useState(false);
   const [nnRevealStage, setNNRevealStage] = useState('faceDown');
+  const [turnBanner, setTurnBanner] = useState(null);
   const [cardRows, setCardRows] = useState(DEFAULT_CARD_ROWS);
   const [cardDataSource, setCardDataSource] = useState('loading');
   const [cornerCardRows, setCornerCardRows] = useState(DEFAULT_CORNER_CARD_ROWS);
@@ -890,6 +957,9 @@ function ArcadeRacingGame() {
   const [randomMapSize, setRandomMapSize] = useState('medium');
   const [selectedCars, setSelectedCars] = useState([null, null]);
   const [activeCarPlayer, setActiveCarPlayer] = useState(0);
+  const [codexTab, setCodexTab] = useState('racing');
+  const [codexHoveredId, setCodexHoveredId] = useState(null);
+  const [codexLockedId, setCodexLockedId] = useState(null);
 
   // Panning & Zoom State
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
@@ -903,6 +973,8 @@ function ArcadeRacingGame() {
   const TRACK = useMemo(() => generateTrack(trackSeed, cornerCardRows, 0, trackCardCount), [trackSeed, cornerCardRows, trackCardCount]);
   const trackBounds = useMemo(() => getTrackBounds(TRACK), [TRACK]);
   const CARDS = useMemo(() => buildCardCatalog(cardRows), [cardRows]);
+  const ROAD_CARDS = useMemo(() => parseCornerCardRows(cornerCardRows), [cornerCardRows]);
+  const racingCodexCards = useMemo(() => IMPLEMENTED_CARD_IDS.map(id => CARDS[id]).filter(Boolean), [CARDS]);
 
   useEffect(() => {
     let cancelled = false;
@@ -971,6 +1043,13 @@ function ArcadeRacingGame() {
     setAppState('SELECT');
   };
 
+  const openCodex = () => {
+    setCodexTab('racing');
+    setCodexHoveredId(null);
+    setCodexLockedId(null);
+    setAppState('CODEX');
+  };
+
   const initGame = () => {
     const selectedCourse = COURSE_OPTIONS.find(course => course.id === selectedCourseId) || COURSE_OPTIONS[0];
     const cardCount = selectedCourse.id === 'random' ? RANDOM_SIZE_CARDS[randomMapSize] : selectedCourse.cardCount;
@@ -978,6 +1057,7 @@ function ArcadeRacingGame() {
     const nextSeed = selectedCourse.seed === null
       ? Date.now() + Math.floor(Math.random() * 100000)
       : selectedCourse.seed + directionOffset;
+    const backgroundImage = getCourseBackground(selectedCourse.id);
     const nextTrack = generateTrack(nextSeed, cornerCardRows, 0, cardCount);
     const p1Draw = drawCards(shuffle(getDeckIdsForCar(selectedCars[0], cardRows)), [], [], 4);
     const p2Draw = drawCards(shuffle(getDeckIdsForCar(selectedCars[1], cardRows)), [], [], 4);
@@ -985,7 +1065,7 @@ function ArcadeRacingGame() {
     setTrackSeed(nextSeed);
     setTrackCardCount(cardCount);
     setGameState({
-      raceSetup: { courseId: selectedCourse.id, direction: selectedCourse.id === 'random' ? null : courseDirection, size: selectedCourse.id === 'random' ? randomMapSize : null, cars: [...selectedCars] },
+      raceSetup: { courseId: selectedCourse.id, direction: selectedCourse.id === 'random' ? null : courseDirection, size: selectedCourse.id === 'random' ? randomMapSize : null, cars: [...selectedCars], backgroundImage },
       players: [
         { id: 0, name: 'Player 1', carId: selectedCars[0], color: 'red', speed: 20, lane: 0, idx: 0, distance: nextTrack[0][0].distance, ...p1Draw, modifiers: {}, lastPlayed: null },
         { id: 1, name: gameMode === 'PvE' ? 'AI Racer' : 'Player 2', carId: selectedCars[1], color: 'blue', speed: 20, lane: 1, idx: 0, distance: nextTrack[1][0].distance, ...p2Draw, modifiers: {}, lastPlayed: null }
@@ -1012,6 +1092,17 @@ function ArcadeRacingGame() {
     setPanOffset({ x: 0, y: 0 });
     setZoom(0.65);
     setAppState('PLAYING');
+  };
+
+  const quitToMainMenu = () => {
+    setGameState(null);
+    setDiscardSelection([]);
+    setHoveredCardIdx(null);
+    setInspectDiscardOpen(false);
+    setIsRadioOpen(false);
+    setNNRevealStage('faceDown');
+    setTurnBanner(null);
+    setAppState('TITLE');
   };
 
   const addLog = (msg) => {
@@ -1127,6 +1218,25 @@ function ArcadeRacingGame() {
   const activePlayer = gameState?.players[activePlayerId];
   const otherPlayer = gameState?.players[1 - activePlayerId];
   const isLead = gameState?.activePlayerIdx === 0 && !gameState?.isNNRound;
+
+  useEffect(() => {
+    if (!gameState || !activePlayer) {
+      setTurnBanner(null);
+      return;
+    }
+
+    const bannerPhases = ['PLAY_CARD', 'NN_SELECT_CARD', 'NN_MOVE'];
+    if (!bannerPhases.includes(gameState.phase)) return;
+
+    const key = `${gameState.phase}-${activePlayerId}-${gameState.activePlayerIdx}-${gameState.nnActiveTurnIdx ?? 'normal'}`;
+    const label = gameState.phase === 'NN_MOVE' ? 'Movement Step' : gameState.phase === 'NN_SELECT_CARD' ? 'Lock In Card' : 'Turn Start';
+    setTurnBanner({ key, playerId: activePlayerId, playerName: activePlayer.name, label });
+
+    const timer = setTimeout(() => {
+      setTurnBanner(current => current?.key === key ? null : current);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [gameState?.phase, gameState?.activePlayerIdx, gameState?.nnActiveTurnIdx, activePlayerId]);
 
   const getValidMoves = (p) => {
     let moves = [];
@@ -2061,11 +2171,176 @@ function ArcadeRacingGame() {
             <div className="relative flex items-center gap-3 text-xl font-bold"><Users className="text-zinc-400 group-hover:text-blue-400" /><span>VS Player 2</span></div>
           </button>
         </div>
+        <button onClick={openCodex} className="group relative mt-5 min-w-64 overflow-hidden rounded-xl border-2 border-zinc-700 bg-zinc-950/90 px-8 py-3 shadow-xl transition-all hover:border-yellow-400 hover:bg-zinc-900">
+          <div className="absolute inset-0 bg-yellow-400/15 translate-y-full transition-transform group-hover:translate-y-0"></div>
+          <div className="relative flex items-center justify-center gap-3 text-lg font-black uppercase tracking-wide"><BookOpen className="text-zinc-400 group-hover:text-yellow-300" /><span>Codex</span></div>
+        </button>
         </div>
         <div className={`fixed bottom-6 px-4 py-2 rounded-full border text-xs font-bold tracking-wide ${cardDataSource === 'csv' && cornerDataSource === 'csv' ? 'bg-emerald-950/80 border-emerald-700 text-emerald-300' : cardDataSource === 'loading' || cornerDataSource === 'loading' ? 'bg-zinc-900/80 border-zinc-700 text-zinc-400' : 'bg-amber-950/80 border-amber-700 text-amber-300'}`}>
           {cardDataSource === 'loading' || cornerDataSource === 'loading'
             ? 'LOADING CSV DATA...'
             : `DRIVING CARDS: ${cardDataSource === 'csv' ? 'LIVE' : 'FALLBACK'} / CORNER CARDS: ${cornerDataSource === 'csv' ? 'LIVE' : 'FALLBACK'}${cardDataSource !== 'csv' || cornerDataSource !== 'csv' ? ' / RUN start_arcade_racing.cmd FOR LIVE CSV' : ''}`}
+        </div>
+      </div>
+    );
+  }
+
+  if (appState === 'CODEX') {
+    const activeList = codexTab === 'racing' ? racingCodexCards : ROAD_CARDS;
+    const activeItem = activeList.find(item => item.id === (codexLockedId || codexHoveredId)) || activeList[0];
+    const selectedId = activeItem?.id;
+    const groupedCards = activeList.reduce((groups, card) => {
+      const key = codexTab === 'racing' ? (card.deckCode || 'CARDS') : 'ROAD';
+      return { ...groups, [key]: [...(groups[key] || []), card] };
+    }, {});
+    const renderCodexGridCard = (card) => {
+      const isActive = selectedId === card.id;
+      const typeTone = card.type === 'Gas' ? 'border-yellow-400/70' : card.type === 'Brake' ? 'border-red-400/70' : card.type === 'Attack' ? 'border-orange-400/70' : 'border-blue-400/70';
+      const speedLimits = card.segments?.filter(segment => segment.type === 'curve').map(segment => segment.speed_limit) || [];
+      const minLimit = speedLimits.length ? Math.min(...speedLimits) : null;
+
+      return (
+        <button
+          key={card.id}
+          onMouseEnter={() => !codexLockedId && setCodexHoveredId(card.id)}
+          onClick={() => setCodexLockedId(card.id)}
+          aria-label={`${card.name} codex card`}
+          className={`group relative aspect-[23/32] overflow-hidden rounded-md border-2 bg-zinc-950 shadow-lg transition hover:-translate-y-1 hover:border-white hover:shadow-[0_0_18px_rgba(250,204,21,0.2)] ${isActive ? 'border-yellow-300 ring-2 ring-yellow-300/70' : codexTab === 'racing' ? typeTone : 'border-zinc-600'}`}
+        >
+          {codexTab === 'racing' && card.imageSrc ? (
+            <img src={card.imageSrc} alt="" draggable="false" className="absolute inset-0 h-full w-full object-cover" />
+          ) : (
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_14%,rgba(250,204,21,0.22),transparent_34%),linear-gradient(145deg,rgba(39,39,42,0.95),rgba(5,5,5,1))]">
+              <div className="absolute inset-0 opacity-30 bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.12)_0px,rgba(255,255,255,0.12)_1px,transparent_1px,transparent_10px)]" />
+              <svg viewBox="0 0 120 92" className="absolute left-2 right-2 top-7 h-[46%] w-[calc(100%-1rem)]" aria-hidden="true">
+                <path d="M16 76 C31 56 30 39 49 34 S85 36 99 13" fill="none" stroke="#27272a" strokeWidth="20" strokeLinecap="round" />
+                <path d="M16 76 C31 56 30 39 49 34 S85 36 99 13" fill="none" stroke="#e4e4e7" strokeWidth="6" strokeLinecap="round" />
+                <path d="M16 76 C31 56 30 39 49 34 S85 36 99 13" fill="none" stroke="#facc15" strokeWidth="1.5" strokeLinecap="round" strokeDasharray="4 6" />
+              </svg>
+              <div className="absolute left-2 right-2 top-2 flex justify-between text-[8px] font-black uppercase tracking-widest text-yellow-300">
+                <span>Road</span>
+                <span>{minLimit ? `${minLimit}` : 'STR'}</span>
+              </div>
+              <div className="absolute inset-x-2 bottom-2 text-left">
+                <div className="text-[10px] font-black uppercase leading-tight text-white">{card.name}</div>
+                <div className="mt-1 text-[8px] font-black uppercase tracking-widest text-zinc-400">E{card.entrySpaces} / X{card.exitSpaces}</div>
+              </div>
+            </div>
+          )}
+          {codexTab === 'racing' && !card.imageSrc && (
+            <div className="flex h-full flex-col justify-between p-2 text-left">
+              <div className="text-[8px] font-black uppercase tracking-widest text-zinc-400">{card.deckCode}</div>
+              <div className="text-xs font-black uppercase leading-tight text-white">{card.name}</div>
+              <div className="text-[8px] font-black uppercase tracking-widest text-zinc-400">{card.type}</div>
+            </div>
+          )}
+          {isActive && <div className="absolute inset-0 bg-yellow-300/10 mix-blend-screen" />}
+        </button>
+      );
+    };
+
+    return (
+      <div onClick={() => setCodexLockedId(null)} className="h-screen w-full overflow-hidden bg-[#070807] text-white">
+        <div className="flex h-full flex-col bg-[radial-gradient(circle_at_70%_15%,rgba(250,204,21,0.12),transparent_34%),linear-gradient(135deg,rgba(127,29,29,0.16),transparent_38%,rgba(24,24,27,0.72))]">
+          <header className="flex items-center justify-between border-b border-white/15 px-5 py-4 sm:px-8">
+            <button onClick={() => setAppState('TITLE')} className="flex items-center gap-1 text-xs font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white"><ChevronLeft size={18}/> Title</button>
+            <div className="text-center">
+              <div className="text-3xl font-black italic tracking-tight sm:text-4xl">CODEX</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.35em] text-yellow-400">Card Archive</div>
+            </div>
+            <div className="hidden rounded border border-white/20 bg-black/40 px-3 py-2 text-xs font-black uppercase text-zinc-300 sm:block">{activeList.length} Cards</div>
+          </header>
+
+          <main className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[22rem_1fr]">
+            <aside className="min-h-0 overflow-y-auto border-b border-white/15 bg-black/65 px-4 py-5 lg:border-b-0 lg:border-r lg:px-5" onClick={() => setCodexLockedId(null)}>
+              {activeItem && (
+                <div>
+                  <div className="flex justify-center">
+                    {codexTab === 'racing'
+                      ? <RenderCard card={activeItem} scale={1.12} extraClasses="cursor-default origin-top" />
+                      : <div className="origin-top scale-[1.12]"><RoadCardPreview card={activeItem} /></div>}
+                  </div>
+                  <div className="mt-7">
+                    <div className="text-[10px] font-black uppercase tracking-[0.35em] text-yellow-400">{codexTab === 'racing' ? activeItem.deckCode : 'Road Card'}</div>
+                    <h2 className="mt-2 text-3xl font-black italic uppercase leading-none">{activeItem.name}</h2>
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      {codexTab === 'racing' ? (
+                        <>
+                          <span className="border border-white/15 bg-black/50 px-3 py-2 text-xs font-black uppercase text-zinc-300">{activeItem.type}</span>
+                          <span className="border border-white/15 bg-black/50 px-3 py-2 text-xs font-black uppercase text-zinc-300">{activeItem.timing}</span>
+                          <span className="border border-white/15 bg-black/50 px-3 py-2 text-xs font-black uppercase text-zinc-300">{activeItem.req}</span>
+                          <span className="border border-white/15 bg-black/50 px-3 py-2 text-xs font-black uppercase text-zinc-300">{activeItem.serialNumber}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="border border-white/15 bg-black/50 px-3 py-2 text-xs font-black uppercase text-zinc-300">Entry {activeItem.entrySpaces}</span>
+                          <span className="border border-white/15 bg-black/50 px-3 py-2 text-xs font-black uppercase text-zinc-300">Exit {activeItem.exitSpaces}</span>
+                          <span className="border border-white/15 bg-black/50 px-3 py-2 text-xs font-black uppercase text-zinc-300">Weight {activeItem.weight}</span>
+                        </>
+                      )}
+                    </div>
+
+                    {codexTab === 'racing' ? (
+                      <>
+                        <div className="mt-6 border-l-4 border-yellow-400 bg-black/45 p-4">
+                          <div className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">Effect</div>
+                          <p className="mt-2 text-sm font-bold leading-relaxed text-zinc-100">{activeItem.desc}</p>
+                        </div>
+                        <div className="mt-4 text-xs font-bold leading-relaxed text-zinc-400">{activeItem.category}</div>
+                      </>
+                    ) : (
+                      <div className="mt-6 space-y-3">
+                        {activeItem.segments.map((segment, index) => (
+                          <div key={index} className="border border-white/10 bg-black/45 p-4">
+                            <div className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">Segment {index + 1}</div>
+                            <div className="mt-2 text-base font-black uppercase text-white">{segment.type === 'straight' ? `Straight / ${segment.spaces} spaces` : `${segment.angle} degree ${segment.direction} curve`}</div>
+                            {segment.type === 'curve' && <div className="mt-1 text-xs font-bold text-zinc-400">Radius {segment.radius} / Inner {segment.in_spaces} spaces / Outer {segment.out_spaces} spaces / Speed limit {segment.speed_limit} km/h</div>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {codexLockedId && <div className="mt-6 text-[10px] font-black uppercase tracking-[0.25em] text-yellow-400">Selection locked</div>}
+                  </div>
+                </div>
+              )}
+            </aside>
+
+            <section className="flex min-h-0 flex-col bg-black/30" onClick={event => event.stopPropagation()}>
+              <div className="grid grid-cols-2 gap-2 border-b border-white/15 bg-zinc-950/65 p-3">
+                {[
+                  ['racing', 'Racing Cards'],
+                  ['road', 'Road Cards']
+                ].map(([tab, label]) => (
+                  <button
+                    key={tab}
+                    onClick={() => {
+                      setCodexTab(tab);
+                      setCodexHoveredId(null);
+                      setCodexLockedId(null);
+                    }}
+                    className={`px-3 py-3 text-xs font-black uppercase tracking-wider transition ${codexTab === tab ? 'bg-yellow-400 text-black' : 'border border-white/15 bg-black text-zinc-400 hover:border-yellow-400 hover:text-white'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+                {Object.entries(groupedCards).map(([group, cards]) => (
+                  <div key={group} className="mb-7">
+                    <div className="mb-3 flex items-center gap-3">
+                      <div className="text-sm font-black uppercase tracking-[0.24em] text-zinc-300">{group}</div>
+                      <div className="h-px flex-1 bg-white/10" />
+                      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{cards.length}</div>
+                    </div>
+                    <div className="grid grid-cols-4 gap-3 sm:grid-cols-5 md:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10">
+                      {cards.map(renderCodexGridCard)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </main>
         </div>
       </div>
     );
@@ -2166,6 +2441,13 @@ function ArcadeRacingGame() {
   }
 
   const cameraTarget = gameState ? TRACK[activePlayer.lane][activePlayer.idx].center : { x: 0, y: 0 };
+  const terrainBackgroundImage = gameState?.raceSetup?.backgroundImage || COURSE_BACKGROUNDS.akagi;
+  const terrainBackdropBounds = {
+    x: trackBounds.minX - TERRAIN_BACKDROP_PADDING,
+    y: trackBounds.minY - TERRAIN_BACKDROP_PADDING,
+    width: (trackBounds.maxX - trackBounds.minX) + TERRAIN_BACKDROP_PADDING * 2,
+    height: (trackBounds.maxY - trackBounds.minY) + TERRAIN_BACKDROP_PADDING * 2
+  };
   const isAITurn = gameMode === 'PvE' && activePlayerId === 1;
   const showRecenter = Math.abs(panOffset.x) > 10 || Math.abs(panOffset.y) > 10;
   const validMovesList = gameState && (gameState.phase === 'MOVE' || gameState.phase === 'NN_MOVE') && !isAITurn && ((gameState.phase === 'MOVE' && gameState.mpLeft > 0) || (gameState.phase === 'NN_MOVE' && gameState.nnMpLeft[activePlayerId] > 0)) ? getValidMoves(activePlayer) : [];
@@ -2180,10 +2462,10 @@ function ArcadeRacingGame() {
   const activeCycleRequired = gameState?.phase === 'CARD_CYCLE' ? Boolean(gameState.cycleContext?.required) : gameState?.phase === 'NN_CARD_CYCLE' ? Boolean(activePlayer.modifiers.cycleRequired) : false;
   const activeCycleNeeded = activeCycleRequired ? Math.min(activeCycleMax, activePlayer?.hand?.length || 0) : 0;
   const activeChoiceType = gameState?.phase === 'CARD_CHOICE' ? gameState.choiceContext?.type : null;
-  const p1DiscardTopCard = p1?.discard?.length ? CARDS[p1.discard[p1.discard.length - 1]] : null;
-  const p1HandVisible = !isAITurn && activePlayerId === 0 && (gameState.phase === 'PLAY_CARD' || gameState.phase === 'NN_SELECT_CARD' || gameState.phase === 'MOVE' || gameState.phase === 'NN_MOVE');
-  const p1HandCanPlay = gameState.phase === 'PLAY_CARD' || gameState.phase === 'NN_SELECT_CARD';
-  const p1HandTucked = !p1HandCanPlay;
+  const activeDiscardTopCard = activePlayer?.discard?.length ? CARDS[activePlayer.discard[activePlayer.discard.length - 1]] : null;
+  const activeHandVisible = !isAITurn && (gameState.phase === 'PLAY_CARD' || gameState.phase === 'NN_SELECT_CARD' || gameState.phase === 'MOVE' || gameState.phase === 'NN_MOVE');
+  const activeHandCanPlay = gameState.phase === 'PLAY_CARD' || gameState.phase === 'NN_SELECT_CARD';
+  const activeHandTucked = !activeHandCanPlay;
 
   // Calculate projected speed for speedometer preview
   let activeProjectedSpeed = null;
@@ -2242,6 +2524,12 @@ function ArcadeRacingGame() {
           65% { transform: translateY(-3px) scale(1.02); opacity: 1; }
           100% { transform: translateY(0) scale(1); opacity: 1; }
         }
+        @keyframes turn-banner-pop {
+          0% { transform: translateY(-28px) scale(0.9); opacity: 0; filter: blur(8px); }
+          15% { transform: translateY(0) scale(1.04); opacity: 1; filter: blur(0); }
+          78% { transform: translateY(0) scale(1); opacity: 1; filter: blur(0); }
+          100% { transform: translateY(-12px) scale(0.97); opacity: 0; filter: blur(3px); }
+        }
         .nn-card-stage { perspective: 1000px; transform-style: preserve-3d; }
         .nn-card-deal-left { animation: nn-card-deal-left 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
         .nn-card-deal-right { animation: nn-card-deal-right 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
@@ -2273,27 +2561,41 @@ function ArcadeRacingGame() {
             <circle cx="45" cy="40" r="1.5" fill="rgba(0,0,0,0.3)" />
             <circle cx="20" cy="50" r="1" fill="rgba(255,255,255,0.08)" />
           </pattern>
+          <pattern
+            id="terrain-backdrop"
+            x={trackBounds.center.x - TERRAIN_BACKDROP_SIZE / 2}
+            y={trackBounds.center.y - TERRAIN_BACKDROP_SIZE / 2}
+            width={TERRAIN_BACKDROP_SIZE}
+            height={TERRAIN_BACKDROP_SIZE}
+            patternUnits="userSpaceOnUse"
+          >
+            <image
+              href={terrainBackgroundImage}
+              width={TERRAIN_BACKDROP_SIZE}
+              height={TERRAIN_BACKDROP_SIZE}
+              preserveAspectRatio="xMidYMid slice"
+            />
+          </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#forest)" />
 
         <g transform={`translate(${winSize.w/2 - 140}, ${winSize.h/2}) scale(${zoom}) translate(${-cameraTarget.x + panOffset.x}, ${-cameraTarget.y + panOffset.y})`} style={{ transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)' }}>
 
-          {/* Top-down terrain backdrop moves and zooms with the road. */}
-          <image
-            href="Assets/Backgrounds/snow_field_topdown_06.png"
-            x={trackBounds.center.x - TERRAIN_BACKDROP_SIZE / 2}
-            y={trackBounds.center.y - TERRAIN_BACKDROP_SIZE / 2}
-            width={TERRAIN_BACKDROP_SIZE}
-            height={TERRAIN_BACKDROP_SIZE}
-            preserveAspectRatio="xMidYMid slice"
+          {/* Top-down terrain backdrop tiles with the road. */}
+          <rect
+            x={terrainBackdropBounds.x}
+            y={terrainBackdropBounds.y}
+            width={terrainBackdropBounds.width}
+            height={terrainBackdropBounds.height}
+            fill="url(#terrain-backdrop)"
             opacity="0.88"
             className="pointer-events-none"
           />
           <rect
-            x={trackBounds.center.x - TERRAIN_BACKDROP_SIZE / 2}
-            y={trackBounds.center.y - TERRAIN_BACKDROP_SIZE / 2}
-            width={TERRAIN_BACKDROP_SIZE}
-            height={TERRAIN_BACKDROP_SIZE}
+            x={terrainBackdropBounds.x}
+            y={terrainBackdropBounds.y}
+            width={terrainBackdropBounds.width}
+            height={terrainBackdropBounds.height}
             fill="rgba(2, 6, 23, 0.2)"
             className="pointer-events-none"
           />
@@ -2425,6 +2727,15 @@ function ArcadeRacingGame() {
         </g>
       </svg>
 
+      <button
+        type="button"
+        onClick={quitToMainMenu}
+        className="fixed left-4 top-4 z-[90] flex items-center gap-2 rounded-full border border-white/15 bg-zinc-950/80 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-zinc-200 shadow-2xl backdrop-blur-md transition hover:border-yellow-300 hover:bg-zinc-900 hover:text-yellow-200 no-pan"
+      >
+        <ChevronLeft size={16} />
+        Main Menu
+      </button>
+
       {/* Neck-and-Neck Warning Stripes Overlay */}
       {gameState?.isNNRound && (
         <div className="absolute inset-0 pointer-events-none z-10 overflow-hidden flex flex-col justify-between">
@@ -2457,17 +2768,32 @@ function ArcadeRacingGame() {
         </div>
       )}
 
+      {turnBanner && (
+        <div
+          key={turnBanner.key}
+          className="fixed inset-x-0 top-24 z-[125] pointer-events-none flex justify-center px-4"
+          style={{ animation: 'turn-banner-pop 1.5s ease-out forwards' }}
+        >
+          <div className={`max-w-[calc(100vw-2rem)] rounded-full border-2 px-5 py-3 shadow-[0_0_32px_rgba(250,204,21,0.35)] backdrop-blur-md md:px-8 ${turnBanner.playerId === 0 ? 'border-red-400 bg-red-950/85' : 'border-blue-400 bg-blue-950/85'}`}>
+            <div className="text-center text-[10px] font-black uppercase tracking-[0.35em] text-yellow-300">{turnBanner.label}</div>
+            <div className={`mt-1 truncate text-center text-2xl font-black italic uppercase tracking-wide md:text-3xl ${turnBanner.playerId === 0 ? 'text-red-200' : 'text-blue-200'}`}>
+              {turnBanner.playerName} Plays
+            </div>
+          </div>
+        </div>
+      )}
+
       {gameState && (
         <>
           <Speedometer
-            player={gameState.players[0]} position="bottom-left"
+            player={gameState.players[0]} position={activePlayerId === 1 ? 'top-right' : 'bottom-left'}
             projectedSpeed={activePlayerId === 0 ? activeProjectedSpeed : null}
             isTurn={activePlayerId === 0} phase={gameState.phase}
             mpLeft={gameState.phase === 'NN_MOVE' ? gameState.nnMpLeft[0] : gameState.mpLeft}
             isLeadStatus={gameState.turnOrder[0] === 0}
           />
           <Speedometer
-            player={gameState.players[1]} position="top-right"
+            player={gameState.players[1]} position={activePlayerId === 1 ? 'bottom-left' : 'top-right'}
             projectedSpeed={activePlayerId === 1 ? activeProjectedSpeed : null}
             isTurn={activePlayerId === 1} phase={gameState.phase}
             mpLeft={gameState.phase === 'NN_MOVE' ? gameState.nnMpLeft[1] : gameState.mpLeft}
@@ -2478,25 +2804,25 @@ function ArcadeRacingGame() {
 
       {gameState && (
         <div className="fixed bottom-5 right-5 z-40 flex items-end gap-3 no-pan">
-          <PileWidget type="discard" count={p1.discard.length} topCard={p1DiscardTopCard} onClick={() => p1.discard.length > 0 && setInspectDiscardOpen(true)} />
-          <PileWidget type="deck" count={p1.deck.length} />
+          <PileWidget type="discard" count={activePlayer.discard.length} topCard={activeDiscardTopCard} onClick={() => activePlayer.discard.length > 0 && setInspectDiscardOpen(true)} />
+          <PileWidget type="deck" count={activePlayer.deck.length} />
         </div>
       )}
 
-      {inspectDiscardOpen && p1 && (
+      {inspectDiscardOpen && activePlayer && (
         <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/75 backdrop-blur-sm p-5 no-pan pointer-events-auto">
           <div className="w-full max-w-5xl max-h-[88vh] overflow-hidden rounded-2xl border-2 border-orange-500 bg-zinc-950 shadow-[0_0_50px_rgba(249,115,22,0.25)]">
             <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
               <div>
-                <div className="text-[10px] font-black uppercase tracking-[0.35em] text-orange-400">Player 1</div>
-                <h2 className="text-2xl font-black uppercase text-white">Discard Pile ({p1.discard.length})</h2>
+                <div className="text-[10px] font-black uppercase tracking-[0.35em] text-orange-400">{activePlayer.name}</div>
+                <h2 className="text-2xl font-black uppercase text-white">Discard Pile ({activePlayer.discard.length})</h2>
               </div>
               <button onClick={() => setInspectDiscardOpen(false)} className="rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-black uppercase text-zinc-300 hover:border-white hover:text-white">Close</button>
             </div>
             <div className="max-h-[70vh] overflow-y-auto p-5">
-              {p1.discard.length > 0 ? (
+              {activePlayer.discard.length > 0 ? (
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-                  {p1.discard.slice().reverse().map((cardId, idx) => (
+                  {activePlayer.discard.slice().reverse().map((cardId, idx) => (
                     <div key={`${cardId}-${idx}`} className="flex justify-center">
                       <RenderCard card={CARDS[cardId]} scale={0.78} extraClasses="cursor-default" />
                     </div>
@@ -2624,30 +2950,30 @@ function ArcadeRacingGame() {
       </div>
 
       {/* Fanned Cards UI */}
-      {p1HandVisible && (
-        <div className={`absolute ${p1HandTucked ? '-bottom-28' : 'bottom-8'} left-[43%] -translate-x-1/2 flex items-end justify-center z-40 w-full no-pan transition-all duration-300`} style={{ perspective: '1200px' }}>
+      {activeHandVisible && (
+        <div className={`absolute ${activeHandTucked ? '-bottom-28' : 'bottom-8'} left-[55%] -translate-x-1/2 flex items-end justify-center z-40 w-full no-pan transition-all duration-300`} style={{ perspective: '1200px' }}>
           <div className="relative flex justify-center h-64 items-end w-full max-w-[1200px]">
-             <div className={`absolute -top-12 px-6 py-2 rounded-full border text-sm font-bold shadow-2xl ${gameState.phase === 'NN_SELECT_CARD' ? 'bg-yellow-900/90 border-yellow-500 text-yellow-200 animate-pulse' : p1HandTucked ? 'bg-zinc-950/90 border-zinc-700 text-zinc-500' : 'bg-black/80 border-zinc-800 text-zinc-300'}`}>
-               {gameState.phase === 'NN_SELECT_CARD' ? 'Lock in 1 Card Face Down!' : p1HandTucked ? 'Hand Locked During Movement' : 'Play 1 Driving Card'}
+             <div className={`absolute -top-12 px-6 py-2 rounded-full border text-sm font-bold shadow-2xl ${gameState.phase === 'NN_SELECT_CARD' ? 'bg-yellow-900/90 border-yellow-500 text-yellow-200 animate-pulse' : activeHandTucked ? 'bg-zinc-950/90 border-zinc-700 text-zinc-500' : 'bg-black/80 border-zinc-800 text-zinc-300'}`}>
+               {gameState.phase === 'NN_SELECT_CARD' ? 'Lock in 1 Card Face Down!' : activeHandTucked ? 'Hand Locked During Movement' : 'Play 1 Driving Card'}
              </div>
-             {p1.hand.map((cardId, idx) => {
+             {activePlayer.hand.map((cardId, idx) => {
                const card = CARDS[cardId];
-               const playable = p1HandCanPlay && card.canPlay(p1);
-               const offset = idx - (p1.hand.length - 1) / 2;
+               const playable = activeHandCanPlay && card.canPlay(activePlayer);
+               const offset = idx - (activePlayer.hand.length - 1) / 2;
                const rot = offset * 10;
                const drop = Math.abs(offset) * 12;
                const transX = offset * 110;
-               const isHovered = hoveredCardIdx === idx && (playable || p1HandTucked);
+               const isHovered = hoveredCardIdx === idx && (playable || activeHandTucked);
 
                return (
                  <div
                     key={idx}
                     className="absolute bottom-0"
-                    onMouseEnter={() => (playable || p1HandTucked) && setHoveredCardIdx(idx)}
+                    onMouseEnter={() => (playable || activeHandTucked) && setHoveredCardIdx(idx)}
                     onMouseLeave={() => setHoveredCardIdx(null)}
                     style={{
                       transform: isHovered
-                         ? `translateX(${transX}px) translateY(${p1HandTucked ? -125 : -40}px) scale(1.1) rotate(0deg)`
+                         ? `translateX(${transX}px) translateY(${activeHandTucked ? -125 : -40}px) scale(1.1) rotate(0deg)`
                          : `translateX(${transX}px) translateY(${drop}px) rotate(${rot}deg)`,
                       zIndex: isHovered ? 100 : 10 + idx,
                       transformOrigin: 'bottom center',
@@ -2656,15 +2982,15 @@ function ArcadeRacingGame() {
                  >
                    <RenderCard
                      card={card}
-                     disabled={!p1HandCanPlay || !playable}
+                     disabled={!activeHandCanPlay || !playable}
                      onClick={playable ? () => playCard(cardId, idx) : undefined}
-                     extraClasses={p1HandTucked ? 'opacity-90 grayscale-[0.15]' : ''}
+                     extraClasses={activeHandTucked ? 'opacity-90 grayscale-[0.15]' : ''}
                    />
                  </div>
                );
              })}
           </div>
-          {p1HandCanPlay && <button onClick={skipToDiscard} className="absolute -bottom-2 right-[10%] px-6 py-3 bg-red-950/80 hover:bg-red-900 border border-red-900 rounded-lg text-sm font-bold text-red-200 transition-colors shadow-2xl">Skip Turn</button>}
+          {activeHandCanPlay && <button onClick={skipToDiscard} className="absolute -bottom-2 right-[10%] px-6 py-3 bg-red-950/80 hover:bg-red-900 border border-red-900 rounded-lg text-sm font-bold text-red-200 transition-colors shadow-2xl">Skip Turn</button>}
         </div>
       )}
 
