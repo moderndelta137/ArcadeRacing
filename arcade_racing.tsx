@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Play, Users, Bot, ChevronRight, ChevronLeft, Radio, FastForward, Crosshair, BookOpen, Map as MapIcon } from 'lucide-react';
+import { Play, Users, Bot, ChevronRight, ChevronLeft, Radio, FastForward, Crosshair, BookOpen, Map as MapIcon, PanelsTopLeft } from 'lucide-react';
 
 const MAX_SPEED = 140;
 const TERRAIN_BACKDROP_SIZE = 4500;
@@ -20,6 +20,7 @@ const WILDCARD_BACKGROUNDS = [
   `${BACKGROUND_ASSET_DIR}/touge_topdown_terrain_01.png`
 ];
 const SPEED_METER_CARD_IMAGE = 'Assets/Speed Meter/speed_meter_circular_generated_v5_transparent.png';
+const RACE_CARD_BACK_IMAGE = 'Assets/Card backs/Race_card_back.png';
 const GEAR_ACCENT_COLORS = {
   1: '#ff4c4c',
   2: '#ff8e24',
@@ -40,13 +41,14 @@ const slugifyCardImageName = (name) => String(name || '')
   .replace(/[^a-z0-9]+/g, '-')
   .replace(/^-+|-+$/g, '');
 
-const getCardImageSrc = (row) => {
+const getCardImageSrc = (row, assetVersion = '') => {
   const folder = CARD_IMAGE_SET_FOLDERS[row.deck_code];
   const serialNumber = row.serial_number || '';
   const cardSlug = slugifyCardImageName(row.name);
   const typeSlug = slugifyCardImageName(row.type);
   if (!folder || !serialNumber || !cardSlug || !typeSlug) return '';
-  return `Assets/Card images/Implemented/${folder}/${serialNumber}_${cardSlug}_${typeSlug}.png`;
+  const src = `Assets/Card images/Implemented/${folder}/${serialNumber}_${cardSlug}_${typeSlug}.png`;
+  return assetVersion ? `${src}?v=${assetVersion}` : src;
 };
 
 const getCourseBackground = (courseId) => {
@@ -704,7 +706,12 @@ const CAR_OPTIONS = [
   { id: 'mustang', name: 'Mustang GT500', drive: 'RWD', specialty: 'Raw straight-line power. Built to pressure rivals door to door.', portrait: 'Assets/Car Mugshots/mustang-gt500-mugshot.png', cutout: 'Assets/Car Mugshots/Cutouts/mustang-gt500-cutout-v3.png' }
 ];
 
+const DECK_SIZE = 12;
+const MAX_CARD_COPIES = 4;
+const CAR_DECK_CODES = { ae86: 'AE86', huracan: 'HRCN', porsche911: 'P911', mustang: 'GT500' };
+const COMMON_CARD_IDS = ['drift', 'full_throttle', 'back_down'];
 const RANDOM_SIZE_CARDS = { small: 5, medium: 8, long: 12 };
+const AI_DIFFICULTIES = ['normal', 'hard', 'cheat'];
 
 const PLATE_CAR_CODES = { AE86: '86', HRCN: '63', P911: '91', GT500: '50' };
 const getPlateSerial = (deckCode, serialNumber) => {
@@ -766,6 +773,17 @@ const buildTranslationTable = (rows) => {
     table[row.key] = row;
   });
   return table;
+};
+
+const readEmbeddedLocalizationRows = () => {
+  if (typeof document === 'undefined') return [];
+  const embedded = document.getElementById('localization-csv-fallback');
+  if (!embedded?.textContent?.trim()) return [];
+  try {
+    return parseCSV(embedded.textContent);
+  } catch {
+    return [];
+  }
 };
 
 const interpolateText = (text, vars = {}) => String(text ?? '').replace(/\{(\w+)\}/g, (_, key) => (
@@ -887,7 +905,7 @@ const getRoadsideBadgeOffset = (player, track, offset = 106) => {
 
 const canOccupy = (lane, idx, otherPlayer) => !(otherPlayer.lane === lane && otherPlayer.idx === idx);
 
-const buildCardCatalog = (rows, t = null) => {
+const buildCardCatalog = (rows, t = null, assetVersion = '') => {
   const rowById = Object.fromEntries(rows.map(row => [row.id, row]));
 
   return Object.fromEntries(IMPLEMENTED_CARD_IDS.map(id => {
@@ -915,7 +933,7 @@ const buildCardCatalog = (rows, t = null) => {
       deckCode: row.deck_code || '',
       serialNumber: row.serial_number || '',
       plateSerial: getPlateSerial(row.deck_code, row.serial_number),
-      imageSrc: getCardImageSrc(row),
+      imageSrc: getCardImageSrc(row, assetVersion),
       type: t ? t(`card.type.${String(row.type || '').toLowerCase()}`, row.type) : row.type,
       rulesType: row.type,
       timing: t ? t(`card.timing.${String(row.timing || '').toLowerCase()}`, row.timing) : row.timing,
@@ -1063,9 +1081,8 @@ const DECK_COMPOSITIONS = {
     ['micro_correction', 1]
   ],
   mustang: [
-    ['full_throttle', 3],
+    ['full_throttle', 4],
     ['back_down', 2],
-    ['hard_brake', 1],
     ['raw_horsepower', 1],
     ['straight_line_monster', 1],
     ['panic_stop', 1],
@@ -1075,11 +1092,64 @@ const DECK_COMPOSITIONS = {
   ]
 };
 
-const getDeckIdsForCar = (carId, rows) => {
+const getDefaultDeckIdsForCar = (carId, rows = DEFAULT_CARD_ROWS) => {
   const rowById = Object.fromEntries(rows.map(row => [row.id, row]));
   const composition = DECK_COMPOSITIONS[carId] || DECK_COMPOSITIONS.ae86;
   const deck = composition.flatMap(([id, count]) => rowById[id] && IMPLEMENTED_CARD_IDS.includes(id) ? Array.from({ length: count }, () => id) : []);
   return deck.length > 0 ? deck : DECK_COMPOSITIONS.ae86.flatMap(([id, count]) => Array.from({ length: count }, () => id));
+};
+
+const countCardsById = (deck = []) => deck.reduce((counts, id) => ({ ...counts, [id]: (counts[id] || 0) + 1 }), {});
+
+const getAvailableCardIdsForCar = (carId, rows = DEFAULT_CARD_ROWS) => {
+  const deckCode = CAR_DECK_CODES[carId] || CAR_DECK_CODES.ae86;
+  return rows
+    .filter(row => IMPLEMENTED_CARD_IDS.includes(row.id) && (COMMON_CARD_IDS.includes(row.id) || row.deck_code === deckCode))
+    .map(row => row.id);
+};
+
+const sanitizeDeckForCar = (carId, deckIds, rows = DEFAULT_CARD_ROWS) => {
+  const available = new Set(getAvailableCardIdsForCar(carId, rows));
+  const next = [];
+  const counts = {};
+  (Array.isArray(deckIds) ? deckIds : []).forEach(id => {
+    if (!available.has(id) || next.length >= DECK_SIZE || (counts[id] || 0) >= MAX_CARD_COPIES) return;
+    counts[id] = (counts[id] || 0) + 1;
+    next.push(id);
+  });
+  return next.length === DECK_SIZE ? next : null;
+};
+
+const sanitizeEditableDeckForCar = (carId, deckIds, rows = DEFAULT_CARD_ROWS) => {
+  const available = new Set(getAvailableCardIdsForCar(carId, rows));
+  const next = [];
+  const counts = {};
+  (Array.isArray(deckIds) ? deckIds : []).forEach(id => {
+    if (!available.has(id) || next.length >= DECK_SIZE || (counts[id] || 0) >= MAX_CARD_COPIES) return;
+    counts[id] = (counts[id] || 0) + 1;
+    next.push(id);
+  });
+  return next;
+};
+
+const getEditableDeckIdsForCar = (carId, rows, customDecks = {}) => {
+  const customDeck = customDecks?.[carId];
+  return Array.isArray(customDeck) ? sanitizeEditableDeckForCar(carId, customDeck, rows) : getDefaultDeckIdsForCar(carId, rows);
+};
+
+const getDeckIdsForCar = (carId, rows, customDecks = {}) => {
+  const customDeck = sanitizeDeckForCar(carId, customDecks?.[carId], rows);
+  return customDeck || getDefaultDeckIdsForCar(carId, rows);
+};
+
+const readStoredDecks = () => {
+  if (typeof window === 'undefined') return {};
+  try {
+    const parsed = JSON.parse(window.localStorage?.getItem('arcade-racing-custom-decks') || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
 };
 
 const shuffle = (array) => {
@@ -1106,6 +1176,12 @@ const drawCards = (deck, discard, hand, count) => {
   }
   return { deck: newDeck, discard: newDiscard, hand: newHand };
 };
+
+const getKnownCardPoolForPlayer = (player) => [...new Set([
+  ...(player?.deck || []),
+  ...(player?.discard || []),
+  ...(player?.hand || [])
+])];
 
 const RenderCard = ({ card, scale = 1, isHovered = false, onClick, onMouseEnter, onMouseLeave, disabled = false, extraClasses = "", isSelected = false }) => {
   const rulesType = card.rulesType || card.type;
@@ -1180,13 +1256,9 @@ const RenderCard = ({ card, scale = 1, isHovered = false, onClick, onMouseEnter,
 };
 
 const RenderCardBack = ({ playerId }) => (
-  <div className={`w-48 h-64 rounded-xl border-2 shadow-2xl p-3 ${playerId === 0 ? 'border-red-500 bg-red-950' : 'border-blue-500 bg-blue-950'}`}>
-    <div className="w-full h-full rounded-lg border border-white/20 bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.08)_0px,rgba(255,255,255,0.08)_8px,transparent_8px,transparent_16px)] flex flex-col items-center justify-center">
-      <div className="w-16 h-16 border-4 border-white/70 rotate-45 mb-8 flex items-center justify-center">
-        <div className="w-7 h-7 bg-white/80" />
-      </div>
-      <div className="text-xs font-black tracking-[0.3em] text-white/80">DRIVING CARD</div>
-      <div className="mt-2 text-[10px] font-bold tracking-[0.2em] text-white/40">FACE DOWN</div>
+  <div className={`w-48 h-64 rounded-xl border-2 shadow-2xl overflow-hidden ${playerId === 0 ? 'border-red-500 bg-red-950' : 'border-blue-500 bg-blue-950'}`}>
+    <div className="h-full w-full rounded-[0.6rem] overflow-hidden">
+      <img src={RACE_CARD_BACK_IMAGE} alt="" draggable="false" className="h-full w-full object-cover" />
     </div>
   </div>
 );
@@ -1543,19 +1615,27 @@ export default function ArcadeRacingGame() {
     if (typeof window === 'undefined') return 'ja';
     return window.localStorage?.getItem('arcade-racing-language') || 'ja';
   });
-  const [translationRows, setTranslationRows] = useState([]);
-  const [localizationDataSource, setLocalizationDataSource] = useState('loading');
+  const [translationRows, setTranslationRows] = useState(readEmbeddedLocalizationRows);
+  const [localizationDataSource, setLocalizationDataSource] = useState(() => readEmbeddedLocalizationRows().length ? 'embedded' : 'loading');
+  const [assetVersion] = useState(() => Date.now());
   const [selectedCourseId, setSelectedCourseId] = useState('akagi');
   const [courseDirection, setCourseDirection] = useState('downhill');
   const [randomMapSize, setRandomMapSize] = useState('medium');
   const [selectedCars, setSelectedCars] = useState([null, null]);
   const [activeCarPlayer, setActiveCarPlayer] = useState(0);
+  const [aiDifficulty, setAiDifficulty] = useState('normal');
+  const [playerStartsFirst, setPlayerStartsFirst] = useState(true);
   const [tutorialEnabled, setTutorialEnabled] = useState(false);
   const [activeTutorialId, setActiveTutorialId] = useState(null);
   const [onlineSession, setOnlineSession] = useState(ONLINE_SESSION_INITIAL);
   const [codexTab, setCodexTab] = useState('racing');
   const [codexHoveredId, setCodexHoveredId] = useState(null);
   const [codexLockedId, setCodexLockedId] = useState(null);
+  const [customDecks, setCustomDecks] = useState(readStoredDecks);
+  const [deckEditorCarId, setDeckEditorCarId] = useState('ae86');
+  const [deckEditorHoveredId, setDeckEditorHoveredId] = useState(null);
+  const [deckEditorLockedId, setDeckEditorLockedId] = useState(null);
+  const [onlinePlayerDecks, setOnlinePlayerDecks] = useState([null, null]);
 
   // Panning & Zoom State
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
@@ -1579,7 +1659,7 @@ export default function ArcadeRacingGame() {
   const trackBounds = useMemo(() => getTrackBounds(TRACK), [TRACK]);
   const translationTable = useMemo(() => buildTranslationTable(translationRows), [translationRows]);
   const t = (key, fallback, vars) => translateFromTable(translationTable, language, key, fallback, vars);
-  const CARDS = useMemo(() => buildCardCatalog(cardRows, t), [cardRows, translationTable, language]);
+  const CARDS = useMemo(() => buildCardCatalog(cardRows, t, assetVersion), [cardRows, translationTable, language, assetVersion]);
   const ROAD_CARDS = useMemo(() => parseCornerCardRows(cornerCardRows).map(card => ({
     ...card,
     name: t(`road.${card.id}.name`, card.name)
@@ -1592,6 +1672,12 @@ export default function ArcadeRacingGame() {
       window.localStorage?.setItem('arcade-racing-language', language);
     }
   }, [language]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage?.setItem('arcade-racing-custom-decks', JSON.stringify(customDecks));
+    }
+  }, [customDecks]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1739,7 +1825,7 @@ export default function ArcadeRacingGame() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
-    if (!onlineSession.role || !onlineSession.roomKey || appState === 'TITLE' || appState === 'CODEX') return undefined;
+    if (!onlineSession.role || !onlineSession.roomKey || appState === 'TITLE' || appState === 'CODEX' || appState === 'DECK_EDITOR') return undefined;
 
     const handleOnlineMessage = (message) => {
       if (message.senderId === onlineClientIdRef.current || message.roomKey !== onlineRoomKeyRef.current) return;
@@ -1773,7 +1859,10 @@ export default function ArcadeRacingGame() {
         setCourseDirection(message.selection.courseDirection);
         setRandomMapSize(message.selection.randomMapSize);
         setSelectedCars(message.selection.selectedCars);
+        if (Array.isArray(message.selection.onlinePlayerDecks)) setOnlinePlayerDecks(message.selection.onlinePlayerDecks);
         setActiveCarPlayer(message.selection.activeCarPlayer);
+        if (message.selection.aiDifficulty) setAiDifficulty(message.selection.aiDifficulty);
+        if (typeof message.selection.playerStartsFirst === 'boolean') setPlayerStartsFirst(message.selection.playerStartsFirst);
         if (typeof message.selection.tutorialEnabled === 'boolean') setTutorialEnabled(message.selection.tutorialEnabled);
         setTimeout(() => { applyingRemoteSelectionRef.current = false; }, 0);
       }
@@ -1827,9 +1916,9 @@ export default function ArcadeRacingGame() {
       type: 'selection-state',
       roomKey: onlineSession.roomKey,
       senderRole: onlineSession.role,
-      selection: { selectedCourseId, courseDirection, randomMapSize, selectedCars, activeCarPlayer, tutorialEnabled }
+      selection: { selectedCourseId, courseDirection, randomMapSize, selectedCars, activeCarPlayer, aiDifficulty, playerStartsFirst, tutorialEnabled, onlinePlayerDecks }
     });
-  }, [gameMode, appState, onlineSession.roomKey, onlineSession.role, selectedCourseId, courseDirection, randomMapSize, selectedCars, activeCarPlayer, tutorialEnabled]);
+  }, [gameMode, appState, onlineSession.roomKey, onlineSession.role, selectedCourseId, courseDirection, randomMapSize, selectedCars, activeCarPlayer, aiDifficulty, playerStartsFirst, tutorialEnabled, onlinePlayerDecks]);
 
   useEffect(() => {
     if (gameMode !== 'OnlinePvP' || !gameState || !['PLAYING', 'GAMEOVER'].includes(appState)) return;
@@ -1854,7 +1943,10 @@ export default function ArcadeRacingGame() {
     setCourseDirection('downhill');
     setRandomMapSize('medium');
     setSelectedCars([null, mode === 'PvE' ? 'huracan' : null]);
+    setOnlinePlayerDecks([null, null]);
     setActiveCarPlayer(0);
+    setAiDifficulty('normal');
+    setPlayerStartsFirst(true);
     setTutorialEnabled(false);
     setActiveTutorialId(null);
     setAppState('SELECT');
@@ -1871,7 +1963,9 @@ export default function ArcadeRacingGame() {
     setCourseDirection('downhill');
     setRandomMapSize('medium');
     setSelectedCars([null, null]);
+    setOnlinePlayerDecks([null, null]);
     setActiveCarPlayer(0);
+    setPlayerStartsFirst(true);
     setTutorialEnabled(false);
     setActiveTutorialId(null);
     setAppState('MATCHMAKING');
@@ -1926,6 +2020,13 @@ export default function ArcadeRacingGame() {
     setAppState('CODEX');
   };
 
+  const openDeckEditor = () => {
+    setDeckEditorCarId('ae86');
+    setDeckEditorHoveredId(null);
+    setDeckEditorLockedId(null);
+    setAppState('DECK_EDITOR');
+  };
+
   const openRoadDebugMap = () => {
     setCodexTab('road');
     setCodexHoveredId(null);
@@ -1944,27 +2045,34 @@ export default function ArcadeRacingGame() {
       : selectedCourse.seed + directionOffset;
     const backgroundImage = getCourseBackground(selectedCourse.id);
     const nextTrack = generateTrack(nextSeed, cornerCardRows, 0, cardCount);
-    const p1Draw = drawCards(shuffle(getDeckIdsForCar(selectedCars[0], cardRows)), [], [], 4);
-    const p2Draw = drawCards(shuffle(getDeckIdsForCar(selectedCars[1], cardRows)), [], [], 4);
+    const p1DeckIds = gameMode === 'OnlinePvP' && onlinePlayerDecks[0]
+      ? sanitizeDeckForCar(selectedCars[0], onlinePlayerDecks[0], cardRows) || getDeckIdsForCar(selectedCars[0], cardRows, customDecks)
+      : getDeckIdsForCar(selectedCars[0], cardRows, customDecks);
+    const p2DeckIds = gameMode === 'OnlinePvP' && onlinePlayerDecks[1]
+      ? sanitizeDeckForCar(selectedCars[1], onlinePlayerDecks[1], cardRows) || getDeckIdsForCar(selectedCars[1], cardRows, customDecks)
+      : getDeckIdsForCar(selectedCars[1], cardRows, customDecks);
+    const p1Draw = drawCards(shuffle(p1DeckIds), [], [], 4);
+    const p2Draw = drawCards(shuffle(p2DeckIds), [], [], 4);
     const startLane = 0;
-    const p2StartIdx = 0;
-    const p1StartIdx = Math.min(1, nextTrack[startLane].length - 1);
+    const p1StartIdx = playerStartsFirst ? Math.min(1, nextTrack[startLane].length - 1) : 0;
+    const p2StartIdx = playerStartsFirst ? 0 : Math.min(1, nextTrack[startLane].length - 1);
+    const initialTurnOrder = playerStartsFirst ? [0, 1] : [1, 0];
 
     setTrackSeed(nextSeed);
     setTrackCardCount(cardCount);
     setGameState({
-      raceSetup: { courseId: selectedCourse.id, direction: selectedCourse.id === 'random' ? null : courseDirection, size: selectedCourse.id === 'random' ? randomMapSize : null, cars: [...selectedCars], backgroundImage },
+      raceSetup: { courseId: selectedCourse.id, direction: selectedCourse.id === 'random' ? null : courseDirection, size: selectedCourse.id === 'random' ? randomMapSize : null, cars: [...selectedCars], backgroundImage, aiDifficulty: gameMode === 'PvE' ? aiDifficulty : null, playerStartsFirst },
       tutorial: { enabled: tutorialEnabled, seen: {} },
       players: [
         { id: 0, name: 'Player 1', carId: selectedCars[0], color: 'red', speed: 20, lane: startLane, idx: p1StartIdx, distance: nextTrack[startLane][p1StartIdx].distance, ...p1Draw, modifiers: {}, lastPlayed: null },
         { id: 1, name: gameMode === 'PvE' ? 'AI Racer' : 'Player 2', carId: selectedCars[1], color: 'blue', speed: 20, lane: startLane, idx: p2StartIdx, distance: nextTrack[startLane][p2StartIdx].distance, ...p2Draw, modifiers: {}, lastPlayed: null }
       ],
-      playerTurnsStarted: { 0: 1, 1: 0 },
-      turnOrder: [0, 1],
+      playerTurnsStarted: { 0: initialTurnOrder[0] === 0 ? 1 : 0, 1: initialTurnOrder[0] === 1 ? 1 : 0 },
+      turnOrder: initialTurnOrder,
       activePlayerIdx: 0,
       phase: 'PLAY_CARD',
       mpLeft: 0,
-      logs: [t('log.race_started', 'Race started! Player 1 is the Lead Player.')],
+      logs: [t('log.race_started_lead', 'Race started! {player} is the Lead Player.', { player: playerStartsFirst ? 'Player 1' : (gameMode === 'PvE' ? 'AI Racer' : 'Player 2') })],
       winner: null,
       overtakeEvent: null,
       bonusTurnPlayerId: null,
@@ -2267,52 +2375,162 @@ export default function ArcadeRacingGame() {
     return () => clearTimeout(timer);
   }, [appState, canAdvanceAutomaticState, gameState?.phase, gameState?.nnMpLeft?.[0], gameState?.nnMpLeft?.[1]]);
 
+  const cloneAIPlayer = (player) => ({
+    ...player,
+    hand: [...(player.hand || [])],
+    deck: [...(player.deck || [])],
+    discard: [...(player.discard || [])],
+    modifiers: { ...(player.modifiers || {}) }
+  });
+
+  const scoreAIPosition = (player, opponent) => {
+    if (!player) return -Infinity;
+    const space = TRACK[player.lane]?.[player.idx];
+    let score = (player.distance || 0) + player.speed * 2 + getGear(player.speed).mp * 14;
+    if (opponent) {
+      score += (player.distance - opponent.distance) * 0.35;
+      if (player.distance > opponent.distance) score += 120;
+      if (player.lane === opponent.lane && player.idx === opponent.idx) score -= 280;
+    }
+    if (space?.isGoal) score += 100000;
+    const check = getEffectiveSpeedCheck(player, space);
+    if (check && check.effectiveSpeed > check.effectiveLimit) {
+      const over = check.effectiveSpeed - check.effectiveLimit;
+      score -= over * (space.isOuter ? 9 : 5);
+      if (space.isOuter && !player.modifiers.tractionControl && !player.modifiers.countersteerCancel) score -= 220;
+    }
+    return score;
+  };
+
+  const resolveAIPendingChoiceForScore = (player) => {
+    if (!player.modifiers?.pendingChoice) return player;
+    const { pendingChoice, ...remainingModifiers } = player.modifiers;
+    if (pendingChoice === 'torque_split') {
+      const currentSpace = TRACK[player.lane]?.[player.idx];
+      const check = getEffectiveSpeedCheck({ ...player, modifiers: remainingModifiers }, currentSpace);
+      if (check && check.effectiveSpeed > check.effectiveLimit) {
+        return { ...player, modifiers: { ...remainingModifiers, speedCheckBonusOnce: Math.max(remainingModifiers.speedCheckBonusOnce || 0, 40) } };
+      }
+      return { ...player, speed: clampSpeed(player.speed + 30), modifiers: remainingModifiers };
+    }
+    if (pendingChoice === 'change_shift') {
+      const nextSpace = TRACK[player.lane]?.[Math.min(player.idx + 1, TRACK[player.lane].length - 1)];
+      const check = getEffectiveSpeedCheck({ ...player, speed: clampSpeed(player.speed + 10), modifiers: remainingModifiers }, nextSpace);
+      const delta = check && check.effectiveSpeed > check.effectiveLimit ? -10 : 10;
+      return { ...player, speed: clampSpeed(player.speed + delta), modifiers: { ...remainingModifiers, extraCardPlay: true } };
+    }
+    return { ...player, modifiers: remainingModifiers };
+  };
+
+  const scoreAICard = (cardId, player, opponent) => {
+    const card = CARDS[cardId];
+    if (!card || !card.canPlay(player)) return -Infinity;
+    let testPlayer = cloneAIPlayer(player);
+    testPlayer = card.play(testPlayer, TRACK, opponent);
+    testPlayer = resolveAIPendingChoiceForScore(testPlayer);
+    const nextMoveScore = getValidMoves(testPlayer)
+      .map(move => scoreAIPosition({ ...testPlayer, lane: move.lane, idx: move.idx, distance: TRACK[move.lane][move.idx].distance }, opponent))
+      .sort((a, b) => b - a)[0] ?? scoreAIPosition(testPlayer, opponent);
+    const discardPenalty = Math.max(0, (player.hand?.length || 0) - (testPlayer.hand?.length || 0)) * 8;
+    return nextMoveScore - discardPenalty;
+  };
+
+  const chooseAICard = () => {
+    const handCandidates = activePlayer.hand
+      .map((id, idx) => ({ id, idx, score: scoreAICard(id, activePlayer, otherPlayer) }))
+      .filter(candidate => Number.isFinite(candidate.score));
+
+    const sourceCandidates = aiDifficulty === 'cheat'
+      ? getKnownCardPoolForPlayer(activePlayer)
+        .map(id => ({ id, idx: activePlayer.hand.indexOf(id), score: scoreAICard(id, activePlayer, otherPlayer) }))
+        .filter(candidate => Number.isFinite(candidate.score))
+      : handCandidates;
+
+    if (sourceCandidates.length === 0) return null;
+    const ranked = [...sourceCandidates].sort((a, b) => b.score - a.score);
+    if (aiDifficulty === 'normal') {
+      const pool = ranked.slice(0, Math.max(1, Math.ceil(ranked.length / 2)));
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+    return ranked[0];
+  };
+
+  const chooseAIDiscardSelection = (max = 1, required = false) => {
+    const ranked = activePlayer.hand
+      .map((id, idx) => ({ idx, keepScore: scoreAICard(id, activePlayer, otherPlayer) }))
+      .sort((a, b) => a.keepScore - b.keepScore);
+    const count = required ? Math.min(max, activePlayer.hand.length) : Math.min(max, activePlayer.hand.length, aiDifficulty === 'normal' ? 1 : 2);
+    return ranked.slice(0, count).map(item => item.idx);
+  };
+
+  const chooseAIMove = () => {
+    const validMoves = getValidMoves(activePlayer);
+    if (validMoves.length === 0) return null;
+    const ranked = validMoves
+      .map(move => {
+        const moved = { ...activePlayer, lane: move.lane, idx: move.idx, distance: TRACK[move.lane][move.idx].distance };
+        let score = scoreAIPosition(moved, otherPlayer);
+        if (move.lane === activePlayer.lane) score += 15;
+        if (willMoveUndersteer(activePlayer, move.lane, move.idx, TRACK)) score -= aiDifficulty === 'normal' ? 70 : 160;
+        return { ...move, score };
+      })
+      .sort((a, b) => b.score - a.score);
+    if (aiDifficulty === 'normal' && ranked.length > 1 && Math.random() < 0.25) return ranked[1];
+    return ranked[0];
+  };
+
+  const chooseAICardChoice = () => {
+    const type = gameState.choiceContext?.type;
+    const choicePlayer = gameState.players?.[gameState.choiceContext?.playerId] || activePlayer;
+    if (type === 'micro_correction') {
+      const currentSpace = TRACK[choicePlayer.lane]?.[choicePlayer.idx];
+      const downCheck = getEffectiveSpeedCheck({ ...choicePlayer, speed: clampSpeed(choicePlayer.speed - 10) }, currentSpace);
+      return downCheck && downCheck.effectiveSpeed <= downCheck.effectiveLimit ? 'speed_down' : 'speed_up';
+    }
+    if (type === 'change_shift') {
+      const nextSpace = TRACK[choicePlayer.lane]?.[Math.min(choicePlayer.idx + 1, TRACK[choicePlayer.lane].length - 1)];
+      const upCheck = getEffectiveSpeedCheck({ ...choicePlayer, speed: clampSpeed(choicePlayer.speed + 10) }, nextSpace);
+      return upCheck && upCheck.effectiveSpeed > upCheck.effectiveLimit ? 'speed_down' : 'speed_up';
+    }
+    if (type === 'torque_split') {
+      const nextSpace = TRACK[choicePlayer.lane]?.[Math.min(choicePlayer.idx + 1, TRACK[choicePlayer.lane].length - 1)];
+      const upCheck = getEffectiveSpeedCheck({ ...choicePlayer, speed: clampSpeed(choicePlayer.speed + 30) }, nextSpace);
+      return upCheck && upCheck.effectiveSpeed > upCheck.effectiveLimit ? 'check_bonus' : 'speed';
+    }
+    return 'speed';
+  };
+
   useEffect(() => {
     if (appState !== 'PLAYING' || gameMode !== 'PvE' || !gameState || gameState.winner || activePlayerId !== 1 || gameState.phase === 'NN_REVEAL') return;
 
     const aiTimer = setTimeout(() => {
       if (gameState.phase === 'PLAY_CARD' || gameState.phase === 'NN_SELECT_CARD') {
-        const playableIdxs = activePlayer.hand.map((id, idx) => ({ id, idx })).filter(c => CARDS[c.id].canPlay(activePlayer));
-        if (playableIdxs.length > 0) {
-          const pick = playableIdxs[Math.floor(Math.random() * playableIdxs.length)];
+        const pick = chooseAICard();
+        if (pick) {
           playCard(pick.id, pick.idx);
         } else skipToDiscard();
       } else if (gameState.phase === 'DISCARD') {
-         // AI discards 1 random card if hand has unplayable, or just 1 card to cycle
-         let selection = [];
-         if (activePlayer.hand.length > 0) {
-             selection = [Math.floor(Math.random() * activePlayer.hand.length)];
-         }
-         confirmDiscard(selection);
+         confirmDiscard(chooseAIDiscardSelection(2, false));
       } else if (gameState.phase === 'CARD_CYCLE' || gameState.phase === 'NN_CARD_CYCLE') {
-        const selection = activePlayer.hand.length > 0 ? [Math.floor(Math.random() * activePlayer.hand.length)] : [];
+        const max = gameState.phase === 'CARD_CYCLE' ? gameState.cycleContext.max : (activePlayer.modifiers.cycleCards || 1);
+        const required = gameState.phase === 'CARD_CYCLE' ? gameState.cycleContext.required : Boolean(activePlayer.modifiers.cycleRequired);
+        const selection = chooseAIDiscardSelection(max, required);
         confirmCardCycle(selection);
       } else if (gameState.phase === 'CARD_CHOICE') {
-        const defaultChoice = gameState.choiceContext?.type === 'micro_correction' ? 'speed_up'
-          : gameState.choiceContext?.type === 'change_shift' ? 'speed_up'
-          : 'speed';
-        resolveCardChoice(defaultChoice);
+        resolveCardChoice(chooseAICardChoice());
       } else if (gameState.phase === 'SLIPSTREAM') {
         acceptSlipstream(true);
       } else if (gameState.phase === 'MOVE' && gameState.mpLeft > 0) {
-        const validMoves = getValidMoves(activePlayer);
-        let target = validMoves.find(m => m.lane === activePlayer.lane);
-        if (!target || (target.lane === otherPlayer.lane && target.idx === otherPlayer.idx)) {
-          target = validMoves.find(m => m.lane !== activePlayer.lane) || validMoves[0];
-        }
+        const target = chooseAIMove();
         if (target) attemptMove(target.lane, target.idx);
       } else if (gameState.phase === 'NN_MOVE' && gameState.nnMpLeft[activePlayerId] > 0) {
-        const validMoves = getValidMoves(activePlayer);
-        let target = validMoves.find(m => m.lane === activePlayer.lane);
-        if (!target || (target.lane === otherPlayer.lane && target.idx === otherPlayer.idx)) {
-          target = validMoves.find(m => m.lane !== activePlayer.lane) || validMoves[0];
-        }
+        const target = chooseAIMove();
         if (target) attemptMove(target.lane, target.idx);
       }
     }, 800);
 
     return () => clearTimeout(aiTimer);
-  }, [gameState, appState, gameMode, discardSelection, activePlayerId]);
+  }, [gameState, appState, gameMode, discardSelection, activePlayerId, aiDifficulty, cardRows, CARDS, TRACK]);
 
   const playCard = (cardId, handIndex) => {
     if (isOnlineGame && !isLocalPlayersTurn) return;
@@ -2357,7 +2575,9 @@ export default function ArcadeRacingGame() {
     const cycleMax = p.modifiers.cycleCards || 0;
     const shouldCycle = cycleMax > 0 && p.hand.length > 0;
     const pendingChoice = p.modifiers.pendingChoice;
-    const canPlayExtraCard = p.modifiers.extraCardPlay && p.hand.some(id => CARDS[id].canPlay(p));
+    const aiCanCheatExtraCard = gameMode === 'PvE' && activePlayerId === 1 && aiDifficulty === 'cheat'
+      && getKnownCardPoolForPlayer(p).some(id => CARDS[id]?.canPlay(p));
+    const canPlayExtraCard = p.modifiers.extraCardPlay && (p.hand.some(id => CARDS[id].canPlay(p)) || aiCanCheatExtraCard);
     if (canPlayExtraCard) {
       const { extraCardPlay, ...remainingModifiers } = p.modifiers;
       p.modifiers = remainingModifiers;
@@ -2513,7 +2733,9 @@ export default function ArcadeRacingGame() {
       let cycleContext = prev.cycleContext;
 
       if (context.type === 'change_shift') {
-        const canPlayExtraCard = player.modifiers.extraCardPlay && player.hand.some(id => CARDS[id].canPlay(player));
+        const aiCanCheatExtraCard = gameMode === 'PvE' && context.playerId === 1 && aiDifficulty === 'cheat'
+          && getKnownCardPoolForPlayer(player).some(id => CARDS[id]?.canPlay(player));
+        const canPlayExtraCard = player.modifiers.extraCardPlay && (player.hand.some(id => CARDS[id].canPlay(player)) || aiCanCheatExtraCard);
         if (canPlayExtraCard) {
           const { extraCardPlay, ...remainingModifiers } = player.modifiers;
           player = { ...player, modifiers: remainingModifiers };
@@ -3146,7 +3368,7 @@ export default function ArcadeRacingGame() {
       >
         <div className="absolute -right-2 -top-2 flex h-8 min-w-8 items-center justify-center rounded-full border border-white/20 bg-black px-2 text-sm font-black text-white shadow-xl">{count}</div>
         <div className="text-[10px] font-black uppercase tracking-widest text-zinc-400">{title}</div>
-        <div className="mt-3 h-44 rounded-lg border border-white/15 overflow-hidden">
+        <div className="mt-3 flex h-44 items-center justify-center rounded-lg border border-white/15 bg-black/35 overflow-hidden">
           {isDiscard && topCard ? (
             topCard.imageSrc ? (
               <img src={topCard.imageSrc} alt="" draggable="false" className="h-full w-full object-cover" />
@@ -3157,11 +3379,10 @@ export default function ArcadeRacingGame() {
                 <div className="mt-2 text-[9px] leading-tight text-zinc-400 line-clamp-3">{topCard.desc}</div>
               </div>
             )
+          ) : isDiscard ? (
+            <div className="h-full w-full rounded-md border border-dashed border-white/10 bg-zinc-950/30" />
           ) : (
-            <div className="flex h-full flex-col items-center justify-center bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.08)_0px,rgba(255,255,255,0.08)_7px,transparent_7px,transparent_14px)]">
-              <div className="h-8 w-8 rotate-45 border-4 border-white/50" />
-              <div className="mt-4 text-[9px] font-black tracking-[0.2em] text-white/40">{t('ui.face_down', 'FACE DOWN')}</div>
-            </div>
+            <img src={RACE_CARD_BACK_IMAGE} alt="" draggable="false" className="h-full w-full object-contain" />
           )}
         </div>
       </button>
@@ -3176,16 +3397,13 @@ export default function ArcadeRacingGame() {
         {Array.from({ length: cardCount }).map((_, index) => (
           <div
             key={index}
-            className="absolute h-28 w-20 rounded-lg border-2 border-yellow-200 bg-zinc-950 shadow-[0_0_18px_rgba(250,204,21,0.45)]"
+            className="absolute h-28 w-20 overflow-hidden rounded-lg border-2 border-yellow-200 bg-zinc-950 shadow-[0_0_18px_rgba(250,204,21,0.45)]"
             style={{
               animation: `deck-card-draw-to-hand 0.9s ${index * 0.08}s cubic-bezier(0.22, 1, 0.36, 1) forwards`,
               transform: `translate(${index * -5}px, ${index * -4}px) rotate(${index * 5 - 8}deg)`
             }}
           >
-            <div className="flex h-full w-full flex-col items-center justify-center rounded-md bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.1)_0px,rgba(255,255,255,0.1)_6px,transparent_6px,transparent_12px)]">
-              <div className="h-7 w-7 rotate-45 border-4 border-yellow-200/80" />
-              <div className="mt-3 text-[8px] font-black tracking-[0.2em] text-yellow-100/70">{t('ui.draw', 'DRAW')}</div>
-            </div>
+            <img src={RACE_CARD_BACK_IMAGE} alt="" draggable="false" className="h-full w-full object-contain" />
           </div>
         ))}
       </div>
@@ -3238,10 +3456,16 @@ export default function ArcadeRacingGame() {
             <div className="relative flex items-center gap-3 text-xl font-bold"><Radio className="text-zinc-400 group-hover:text-emerald-300" /><span>{t('ui.online_2_player', 'Online 2 Player')}</span></div>
           </button>
         </div>
-        <button onClick={openCodex} className="group relative mt-5 min-w-64 overflow-hidden rounded-xl border-2 border-zinc-700 bg-zinc-950/90 px-8 py-3 shadow-xl transition-all hover:border-yellow-400 hover:bg-zinc-900">
-          <div className="absolute inset-0 bg-yellow-400/15 translate-y-full transition-transform group-hover:translate-y-0"></div>
-          <div className="relative flex items-center justify-center gap-3 text-lg font-black uppercase tracking-wide"><BookOpen className="text-zinc-400 group-hover:text-yellow-300" /><span>{t('ui.codex', 'Codex')}</span></div>
-        </button>
+        <div className="mt-5 flex flex-wrap justify-center gap-4">
+          <button onClick={openDeckEditor} className="group relative min-w-64 overflow-hidden rounded-xl border-2 border-zinc-700 bg-zinc-950/90 px-8 py-3 shadow-xl transition-all hover:border-emerald-400 hover:bg-zinc-900">
+            <div className="absolute inset-0 bg-emerald-400/15 translate-y-full transition-transform group-hover:translate-y-0"></div>
+            <div className="relative flex items-center justify-center gap-3 text-lg font-black uppercase tracking-wide"><PanelsTopLeft className="text-zinc-400 group-hover:text-emerald-300" /><span>{t('ui.deck_editor', 'Deck Editor')}</span></div>
+          </button>
+          <button onClick={openCodex} className="group relative min-w-64 overflow-hidden rounded-xl border-2 border-zinc-700 bg-zinc-950/90 px-8 py-3 shadow-xl transition-all hover:border-yellow-400 hover:bg-zinc-900">
+            <div className="absolute inset-0 bg-yellow-400/15 translate-y-full transition-transform group-hover:translate-y-0"></div>
+            <div className="relative flex items-center justify-center gap-3 text-lg font-black uppercase tracking-wide"><BookOpen className="text-zinc-400 group-hover:text-yellow-300" /><span>{t('ui.codex', 'Codex')}</span></div>
+          </button>
+        </div>
         </div>
         <div className={`fixed bottom-6 px-4 py-2 rounded-full border text-xs font-bold tracking-wide ${cardDataSource === 'csv' && cornerDataSource === 'csv' ? 'bg-emerald-950/80 border-emerald-700 text-emerald-300' : cardDataSource === 'loading' || cornerDataSource === 'loading' ? 'bg-zinc-900/80 border-zinc-700 text-zinc-400' : 'bg-amber-950/80 border-amber-700 text-amber-300'}`}>
           {cardDataSource === 'loading' || cornerDataSource === 'loading'
@@ -3260,7 +3484,7 @@ export default function ArcadeRacingGame() {
       <div className="h-screen w-full overflow-y-auto bg-[#060808] text-white">
         <div className="flex min-h-screen flex-col bg-[radial-gradient(circle_at_48%_18%,rgba(16,185,129,0.2),transparent_36%),linear-gradient(125deg,rgba(127,29,29,0.18),transparent_34%,rgba(30,64,175,0.18))] px-4 py-5 sm:px-8">
           <header className="mx-auto flex w-full max-w-6xl items-center justify-between border-b border-white/15 pb-4">
-            <button onClick={() => setAppState(gameMode === 'OnlinePvP' ? 'MATCHMAKING' : 'TITLE')} className="flex items-center gap-1 text-xs font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white"><ChevronLeft size={18}/> {gameMode === 'OnlinePvP' ? t('ui.matchmaking', 'Matchmaking') : t('ui.mode_select', 'Mode Select')}</button>
+            <button onClick={() => setAppState('TITLE')} className="flex items-center gap-1 text-xs font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white"><ChevronLeft size={18}/> {t('ui.mode_select', 'Mode Select')}</button>
             <div className="text-center">
               <div className="text-3xl font-black italic uppercase tracking-tight sm:text-5xl">{t('ui.online_2_player', 'Online 2 Player')}</div>
               <div className="text-[10px] font-bold uppercase tracking-[0.35em] text-emerald-300">{t('ui.room_matchmaking', 'Room Matchmaking')}</div>
@@ -3652,15 +3876,259 @@ export default function ArcadeRacingGame() {
     );
   }
 
+  if (appState === 'DECK_EDITOR') {
+    const localizedCarOptions = CAR_OPTIONS.map(car => ({
+      ...car,
+      specialty: t(`car.${car.id}.specialty`, car.specialty)
+    }));
+    const activeCar = localizedCarOptions.find(car => car.id === deckEditorCarId) || localizedCarOptions[0];
+    const activeDeckIds = getEditableDeckIdsForCar(deckEditorCarId, cardRows, customDecks);
+    const deckCounts = countCardsById(activeDeckIds);
+    const availableCards = getAvailableCardIdsForCar(deckEditorCarId, cardRows).map(id => CARDS[id]).filter(Boolean);
+    const selectedDeckCard = activeDeckIds.includes(deckEditorLockedId || deckEditorHoveredId) ? CARDS[deckEditorLockedId || deckEditorHoveredId] : null;
+    const activeItem = selectedDeckCard || availableCards.find(card => card.id === (deckEditorLockedId || deckEditorHoveredId)) || CARDS[activeDeckIds[0]] || availableCards[0];
+    const selectedId = activeItem?.id;
+    const deckIsFull = activeDeckIds.length >= DECK_SIZE;
+    const availableGroupedCards = availableCards.reduce((groups, card) => {
+      const key = COMMON_CARD_IDS.includes(card.id) ? t('ui.common_cards', 'Common Cards') : (card.deckCode || 'CARDS');
+      return { ...groups, [key]: [...(groups[key] || []), card] };
+    }, {});
+    const setDeckForActiveCar = (deckIds) => {
+      const sanitized = sanitizeEditableDeckForCar(deckEditorCarId, deckIds, cardRows);
+      setCustomDecks(current => ({ ...current, [deckEditorCarId]: sanitized }));
+    };
+    const addCardToDeck = (cardId) => {
+      const cardCount = deckCounts[cardId] || 0;
+      if (deckIsFull || cardCount >= MAX_CARD_COPIES) return;
+      setDeckForActiveCar([...activeDeckIds, cardId]);
+      setDeckEditorLockedId(cardId);
+    };
+    const removeCardFromDeck = (cardId) => {
+      const removeIndex = activeDeckIds.lastIndexOf(cardId);
+      if (removeIndex < 0) return;
+      const nextDeck = activeDeckIds.filter((_, index) => index !== removeIndex);
+      setDeckForActiveCar(nextDeck);
+      setDeckEditorLockedId(cardId);
+    };
+    const resetDeckForActiveCar = () => {
+      setCustomDecks(current => {
+        const next = { ...current };
+        delete next[deckEditorCarId];
+        return next;
+      });
+      setDeckEditorLockedId(null);
+      setDeckEditorHoveredId(null);
+    };
+    const renderMiniCardButton = (card, content, onClick, disabled = false) => {
+      const isActive = selectedId === card.id;
+      const typeTone = (card.rulesType || card.type) === 'Gas' ? 'border-yellow-400/70' : (card.rulesType || card.type) === 'Brake' ? 'border-red-400/70' : (card.rulesType || card.type) === 'Attack' ? 'border-orange-400/70' : 'border-blue-400/70';
+      return (
+        <button
+          key={card.id}
+          disabled={disabled}
+          onMouseEnter={() => !deckEditorLockedId && setDeckEditorHoveredId(card.id)}
+          onClick={onClick}
+          className={`group relative overflow-hidden rounded-md border bg-zinc-950 text-left shadow-lg transition hover:-translate-y-0.5 hover:border-white ${disabled ? 'cursor-not-allowed opacity-45' : ''} ${isActive ? 'border-yellow-300 ring-2 ring-yellow-300/65' : typeTone}`}
+        >
+          {content}
+        </button>
+      );
+    };
+
+    return (
+      <div onClick={() => setDeckEditorLockedId(null)} className="h-screen w-full overflow-hidden bg-[#070807] text-white">
+        <style>{`
+          .deck-editor-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(52, 211, 153, 0.85) rgba(9, 9, 11, 0.9);
+          }
+          .deck-editor-scrollbar::-webkit-scrollbar {
+            width: 14px;
+            height: 14px;
+          }
+          .deck-editor-scrollbar::-webkit-scrollbar-track {
+            background: linear-gradient(180deg, rgba(9, 9, 11, 0.95), rgba(24, 24, 27, 0.82));
+            border-left: 1px solid rgba(255, 255, 255, 0.12);
+          }
+          .deck-editor-scrollbar::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #34d399, #facc15);
+            border: 3px solid rgba(9, 9, 11, 0.95);
+            border-radius: 999px;
+            box-shadow: 0 0 14px rgba(52, 211, 153, 0.25);
+          }
+          .deck-editor-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, #6ee7b7, #fde047);
+          }
+          .deck-editor-scrollbar::-webkit-scrollbar-corner {
+            background: rgba(9, 9, 11, 0.95);
+          }
+        `}</style>
+        <div className="flex h-full flex-col bg-[radial-gradient(circle_at_68%_15%,rgba(52,211,153,0.12),transparent_34%),linear-gradient(135deg,rgba(127,29,29,0.15),transparent_38%,rgba(24,24,27,0.72))]">
+          <header className="flex items-center justify-between border-b border-white/15 px-5 py-4 sm:px-8">
+            <button onClick={() => setAppState('TITLE')} className="flex items-center gap-1 text-xs font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white"><ChevronLeft size={18}/> {t('ui.back_to_title', 'Back to Title')}</button>
+            <div className="text-center">
+              <div className="text-3xl font-black italic tracking-tight sm:text-4xl">{t('ui.deck_editor', 'DECK EDITOR')}</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.35em] text-emerald-300">{activeCar.name}</div>
+            </div>
+            <div className={`hidden rounded border px-3 py-2 text-xs font-black uppercase sm:block ${activeDeckIds.length === DECK_SIZE ? 'border-emerald-400/40 bg-emerald-950/40 text-emerald-200' : 'border-yellow-400/40 bg-yellow-950/30 text-yellow-200'}`}>
+              {activeDeckIds.length} / {DECK_SIZE}
+            </div>
+          </header>
+
+          <main className="flex min-h-0 flex-1 flex-col">
+            <nav className="border-b border-white/15 bg-zinc-950/70 px-3 py-3" onClick={event => event.stopPropagation()}>
+              <div className="grid grid-cols-4 gap-2">
+                {localizedCarOptions.map(car => (
+                  <button
+                    key={car.id}
+                    onClick={() => {
+                      setDeckEditorCarId(car.id);
+                      setDeckEditorHoveredId(null);
+                      setDeckEditorLockedId(null);
+                    }}
+                    className={`group relative h-20 overflow-hidden border text-left transition hover:-translate-y-0.5 hover:border-white sm:h-24 ${deckEditorCarId === car.id ? 'border-emerald-300 shadow-[0_0_22px_rgba(52,211,153,0.22)]' : 'border-white/15'}`}
+                  >
+                    <img src={car.portrait} alt="" aria-hidden="true" draggable="false" className="absolute inset-0 h-full w-full object-cover opacity-70 saturate-125 transition duration-300 group-hover:scale-105 group-hover:opacity-95" />
+                    <div className={`absolute inset-0 ${deckEditorCarId === car.id ? 'bg-emerald-400/22' : 'bg-black/48 group-hover:bg-black/30'}`} />
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/52 to-transparent" />
+                    <div className="relative flex h-full flex-col justify-end p-3">
+                      <div className={`text-[10px] font-black uppercase tracking-[0.28em] ${deckEditorCarId === car.id ? 'text-emerald-100' : 'text-zinc-300'}`}>{CAR_DECK_CODES[car.id]}</div>
+                      <div className="mt-1 text-sm font-black uppercase leading-tight text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.9)] sm:text-base">{car.name}</div>
+                    </div>
+                    {deckEditorCarId === car.id && <div className="absolute inset-x-0 bottom-0 h-1 bg-emerald-300 shadow-[0_0_14px_rgba(52,211,153,0.85)]" />}
+                  </button>
+                ))}
+              </div>
+            </nav>
+
+            <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[22rem_minmax(25rem,30rem)_1fr]">
+            <aside className="min-h-0 overflow-y-auto border-b border-white/15 bg-black/65 px-4 py-5 lg:border-b-0 lg:border-r lg:px-5" onClick={() => setDeckEditorLockedId(null)}>
+              {activeItem && (
+                <div>
+                  <div className="flex justify-center">
+                    <RenderCard card={activeItem} scale={1.12} extraClasses="cursor-default origin-top" />
+                  </div>
+                  <div className="mt-7">
+                    <div className="text-[10px] font-black uppercase tracking-[0.35em] text-emerald-300">{activeItem.deckCode}</div>
+                    <h2 className="mt-2 text-3xl font-black italic uppercase leading-none">{activeItem.name}</h2>
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <span className="border border-white/15 bg-black/50 px-3 py-2 text-xs font-black uppercase text-zinc-300">{activeItem.type}</span>
+                      <span className="border border-white/15 bg-black/50 px-3 py-2 text-xs font-black uppercase text-zinc-300">{activeItem.timing}</span>
+                      <span className="border border-white/15 bg-black/50 px-3 py-2 text-xs font-black uppercase text-zinc-300">{activeItem.req}</span>
+                      <span className="border border-white/15 bg-black/50 px-3 py-2 text-xs font-black uppercase text-zinc-300">{t('ui.deck_count', 'Deck x{count}', { count: deckCounts[activeItem.id] || 0 })}</span>
+                    </div>
+                    <div className="mt-6 border-l-4 border-emerald-400 bg-black/45 p-4">
+                      <div className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">{t('ui.effect', 'Effect')}</div>
+                      <p className="mt-2 text-sm font-bold leading-relaxed text-zinc-100">{activeItem.desc}</p>
+                    </div>
+                    <div className="mt-4 text-xs font-bold leading-relaxed text-zinc-400">{activeItem.category}</div>
+                  </div>
+                </div>
+              )}
+            </aside>
+
+            <section className="flex min-h-0 flex-col border-b border-white/15 bg-black/50 lg:border-b-0 lg:border-r" onClick={event => event.stopPropagation()}>
+              <div className="flex items-center justify-between border-b border-white/15 px-4 py-3">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.28em] text-emerald-300">{t('ui.current_deck', 'Current Deck')}</div>
+                  <div className="mt-1 text-xs font-bold uppercase tracking-widest text-zinc-500">{t('ui.max_copies', 'Max {count} copies', { count: MAX_CARD_COPIES })}</div>
+                </div>
+                <button onClick={resetDeckForActiveCar} className="border border-white/15 bg-black px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-300 transition hover:border-yellow-300 hover:text-yellow-200">{t('ui.reset', 'Reset')}</button>
+              </div>
+
+              <div className="deck-editor-scrollbar min-h-0 flex-1 overflow-y-auto p-4 pr-5">
+                <div className="mb-4 h-2 overflow-hidden bg-zinc-900">
+                  <div className={`h-full ${activeDeckIds.length === DECK_SIZE ? 'bg-emerald-400' : 'bg-yellow-400'}`} style={{ width: `${Math.min(100, activeDeckIds.length / DECK_SIZE * 100)}%` }} />
+                </div>
+                <div className="space-y-2">
+                  {Object.entries(deckCounts).map(([cardId, count]) => {
+                    const card = CARDS[cardId];
+                    if (!card) return null;
+                    return renderMiniCardButton(card, (
+                      <div className="flex items-center gap-3 p-3">
+                        <div className="flex h-11 w-8 shrink-0 items-center justify-center overflow-hidden rounded border border-white/15 bg-black">
+                          {card.imageSrc ? <img src={card.imageSrc} alt="" draggable="false" className="h-full w-full object-cover" /> : <span className="text-[9px] font-black text-zinc-500">{card.deckCode}</span>}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-black uppercase">{card.name}</div>
+                          <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500">{card.type} / {card.deckCode}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="min-w-8 border border-emerald-300/30 bg-emerald-400/10 px-2 py-1 text-center text-xs font-black text-emerald-200">x{count}</span>
+                          <span className="border border-red-400/40 bg-red-500/10 px-2 py-1 text-xs font-black text-red-200">-</span>
+                        </div>
+                      </div>
+                    ), () => removeCardFromDeck(card.id));
+                  })}
+                </div>
+              </div>
+            </section>
+
+            <section className="flex min-h-0 flex-col bg-black/30" onClick={event => event.stopPropagation()}>
+              <div className="flex items-center justify-between border-b border-white/15 bg-zinc-950/65 p-4">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.32em] text-yellow-400">{t('ui.available_cards', 'Available Cards')}</div>
+                  <div className="mt-1 text-xs font-bold uppercase tracking-widest text-zinc-500">{t('ui.deck_editor_available_hint', 'Common cards and this machine set')}</div>
+                </div>
+                <div className={`border px-3 py-2 text-xs font-black uppercase ${deckIsFull ? 'border-emerald-400/40 bg-emerald-950/40 text-emerald-200' : 'border-yellow-400/40 bg-yellow-950/30 text-yellow-200'}`}>
+                  {deckIsFull ? t('ui.deck_full', 'Deck Full') : t('ui.open_slots', '{count} Slots', { count: DECK_SIZE - activeDeckIds.length })}
+                </div>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+                {Object.entries(availableGroupedCards).map(([group, cards]) => (
+                  <div key={group} className="mb-7">
+                    <div className="mb-3 flex items-center gap-3">
+                      <div className="text-sm font-black uppercase tracking-[0.24em] text-zinc-300">{group}</div>
+                      <div className="h-px flex-1 bg-white/10" />
+                      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{cards.length}</div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-7 2xl:grid-cols-9">
+                      {cards.map(card => {
+                        const count = deckCounts[card.id] || 0;
+                        const disabled = deckIsFull || count >= MAX_CARD_COPIES;
+                        return renderMiniCardButton(card, (
+                          <div className="aspect-[23/32]">
+                            {card.imageSrc ? (
+                              <img src={card.imageSrc} alt="" draggable="false" className="absolute inset-0 h-full w-full object-cover" />
+                            ) : (
+                              <div className="flex h-full flex-col justify-between p-2">
+                                <div className="text-[8px] font-black uppercase tracking-widest text-zinc-400">{card.deckCode}</div>
+                                <div className="text-xs font-black uppercase leading-tight text-white">{card.name}</div>
+                                <div className="text-[8px] font-black uppercase tracking-widest text-zinc-400">{card.type}</div>
+                              </div>
+                            )}
+                            <div className={`absolute right-1 top-1 rounded-sm border px-1.5 py-0.5 text-[10px] font-black ${count >= MAX_CARD_COPIES ? 'border-red-300 bg-red-500 text-white' : 'border-black/40 bg-yellow-400 text-black'}`}>x{count}</div>
+                            {!disabled && <div className="absolute inset-x-1 bottom-1 bg-black/78 py-1 text-center text-[10px] font-black uppercase tracking-widest text-emerald-200 opacity-0 transition group-hover:opacity-100">{t('ui.add', 'Add')}</div>}
+                          </div>
+                        ), () => addCardToDeck(card.id), disabled);
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
   if (appState === 'SELECT') {
     const selectedCourse = COURSE_OPTIONS.find(course => course.id === selectedCourseId) || COURSE_OPTIONS[0];
     const onlineRole = gameMode === 'OnlinePvP' ? onlineSession.role : null;
-    const activePicker = gameMode === 'PvE' ? 0 : onlineRole === 'guest' ? 1 : onlineRole === 'host' ? 0 : activeCarPlayer;
+    const activePicker = gameMode === 'PvE' ? activeCarPlayer : onlineRole === 'guest' ? 1 : onlineRole === 'host' ? 0 : activeCarPlayer;
     const canEditCourse = gameMode !== 'OnlinePvP' || onlineRole === 'host';
     const canStartRaceSetup = selectedCars.every(Boolean) && (gameMode !== 'OnlinePvP' || onlineRole === 'host');
     const chooseCar = (carId) => {
       setSelectedCars(current => current.map((car, index) => index === activePicker ? carId : car));
+      if (gameMode === 'OnlinePvP') {
+        setOnlinePlayerDecks(current => current.map((deck, index) => (
+          index === activePicker ? getDeckIdsForCar(carId, cardRows, customDecks) : deck
+        )));
+      }
       if (gameMode !== 'PvE' && activePicker === 0 && selectedCars[1] === null) setActiveCarPlayer(1);
+      if (gameMode === 'PvE' && activePicker === 0) setActiveCarPlayer(1);
     };
     const localizedCarOptions = CAR_OPTIONS.map(car => ({
       ...car,
@@ -3736,14 +4204,24 @@ export default function ArcadeRacingGame() {
                 const car = selectedCarData[player];
                 const waiting = activePicker === player;
                 const lockedByOnlineRole = gameMode === 'OnlinePvP' && ((onlineRole === 'host' && player === 1) || (onlineRole === 'guest' && player === 0));
-                return <button type="button" key={player} onClick={() => !(player === 1 && gameMode === 'PvE') && !lockedByOnlineRole && setActiveCarPlayer(player)} className={`overflow-hidden border bg-black/65 text-left ${player === 1 ? 'lg:col-start-3' : ''} ${player === 1 && gameMode === 'PvE' || lockedByOnlineRole ? 'cursor-default' : 'cursor-pointer hover:border-white/50'} ${waiting ? player === 0 ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.25)]' : 'border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.25)]' : 'border-white/15'}`}>
+                return <div role="button" tabIndex={lockedByOnlineRole ? -1 : 0} key={player} onClick={() => !lockedByOnlineRole && setActiveCarPlayer(player)} onKeyDown={event => { if (!lockedByOnlineRole && (event.key === 'Enter' || event.key === ' ')) setActiveCarPlayer(player); }} className={`overflow-hidden border bg-black/65 text-left ${player === 1 ? 'lg:col-start-3' : ''} ${lockedByOnlineRole ? 'cursor-default' : 'cursor-pointer hover:border-white/50'} ${waiting ? player === 0 ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.25)]' : 'border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.25)]' : 'border-white/15'}`}>
                   <CarPortrait car={car} player={player}/>
                   <div className={`p-4 ${player === 1 ? 'text-right' : ''}`}>
                     <div className="flex items-center justify-between gap-3"><h3 className="text-xl font-black uppercase">{car?.name || (waiting ? t('ui.choose_machine', 'Choose Machine') : t('ui.waiting_ellipsis', 'Waiting...'))}</h3>{car && <span className="border border-yellow-500/50 bg-yellow-500/10 px-2 py-1 text-xs font-black text-yellow-300">{car.drive}</span>}</div>
-                    <p className="mt-2 min-h-10 text-xs leading-relaxed text-zinc-400">{car?.specialty || (player === 1 && gameMode === 'PvE' ? t('ui.cpu_machine_locked', 'CPU machine locked.') : lockedByOnlineRole ? t('ui.remote_player_machine_slot', 'Remote player machine slot.') : t('ui.select_from_machine_grid', 'Select from machine grid.'))}</p>
-                    {car && !(player === 1 && gameMode === 'PvE') && !lockedByOnlineRole && <div className="mt-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">{t('ui.press_panel_machine', 'Press panel, then press any machine')}</div>}
+                    <p className="mt-2 min-h-10 text-xs leading-relaxed text-zinc-400">{car?.specialty || (lockedByOnlineRole ? t('ui.remote_player_machine_slot', 'Remote player machine slot.') : t('ui.select_from_machine_grid', 'Select from machine grid.'))}</p>
+                    {gameMode === 'PvE' && player === 0 && (
+                      <div className="mt-3 flex justify-start gap-1" onClick={event => event.stopPropagation()}>
+                        {[true, false].map(startsFirst => <button type="button" key={String(startsFirst)} onClick={() => setPlayerStartsFirst(startsFirst)} className={`px-3 py-2 text-[10px] font-black uppercase tracking-widest ${playerStartsFirst === startsFirst ? 'bg-red-500 text-white' : 'border border-white/15 bg-black/70 text-zinc-400 hover:border-red-300 hover:text-white'}`}>{startsFirst ? t('ui.go_first', 'Go First') : t('ui.go_second', 'Go Second')}</button>)}
+                      </div>
+                    )}
+                    {gameMode === 'PvE' && player === 1 && (
+                      <div className="mt-3 flex justify-end gap-1" onClick={event => event.stopPropagation()}>
+                        {AI_DIFFICULTIES.map(difficulty => <button type="button" key={difficulty} onClick={() => setAiDifficulty(difficulty)} className={`px-3 py-2 text-[10px] font-black uppercase tracking-widest ${aiDifficulty === difficulty ? 'bg-blue-500 text-white' : 'border border-white/15 bg-black/70 text-zinc-400 hover:border-blue-300 hover:text-white'}`}>{t(`ui.ai_${difficulty}`, difficulty.charAt(0).toUpperCase() + difficulty.slice(1))}</button>)}
+                      </div>
+                    )}
+                    {car && !lockedByOnlineRole && <div className="mt-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">{t('ui.press_panel_machine', 'Press panel, then press any machine')}</div>}
                   </div>
-                </button>;
+                </div>;
               })}
 
               <div className="grid grid-cols-2 gap-2 self-stretch lg:col-start-2 lg:row-start-1">
@@ -3758,7 +4236,7 @@ export default function ArcadeRacingGame() {
                   </button>;
                 })}
                 <div className="col-span-2 flex min-h-14 items-center justify-center">
-                  {canStartRaceSetup ? <button onClick={initGame} className="group flex items-center gap-3 border-2 border-yellow-300 bg-yellow-400 px-8 py-3 text-lg font-black italic uppercase text-black shadow-[0_0_26px_rgba(250,204,21,0.4)] transition hover:scale-105 hover:bg-yellow-300">{t('ui.start_your_engines', 'Start Your Engines')} <Play size={20}/></button> : <div className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">{gameMode === 'OnlinePvP' && onlineRole === 'guest' ? t('ui.waiting_host_start', 'Waiting for host to start') : activePicker === 0 ? t('ui.player_choose_machine', '{player}: choose machine', { player: 'Player 1' }) : t('ui.player_choose_machine', '{player}: choose machine', { player: 'Player 2' })}</div>}
+                  {canStartRaceSetup ? <button onClick={initGame} className="group flex items-center gap-3 border-2 border-yellow-300 bg-yellow-400 px-8 py-3 text-lg font-black italic uppercase text-black shadow-[0_0_26px_rgba(250,204,21,0.4)] transition hover:scale-105 hover:bg-yellow-300">{t('ui.start_your_engines', 'Start Your Engines')} <Play size={20}/></button> : <div className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">{gameMode === 'OnlinePvP' && onlineRole === 'guest' ? t('ui.waiting_host_start', 'Waiting for host to start') : activePicker === 0 ? t('ui.player_choose_machine', '{player}: choose machine', { player: 'Player 1' }) : t('ui.player_choose_machine', '{player}: choose machine', { player: gameMode === 'PvE' ? 'CPU' : 'Player 2' })}</div>}
                 </div>
               </div>
             </section>

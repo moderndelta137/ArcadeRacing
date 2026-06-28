@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#09090b">
   <link rel="icon" href="data:,">
-  <title>山道疾走：ドリフトデュエル Mountain Chase: Drift Duel</title>
+  <title>Mountain Chase: Drift Duel</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
@@ -40,7 +40,133 @@
   </style>
 </head>
 <body>
-  <div id="root"></div>
+  
+  <script id="localization-csv-fallback" type="text/plain">
+key,en,ja
+language.english,English,英誁Elanguage.japanese,Japanese,日本誁Elanguage.toggle,Language,言誁Eui.main_menu,Main Menu,メインメニュー
+ui.mode_select,Mode Select,モード選抁Eui.codex,Codex,図鑁Eui.vs_ai_racers,VS AI Racers,AIレーサーと対戦
+ui.local_2_player,Local 2 Player,ローカル2人対戦
+ui.online_2_player,Online 2 Player,オンライン2人対戦
+ui.subtitle,Tactical Drift Card Battles,戦略型ドリフトカードバトル
+ui.loading_csv_data,Loading CSV data...,CSVチE�Eタを読み込み中...
+ui.cards_status,Driving Cards: {cards} / Corner Cards: {corners},ドライビングカーチE {cards} / コーナ�EカーチE {corners}
+ui.live,Live,ライチEui.fallback,Fallback,冁E��
+ui.run_live_csv,Run start_arcade_racing.cmd for live CSV,ライブCSVを使ぁE��は start_arcade_racing.cmd を実衁Eui.matchmaking,Matchmaking,マッチメイキング
+ui.room_matchmaking,Room Matchmaking,ルームマッチメイキング
+ui.choose_role,Choose Role,役割を選抁Eui.host,Host,ホスチEui.guest,Guest,ゲスチEui.create_room,Create Room,ルーム作�E
+ui.join_room,Join Room,ルーム参加
+ui.host_room_help,Generate a room key, wait for the guest to connect, then start once their ready light is on.,ルームキーを生成し、ゲスト�E接続と準備完亁E��征E��てから開始します、Eui.join_room_help,Enter the host room key. Once connected, mark ready and wait for the host to launch setup.,ホスト�Eルームキーを�E力し、接続後に準備完亁E��送って開始を征E��ます、Eui.host_a_room,Host A Room,ルームを作�E
+ui.room_key,Room Key,ルームキー
+ui.connected,Connected,接続済み
+ui.waiting,Waiting,征E��中
+ui.ready,Ready,準備
+ui.locked_in,Locked In,ロチE��済み
+ui.not_yet,Not Yet,未完亁Eui.start_setup,Start Setup,セチE��アチE�E開姁Eui.join_as_guest,Join As Guest,ゲストとして参加
+ui.found,Found,検�E
+ui.searching,Searching,検索中
+ui.sent,Sent,送信済み
+ui.open,Open,未送信
+ui.mark_ready,Mark Ready,準備完亁Eui.back_to_title,Back to Title,タイトルへ戻めEui.race_setup,Race Setup,レースセチE��アチE�E
+ui.course_machine_select,Course & Machine Select,コース�E�E�Eシン選抁Eui.player_course_pick,Player 1 Course Pick,プレイヤー1 コース選抁Eui.tutorial,Tutorial,チュートリアル
+ui.tutorial_on,Tutorial On,チュートリアル オン
+ui.tutorial_off,Tutorial Off,チュートリアル オチEui.choose_machine,Choose Machine,マシンを選抁Eui.waiting_ellipsis,Waiting...,征E��中...
+ui.cpu_machine_locked,CPU machine locked.,CPUマシンは固定です、Eui.remote_player_machine_slot,Remote player machine slot.,リモート�Eレイヤーのマシン枠です、Eui.select_from_machine_grid,Select from machine grid.,マシングリチE��から選択してください、Eui.press_panel_machine,Press panel, then press any machine,パネルを押してからマシンを選抁Eui.machine_number,Machine {number},マシン {number}
+ui.start_your_engines,Start Your Engines,エンジン始動
+ui.waiting_host_start,Waiting for host to start,ホスト�E開始を征E��てぁE��ぁEui.player_choose_machine,{player}: choose machine,{player}: マシンを選抁Eui.down,Down,下り
+ui.up,Up,上り
+ui.cards_count,{count} cards,{count}极Eui.speed,Speed,速度
+ui.gear,Gear,ギア
+ui.leading,Leading,先衁Eui.following,Following,追走
+ui.played_card,Played Card,使用カーチEui.discard,Discard,捨て札
+ui.deck,Deck,山札
+ui.face_down,Face Down,伏せ札
+ui.draw,Draw,ドロー
+ui.discard_pile,Discard Pile ({count}),捨て札 ({count})
+ui.close,Close,閉じめEui.no_discarded_cards,No discarded cards,捨て札はありません
+ui.recenter,Recenter,中央へ戻ぁEui.neck_and_neck,Neck and Neck,サイドバイサイチEui.lock_in,Lock In,セチE��
+ui.reveal,Reveal,公閁Eui.move_order,Move Order,移動頁Eui.cards_locked_in,Cards Locked In,カードセチE��完亁Eui.simultaneous_reveal,Simultaneous Reveal,同時公閁Eui.action_order_set,Action Order Set,行動頁E��宁Eui.both_commit_face_down,Both drivers commit face down.,両ドライバ�Eがカードを伏せて選択しました、Eui.cards_flip_together,Both cards flip together. Comparing pre-effect speed...,両方のカードを同時に公開。効果前の速度を比輁E��...
+ui.first_step_decided,The first movement step is decided before card effects resolve.,最初�E移動頁E�Eカード効果�E解決前に決まります、Eui.no_card,No Card,カードなぁEui.first_movement_step,First Movement Step,最初�E移勁Eui.moves_first,{player} moves first,{player} が�Eに移勁Eui.then_alternates,Then movement alternates one point at a time.,そ�E後�E1ポイントずつ交互に移動します、Eui.close_banner_start_movement,Close Banner & Start Movement,バナーを閉じて移動開姁Eui.waiting_host_movement,Waiting for host to start movement,ホスト�E移動開始を征E��てぁE��ぁEui.ai_thinking,AI is thinking...,AIが老E��中...
+ui.bonus_turn,Bonus turn,ボ�Eナスターン
+ui.waiting_for_player,Waiting for {player},{player} を征E��てぁE��ぁEui.slipstream_available,Slipstream Available,スリチE�Eストリーム発甁Eui.take_slipstream,Take (+10 km/h),使ぁE(+10 km/h)
+ui.refuse,Refuse,断めEui.torque_split,Torque Split,トルクスプリチE��
+ui.micro_correction,Micro Correction,マイクロコレクション
+ui.change_shift,Change Shift,シフトチェンジ
+ui.choose_speed_or_check,Choose speed now or corner limit this turn.,今すぐ速度を上げるか、このターンのコーナ�E速度上限を上げます、Eui.choose_speed_adjustment,Choose speed adjustment after the speed check.,速度チェチE��後�E速度調整を選びます、Eui.choose_shift_direction,Choose shift direction.,シフト方向を選びます、Eui.speed_plus,Speed +{amount},速度 +{amount}
+ui.speed_minus,Speed -{amount},速度 -{amount}
+ui.check_plus,Check +{amount},チェチE�� +{amount}
+ui.lock_card_face_down,Lock in 1 Card Face Down!,カーチE枚を伏せてセチE���E�Eui.play_driving_card,Play 1 Driving Card,ドライビングカードを1枚�Eレイ
+ui.hand_locked_rival,Hand Locked During Rival Turn,相手ターン中は手札ロチE��
+ui.hand_locked_movement,Hand Locked During Movement,移動中は手札ロチE��
+ui.skip_refresh,Skip/Refresh,スキチE�E / 手札更新
+ui.select_discard_optional,Select cards to discard (Optional),捨てるカードを選択（任意！Eui.confirm_discard,Confirm Discard,捨て札を確宁Eui.required_discard,Required Discard,忁E��ディスカーチEui.optional_hand_cycling,Optional Hand Cycling,任意�E手札入れ替ぁEui.discard_n_card,discard {count} card,{count}枚捨てめEui.discard_up_to_n_card,discard up to {count} card,最大{count}枚捨てめEui.selected_refills,Selected cards go to your discard pile. Your hand refills at turn end.,選んだカード�E捨て札に置かれます。ターン終亁E��に手札を補�Eします、Eui.discard_continue,Discard {count} & Continue,{count}枚捨てて続衁Eui.select_card,Select Card,カードを選抁Eui.keep_hand_continue,Keep Hand & Continue,手札を保持して続衁Eui.race_radio,Race Radio,レース無緁Eui.overtake,Overtake!,オーバ�EチE��ク�E�Eui.takes_lead,{player} takes the lead!,{player} が�E頭に立った！Eui.suffers_penalty,{player} suffers {penalty},{player} は {penalty} のペナルチE��
+ui.finish_wins,Finish - {player} Wins!,フィニッシュ - {player} の勝利�E�Eui.racing_cards,Racing Cards,レーシングカーチEui.road_cards,Road Cards,ロードカーチEui.debug_map,Debug Map,チE��チE��マッチEui.card_archive,Card Archive,カードアーカイチEui.cards_label,{count} Cards,{count}极Eui.race_scale_geometry,race-scale geometry,レーススケール形状
+ui.effect,Effect,効极Eui.entry,Entry {count},入口 {count}
+ui.exit,Exit {count},出口 {count}
+ui.weight,Weight {count},重み {count}
+ui.segment,Segment {count},セグメンチE{count}
+ui.straight_spaces,Straight / {count} spaces,直緁E/ {count}マス
+ui.degree_curve,{angle} degree {direction} curve,{angle}度 {direction} カーチEui.radius_inner_outer_limit,Radius {radius} / Inner {inner} spaces / Outer {outer} spaces / Speed limit {limit} km/h,半征E{radius} / 冁E�E {inner}マス / 外�E {outer}マス / 速度制陁E{limit} km/h
+ui.selection_locked,Selection locked,選択ロチE��済み
+ui.tutorial_skip,Skip Tutorial,チュートリアルをスキチE�E
+ui.got_it,Got It,亁E��
+ui.movement_step,Movement Step,移動スチE��チEui.lock_in_card,Lock In Card,カードをセチE��
+ui.turn_start,Turn Start,ターン開姁Eui.player_plays,{player} Plays,{player} が�Eレイ
+online.guest_connected_waiting_ready,Guest connected. Waiting for ready signal.,ゲスト接続済み。準備完亁E��征E��てぁE��す、Eonline.connected_mark_ready,Connected to host. Mark ready when you are set.,ホストに接続しました。準備ができたら完亁E��送ってください、Eonline.connection_closed,Connection closed. Rejoin or host a new room.,接続が閉じました。�E参加するか新しいルームを作�Eしてください、Eonline.peer_error,Peer connection error. Check the room key or retry.,ピア接続エラーです。ルームキーを確認して再試行してください、Eonline.broker_unavailable,Online broker unavailable. Same-browser fallback is still active.,オンライン仲介サーバ�Eが利用できません。同一ブラウザ用フォールバックは有効です、Eonline.networking_unavailable,Online networking could not load. Same-browser fallback is still active.,オンライン通信を読み込めません。同一ブラウザ用フォールバックは有効です、Eonline.guest_ready_start_setup,Guest is ready. You can start the race setup.,ゲスト�E準備が完亁E��ました。レースセチE��アチE�Eを開始できます、Eonline.share_room_key,Share this room key with your guest.,こ�Eルームキーをゲストに共有してください、Eonline.enter_room_key,Enter a room key first.,先にルームキーを�E力してください、Eonline.looking_for_host,Looking for host...,ホストを探してぁE��ぁE..
+online.ready_sent,Ready sent. Waiting for the host to start.,準備完亁E��送信しました。�Eスト�E開始を征E��てぁE��す、Elog.race_started,Race started! Player 1 is the Lead Player.,レース開始！Player 1 が�E行�Eレイヤーです、Elog.locked_card,{player} locked in a card.,{player} がカードを伏せてセチE��しました、Elog.played_card,{player} played {card}.,{player} が「{card}」をプレイしました、Elog.may_play_another,{player} may play another card.,{player} は追加でカードをプレイできます、Elog.skips_card,{player} skips card play.,{player} はカード�EレイをスキチE�Eしました、Elog.discarded_cards,{player} discarded {count} cards.,{player} ぁE{count} 枚捨てました、Elog.cycles_cards,{player} cycles {count} card.,{player} ぁE{count} 枚�Eれ替えました、Elog.takes_slipstream,{player} takes the Slipstream! (+10 km/h),{player} がスリチE�Eストリームを使った！E+10 km/h)
+log.declined_slipstream,{player} declined the Slipstream.,{player} はスリチE�Eストリームを断りました、Elog.no_room,NO ROOM: {opponent} blocks {player} from entering that lane.,NO ROOM: {opponent} ぁE{player} の進入をブロチE��、Elog.blocked_by,{player} is blocked by {opponent}!,{player} は {opponent} にブロチE��された！Elog.chrome_bumper,CHROME BUMPER: {opponent} loses 40 km/h.,CHROME BUMPER: {opponent} は 40 km/h 失ぁE��Elog.door_slam,DOOR SLAM: {opponent} loses 20 km/h and remaining move points.,DOOR SLAM: {opponent} は 20 km/h と残り移動�Eイントを失ぁE��Elog.shove_aside,SHOVE ASIDE: {player} forces {opponent} out of the lane.,SHOVE ASIDE: {player} ぁE{opponent} をレーン外へ押し�Eした、Elog.shove_aside_no_space,SHOVE ASIDE: no space. Both cars spin off and lose remaining move points.,SHOVE ASIDE: 空きなし。両車スピンオフし残り移動�Eイントを失ぁE��Elog.blind_attack,BLIND ATTACK: {player} switches lanes and keeps momentum.,BLIND ATTACK: {player} がレーン変更し勢ぁE��維持、Elog.matches_speed,{player} matches speed to {speed}.,{player} が速度めE{speed} に合わせた、Elog.balanced_chassis,BALANCED CHASSIS: {player} discards 1 card for a free side step.,BALANCED CHASSIS: {player} ぁE枚捨ててフリー横移動、Elog.trail_braking,TRAIL BRAKING: {player} sheds 10 km/h before the speed check.,TRAIL BRAKING: {player} が速度チェチE��前に 10 km/h 減速、Elog.traction_control,TRACTION CONTROL: {player} loses 20 km/h and cancels understeer.,TRACTION CONTROL: {player} ぁE20 km/h 失ぁE��ンダースチE��をキャンセル、Elog.full_countersteer,FULL COUNTERSTEER: {player} discards 1 card and cancels understeer.,FULL COUNTERSTEER: {player} ぁE枚捨ててアンダースチE��をキャンセル、Elog.understeer,UNDERSTEER: {player} speed {speed} exceeds limit {limit}.,UNDERSTEER: {player} の速度 {speed} が制陁E{limit} を趁E��、Elog.crash_guardrail,CRASH: {player} hits the guardrail. (-1 Gear, remaining move points lost),CRASH: {player} がガードレールに接触、E-1ギア、残り移動�Eイント喪失)
+log.spin_off,SPIN OFF: {player} leaves the road. (-2 Gears, remaining move points lost),SPIN OFF: {player} がコースアウト、E-2ギア、残り移動�Eイント喪失)
+log.collision,COLLISION: {player} side-swipes {opponent}.,COLLISION: {player} ぁE{opponent} と接触、Elog.progressive_acceleration,PROGRESSIVE ACCELERATION: {player} gains 10 km/h.,PROGRESSIVE ACCELERATION: {player} ぁE10 km/h 加速、Elog.rocket_start,ROCKET START: {player} gains {amount} km/h.,ROCKET START: {player} ぁE{amount} km/h 加速、Elog.exit_drift,EXIT DRIFT: {player} gains 30 km/h.,EXIT DRIFT: {player} ぁE30 km/h 加速、Elog.early_power,EARLY POWER: {player} gains 40 km/h.,EARLY POWER: {player} ぁE40 km/h 加速、Elog.burn_rubber,BURN RUBBER: {player} gains 60 km/h and discards all cards.,BURN RUBBER: {player} ぁE60 km/h 加速し、カードをすべて捨てる、Elog.overtake_lead,OVERTAKE: {player} takes the lead!,OVERTAKE: {player} が�E頭に立った！Elog.nn_complete,-- N&N Complete. {player} is Lead. --,-- サイドバイサイド終亁E��Eplayer} が�E行、E-
+log.round_end,-- Round End. {player} is Lead. --,-- ラウンド終亁E��Eplayer} が�E行、E-
+log.nn_locked,NECK AND NECK: Both cards are locked in.,サイドバイサイチE 両老E��ードセチE��完亁E��Elog.nn_engaged,NECK AND NECK ENGAGED!,サイドバイサイド突�E�E�Ecard.type.gas,Gas,アクセル
+card.type.brake,Brake,ブレーキ
+card.type.turn,Turn,コーナリング
+card.type.attack,Attack,アタチE��
+card.timing.before,Before,移動前
+card.timing.drive,Drive,走行中
+card.timing.after,After,移動征Ecard.timing.step,Step,スチE��チEcard.requirement.none,None,なぁEcard.requirement.any,Any,制限なぁEcard.requirement.min,Min {value} km/h,{value} km/h 以丁Ecard.requirement.max,Max {value} km/h,{value} km/h 以丁Ecard.drift.name,Drift,ドリフト
+card.drift.effect,+30 km/h to the speed check this turn.,こ�Eターンの速度チェチE��に +30 km/h、Ecard.full_throttle.name,Full throttle,フルスロチE��ル
+card.full_throttle.effect,Speed +40 km/h.,速度 +40 km/h、Ecard.back_down.name,Back down,バックダウン
+card.back_down.effect,Speed -20 km/h. Discard 1 card.,速度 -20 km/h。カードを1枚捨てる、Ecard.hard_brake.name,Hard Brake,ハ�Eドブレーキ
+card.hard_brake.effect,Speed -50 km/h.,速度 -50 km/h、Ecard.change_lane.name,Change Lane,レーンチェンジ
+card.change_lane.effect,Move to the other lane. Discard 1 card.,反対レーンへ移動。カードを1枚捨てる、Ecard.early_brake_cornering.name,Early Brake Cornering,早めブレーキコーナリング
+card.early_brake_cornering.effect,Speed -20 km/h. Move to the inner lane.,速度 -20 km/h。イン側レーンへ移動、Ecard.rocket_start.name,Rocket Start,ロケチE��スターチEcard.rocket_start.effect,Speed +50 km/h. You may discard 2 cards.,速度 +50 km/h。カードを2枚まで捨ててもよぁE��Ecard.change_shift.name,Change Shift,シフトチェンジ
+card.change_shift.effect,Speed +10 km/h or -10 km/h. You may then play another card.,速度 +10 km/h また�E -10 km/h。その後、追加でカードを1枚�EレイしてもよぁE��Ecard.clutch_kick.name,Clutch Kick,クラチE��キチE��
+card.clutch_kick.effect,Speed +20 km/h. This turn, your first speed check gains +50 km/h.,速度 +20 km/h。このターン最初�E速度チェチE��に +50 km/h、Ecard.trail_braking.name,Trail Braking,トレイルブレーキング
+card.trail_braking.effect,Before each speed check this turn, you may reduce Speed by 10 km/h.,こ�Eターン吁E��度チェチE��の前に速度めE10 km/h 下げてもよぁE��Ecard.full_countersteer.name,Full Countersteer,フルカウンター
+card.full_countersteer.effect,If you would understeer this turn, discard 1 card and cancel that understeer once.,こ�EターンにアンダースチE��する場合、カードを1枚捨てて1回だけキャンセルする、Ecard.exit_drift.name,Exit Drift,立ち上がりドリフト
+card.exit_drift.effect,"If you moved through at least 1 speed check space this turn, Speed +30 km/h.",こ�Eターン速度チェチE��マスめEつ以上通過してぁE��ら速度 +30 km/h、Ecard.drift_extend.name,Drift Extend,ドリフト延長
+card.drift_extend.effect,If you gain corner speed bonus last turn, it also applies to the speed check this turn.,前ターンにコーナ�E速度ボ�Eナスを得てぁE��ら、このターンの速度チェチE��にも適用する、Ecard.gutter_boost.name,Gutter Boost,溝落としブースチEcard.gutter_boost.effect,"If you are on the inner lane, +50 km/h to the corner speed limit calculation.",イン側レーンにぁE��ならコーナ�E速度制限計算に +50 km/h、Ecard.blind_attack.name,Blind Attack,ブラインドアタチE��
+card.blind_attack.effect,"Discard all cards in your hand. If you get blocked, move to the other lane and gain 1 move point.",手札をすべて捨てる。ブロチE��されたら反対レーンへ移動し、移動�Eイントを1得る、Ecard.jump_exit.name,Jump Exit,ジャンプエグジチE��
+card.jump_exit.effect,"You have 4 move points this turn regardless of your gear, ignore the corner speed limit.",こ�Eターンはギアに関係なく移動�EインチE。コーナ�E速度制限を無視する、Ecard.progressive_acceleration.name,Progressive Acceleration,プログレチE��ブ加送Ecard.progressive_acceleration.effect,"After each move this turn, Speed +10 km/h.",こ�Eターン移動するたびに速度 +10 km/h、Ecard.early_power.name,Early Power,早踏みアクセル
+card.early_power.effect,"If you passed all speed checks this turn, Speed +40 km/h.",こ�Eターンすべての速度チェチE��を通過してぁE��ら速度 +40 km/h、Ecard.traction_control.name,Traction Control,トラクションコントロール
+card.traction_control.effect,"If you would understeer this turn, reduce your speed by 20 km/h and cancel that understeer.",こ�EターンにアンダースチE��する場合、E��度めE20 km/h 下げてキャンセルする、Ecard.grip_line.name,Grip Line,グリチE�Eライン
+card.grip_line.effect,+20 km/h to the speed check this turn. Discard 1 card.,こ�Eターンの速度チェチE��に +20 km/h。カードを1枚捨てる、Ecard.balanced_chassis.name,Balanced Chassis,バランスシャシー
+card.balanced_chassis.effect,"Once this turn, you may move sideways by discard 1 card.",こ�Eターン1回、カードを1枚捨てて横移動してもよぁE��Ecard.torque_split.name,Torque Split,トルクスプリチE��
+card.torque_split.effect,"Choose one: Speed +30 km/h, or +40 km/h to the speed check this turn.","どちらかを選ぶ: 速度 +30 km/h、また�Eこ�Eターンの速度チェチE��に +40 km/h、E
+card.micro_correction.name,Micro Correction,マイクロコレクション
+card.micro_correction.effect,"After each speed check this turn, you may choose Speed +10 km/h or Speed -10 km/h.",こ�Eターン吁E��度チェチE��後、E��度 +10 km/h また�E -10 km/h を選んでもよぁE��Ecard.line_lock.name,Line Lock,ラインロチE��
+card.line_lock.effect,"While you remain in your current lane , all speed checks gain +30 km/h this turn.",現在のレーンに留まってぁE��間、このターンすべての速度チェチE��に +30 km/h、Ecard.raw_horsepower.name,Raw Horsepower,剛力馬劁Ecard.raw_horsepower.effect,Speed +50 km/h. You may only move forward this turn.,速度 +50 km/h。このターン前進のみ可能、Ecard.straight_line_monster.name,Straight-Line Monster,直線番長
+card.straight_line_monster.effect,"If you are on a straight, Speed +40 km/h. Otherwise, Speed +20 km/h",直線上なら速度 +40 km/h。それ以外なら速度 +20 km/h、Ecard.panic_stop.name,Panic Stop,パニチE��ストッチEcard.panic_stop.effect,Speed -80km/h. Discard all cards from hand.,速度 -80 km/h。手札をすべて捨てる、Ecard.chrome_bumper.name,Chrome Bumper,クロームバンパ�E
+card.chrome_bumper.effect,"When you get blocked, discard 1 card, then the blocking car loses 40 km/h.",ブロチE��された時、カードを1枚捨てる。その後ブロチE��した車�E 40 km/h 失ぁE��Ecard.shove_aside.name,Shove Aside,押し�EぁEcard.shove_aside.effect,"Move the blocking car to the other lane. You may enter the space it left. If it cannot move, both cars spin-off.",ブロチE��した車を反対レーンへ移動させる。空ぁE��マスに進入してもよぁE��移動できなければ両車スピンオフ、Ecard.burn_rubber.name,Burn Rubber,バ�Eンラバ�E
+card.burn_rubber.effect,If you overtake this turn, Speed +60 km/h. Discard all cards.,こ�Eターンにオーバ�EチE��クしたら速度 +60 km/h。カードをすべて捨てる、Ecard.door_slam.name,Door Slam,ドアスラム
+card.door_slam.effect,Move to the other lane. If you get blocked the blocking car loses 20 km/h and all his remaining move points.,反対レーンへ移動。ブロチE��されたら、ブロチE��した車�E 20 km/h と残り移動�Eイントをすべて失ぁE��Ecard.no_room.name,No Room,ノ�Eルーム
+card.no_room.effect,Other cars cannot move into your lane until next turn.,次のターンまで他�E車�Eあなた�Eレーンに入れなぁE��Eroad.sweeper.name,Sweeper,高速コーナ�E
+road.hairpin.name,Hairpin,ヘアピン
+road.chicane.name,Chicane,シケイン
+road.increasing_radius.name,Increasing Radius,拡大R
+road.decreasing_radius.name,Decreasing Radius,縮小R
+road.double_apex.name,Double Apex,ダブルエイペックス
+road.corner_90.name,90 Deg Corner,90度コーナ�E
+car.ae86.specialty,Lightweight balance. Predictable drifts and fast line changes.,軽量バランス型。読みめE��ぁE��リフトと素早ぁE��イン変更が得意、Ecar.huracan.specialty,Explosive exits. Strong grip when power comes down early.,立ち上がり加速が強烈。早めに踏んだ時�EグリチE�Eが強ぁE��Ecar.porsche911.specialty,Rear-engine traction. Precise corrections through technical bends.,リアエンジンのトラクション。テクニカルな連続コーナ�Eで精寁E��修正できる、Ecar.mustang.specialty,Raw straight-line power. Built to pressure rivals door to door.,荒、E��ぁE��線パワー。横並びでライバルに圧をかけるためのマシン、Etutorial.race-start.title,Race Start,レース開姁Etutorial.race-start.body,"This is the full race view. Your goal is simple: cross the finish before your rival. The driver currently in front is the Lead Driver, which matters because the lead usually acts first each turn. If someone overtakes, that order can change.",これがレース全体画面です。目皁E�Eシンプル、ライバルより先にフィニッシュすること。現在前にぁE��ドライバ�Eがリードドライバ�Eで、E��常は吁E��ーン先に行動します。追ぁE��きが起きると頁E��は変わります、Etutorial.speedometer.title,"Speed, Gear, and MP",速度・ギア・MP
+tutorial.speedometer.body,"The speedometer is your main status panel. Speed is how fast your car is moving, Gear is the speed band you are in, and MP means Move Points. Higher speed gives you a higher gear and more MP, but it also makes tight corners more dangerous.",スピ�Eドメーターは主な状態パネルです。速度は車�E速さ、ギアは速度帯、MPは移動�Eイントです。速度が高いほどギアとMPは増えますが、タイトなコーナ�Eは危険になります、Etutorial.turn-flow.title,"One Turn, Two Drivers",1ターン、E人のドライバ�E
+tutorial.turn-flow.body,"A normal round starts with the Lead Driver, then alternates to the Following Driver. On your turn you choose a card or skip, resolve any card choices, move using MP, then clean up and draw back up to 4 cards. After both drivers act, the game checks who is leading and starts the next round.",通常ラウンド�Eリードドライバ�Eから始まり、その後フォロードライバ�Eへ移ります。�E刁E�Eターンではカードを選ぶかスキチE�Eし、E��択効果を解決し、MPで移動し、最後に手札ぁE枚になるまで引きます。両老E��行動したら�E行を確認して次ラウンドへ進みます、Etutorial.hand.title,Driving Cards,ドライビングカーチEtutorial.hand.body,"These are your driving cards: the moves your driver can commit to before the car moves. Gas cards build speed, Brake cards slow you down, Turn cards help with cornering and lane control, and Attack cards pressure the other racer.",これがドライビングカードです。車が動く前にドライバ�Eが選ぶアクションです。アクセルは加速、ブレーキは減速、コーナリングはレーン制御、アタチE��は相手にプレチE��ャーをかけます、Etutorial.card-requirements.title,Card Requirements,カード条件
+tutorial.card-requirements.body,"Some cards have speed requirements, such as Min 60 or Max 80. That means the card only works when your current speed is inside that range. If a card is dimmed, your car is not in the right speed window yet.",カードには、E0以上」、E0以下」などの速度条件があります。現在速度がその篁E��にある時だけ使えます。暗く表示されてぁE��カード�E、まだ条件を満たしてぁE��せん、Etutorial.skip-turn.title,Skip/Refresh,スキチE�E / 手札更新
+tutorial.skip-turn.body,"Skip/Refresh means you choose not to play a driving card this turn and instead move into the discard step. Use it when your hand is awkward: discard cards you do not want, dig deeper into the deck, then draw back up to 4 cards at the end of the turn.",スキチE�E / 手札更新は、このターンにドライビングカードを使わず捨て札スチE��プへ進む選択です。手札が悪ぁE��に不要なカードを捨て、山札を掘り進め、ターン終亁E��に4枚まで補�Eできます、Etutorial.movement.title,Move Points,移動�EインチEtutorial.movement.body,"Move Points, or MP, are the number of spaces your car can spend this movement step. The highlighted spaces are legal choices right now. Moving forward advances the race, while changing lanes can set up a cleaner corner line or an overtake.",移動�Eイント！EP�E��E、この移動スチE��プで使えるマス数です。ハイライトされたマスが現在選べる合法手です。前進すれば距離を稼ぎ、レーン変更はきれぁE��ラインめE��ぁE��きにつながります、Etutorial.speed-limit.title,Corner Speed Limits,コーナ�E速度制陁Etutorial.speed-limit.body,"A corner speed limit is the safe speed for that part of the road. Red asphalt and roadside signs mark speed checks. If your speed is above the limit when you pass one, the car understeers: it pushes wide and takes a penalty.",コーナ�E速度制限�E、その区間を安�Eに通れる速度です。赤ぁE��面と道路標識が速度チェチE��を示します。通過時に速度が上限を趁E��てぁE��とアンダースチE��し、外へ膨らんでペナルチE��を受けます、Etutorial.slipstream.title,Slipstream,スリチE�Eストリーム
+tutorial.slipstream.body,"Slipstream is the draft behind another car. When you are following in the same lane, you can use that pocket of air to gain speed. It is a catch-up tool, but extra speed can also make the next corner riskier.",スリチE�Eストリームは前車�E後ろにできる気流です。同じレーンで追走してぁE��時、それを使って加速できます。追ぁE��くため�E手段ですが、増えた速度は次のコーナ�Eのリスクにもなります、Etutorial.neck-and-neck.title,Neck and Neck,サイドバイサイチEtutorial.neck-and-neck.body,"Neck and Neck means both racers are side by side and fighting for the same stretch of road. In this state, both drivers commit cards face down, reveal together, then alternate movement one point at a time.",サイドバイサイド�E両車が横並びで同じ区間を争ってぁE��状態です。この状態では両ドライバ�Eがカードを伏せて選び、同時に公開し、Eポイントずつ交互に移動します、Etutorial.nn-action-order.title,Simultaneous Reveal,同時公閁Etutorial.nn-action-order.body,"During the reveal, both face-down cards are shown before movement begins. The first movement step is decided by the cars before card effects fully resolve: higher speed acts first, then the inside lane wins ties, and if it is still tied the previous order is used.",公開時には、移動開始前に両方の伏せカードを見せます。最初�E移動頁E�Eカード効果�E完�E解決前に決まり、E��度が高い車が先、同速ならイン側、さらに同じなら前回�E頁E��を使ぁE��す、Etutorial.overtake.title,Overtakes,オーバ�EチE��ク
+tutorial.overtake.body,"An overtake happens when one car passes the other on the road. It is more than a flashy moment: it can change who counts as the Lead Driver, which usually changes who acts first on the next turn.",オーバ�EチE��クは一台がもぁE��台を追ぁE��ぁE��時に起きます。見た目だけでなく、リードドライバ�Eが変わり、次ターンの行動頁E��変わることがあります、Etutorial.crash-understeer.title,Understeer and Crashes,アンダースチE��とクラチE��ュ
+tutorial.crash-understeer.body,"Understeer means the car is going too fast to hold the corner, so it slides wide instead of following the line. If the mistake is severe, it can become a crash or spin-off. Brake early or use cornering cards to stay in control.",アンダースチE��は速度が高すぎて曲がりきれず、ラインに沿わず外へ膨ら�E状態です。大きなミスならクラチE��ュめE��ピンオフになります。早め�EブレーキめE��ーナリングカードで制御しましょぁE��E
+  </script>
+<div id="root"></div>
   <script type="text/babel">
 const { useState, useEffect, useRef, useMemo } = React;
 
@@ -57,8 +183,7 @@ const FastForward = (p) => <Icon {...p}><polygon points="13 19 22 12 13 5 13 19"
 const Crosshair = (p) => <Icon {...p}><circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></Icon>;
 const BookOpen = (p) => <Icon {...p}><path d="M12 7v14M3 18a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></Icon>;
 const MapIcon = (p) => <Icon {...p}><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21 3 6"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></Icon>;
-
-
+const PanelsTopLeft = (p) => <Icon {...p}><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M9 21V9"/></Icon>;
 
 
 const MAX_SPEED = 140;
@@ -80,6 +205,7 @@ const WILDCARD_BACKGROUNDS = [
   `${BACKGROUND_ASSET_DIR}/touge_topdown_terrain_01.png`
 ];
 const SPEED_METER_CARD_IMAGE = 'Assets/Speed Meter/speed_meter_circular_generated_v5_transparent.png';
+const RACE_CARD_BACK_IMAGE = 'Assets/Card backs/Race_card_back.png';
 const GEAR_ACCENT_COLORS = {
   1: '#ff4c4c',
   2: '#ff8e24',
@@ -100,13 +226,14 @@ const slugifyCardImageName = (name) => String(name || '')
   .replace(/[^a-z0-9]+/g, '-')
   .replace(/^-+|-+$/g, '');
 
-const getCardImageSrc = (row) => {
+const getCardImageSrc = (row, assetVersion = '') => {
   const folder = CARD_IMAGE_SET_FOLDERS[row.deck_code];
   const serialNumber = row.serial_number || '';
   const cardSlug = slugifyCardImageName(row.name);
   const typeSlug = slugifyCardImageName(row.type);
   if (!folder || !serialNumber || !cardSlug || !typeSlug) return '';
-  return `Assets/Card images/Implemented/${folder}/${serialNumber}_${cardSlug}_${typeSlug}.png`;
+  const src = `Assets/Card images/Implemented/${folder}/${serialNumber}_${cardSlug}_${typeSlug}.png`;
+  return assetVersion ? `${src}?v=${assetVersion}` : src;
 };
 
 const getCourseBackground = (courseId) => {
@@ -764,7 +891,12 @@ const CAR_OPTIONS = [
   { id: 'mustang', name: 'Mustang GT500', drive: 'RWD', specialty: 'Raw straight-line power. Built to pressure rivals door to door.', portrait: 'Assets/Car Mugshots/mustang-gt500-mugshot.png', cutout: 'Assets/Car Mugshots/Cutouts/mustang-gt500-cutout-v3.png' }
 ];
 
+const DECK_SIZE = 12;
+const MAX_CARD_COPIES = 4;
+const CAR_DECK_CODES = { ae86: 'AE86', huracan: 'HRCN', porsche911: 'P911', mustang: 'GT500' };
+const COMMON_CARD_IDS = ['drift', 'full_throttle', 'back_down'];
 const RANDOM_SIZE_CARDS = { small: 5, medium: 8, long: 12 };
+const AI_DIFFICULTIES = ['normal', 'hard', 'cheat'];
 
 const PLATE_CAR_CODES = { AE86: '86', HRCN: '63', P911: '91', GT500: '50' };
 const getPlateSerial = (deckCode, serialNumber) => {
@@ -826,6 +958,17 @@ const buildTranslationTable = (rows) => {
     table[row.key] = row;
   });
   return table;
+};
+
+const readEmbeddedLocalizationRows = () => {
+  if (typeof document === 'undefined') return [];
+  const embedded = document.getElementById('localization-csv-fallback');
+  if (!embedded?.textContent?.trim()) return [];
+  try {
+    return parseCSV(embedded.textContent);
+  } catch {
+    return [];
+  }
 };
 
 const interpolateText = (text, vars = {}) => String(text ?? '').replace(/\{(\w+)\}/g, (_, key) => (
@@ -947,7 +1090,7 @@ const getRoadsideBadgeOffset = (player, track, offset = 106) => {
 
 const canOccupy = (lane, idx, otherPlayer) => !(otherPlayer.lane === lane && otherPlayer.idx === idx);
 
-const buildCardCatalog = (rows, t = null) => {
+const buildCardCatalog = (rows, t = null, assetVersion = '') => {
   const rowById = Object.fromEntries(rows.map(row => [row.id, row]));
 
   return Object.fromEntries(IMPLEMENTED_CARD_IDS.map(id => {
@@ -975,7 +1118,7 @@ const buildCardCatalog = (rows, t = null) => {
       deckCode: row.deck_code || '',
       serialNumber: row.serial_number || '',
       plateSerial: getPlateSerial(row.deck_code, row.serial_number),
-      imageSrc: getCardImageSrc(row),
+      imageSrc: getCardImageSrc(row, assetVersion),
       type: t ? t(`card.type.${String(row.type || '').toLowerCase()}`, row.type) : row.type,
       rulesType: row.type,
       timing: t ? t(`card.timing.${String(row.timing || '').toLowerCase()}`, row.timing) : row.timing,
@@ -1123,9 +1266,8 @@ const DECK_COMPOSITIONS = {
     ['micro_correction', 1]
   ],
   mustang: [
-    ['full_throttle', 3],
+    ['full_throttle', 4],
     ['back_down', 2],
-    ['hard_brake', 1],
     ['raw_horsepower', 1],
     ['straight_line_monster', 1],
     ['panic_stop', 1],
@@ -1135,11 +1277,64 @@ const DECK_COMPOSITIONS = {
   ]
 };
 
-const getDeckIdsForCar = (carId, rows) => {
+const getDefaultDeckIdsForCar = (carId, rows = DEFAULT_CARD_ROWS) => {
   const rowById = Object.fromEntries(rows.map(row => [row.id, row]));
   const composition = DECK_COMPOSITIONS[carId] || DECK_COMPOSITIONS.ae86;
   const deck = composition.flatMap(([id, count]) => rowById[id] && IMPLEMENTED_CARD_IDS.includes(id) ? Array.from({ length: count }, () => id) : []);
   return deck.length > 0 ? deck : DECK_COMPOSITIONS.ae86.flatMap(([id, count]) => Array.from({ length: count }, () => id));
+};
+
+const countCardsById = (deck = []) => deck.reduce((counts, id) => ({ ...counts, [id]: (counts[id] || 0) + 1 }), {});
+
+const getAvailableCardIdsForCar = (carId, rows = DEFAULT_CARD_ROWS) => {
+  const deckCode = CAR_DECK_CODES[carId] || CAR_DECK_CODES.ae86;
+  return rows
+    .filter(row => IMPLEMENTED_CARD_IDS.includes(row.id) && (COMMON_CARD_IDS.includes(row.id) || row.deck_code === deckCode))
+    .map(row => row.id);
+};
+
+const sanitizeDeckForCar = (carId, deckIds, rows = DEFAULT_CARD_ROWS) => {
+  const available = new Set(getAvailableCardIdsForCar(carId, rows));
+  const next = [];
+  const counts = {};
+  (Array.isArray(deckIds) ? deckIds : []).forEach(id => {
+    if (!available.has(id) || next.length >= DECK_SIZE || (counts[id] || 0) >= MAX_CARD_COPIES) return;
+    counts[id] = (counts[id] || 0) + 1;
+    next.push(id);
+  });
+  return next.length === DECK_SIZE ? next : null;
+};
+
+const sanitizeEditableDeckForCar = (carId, deckIds, rows = DEFAULT_CARD_ROWS) => {
+  const available = new Set(getAvailableCardIdsForCar(carId, rows));
+  const next = [];
+  const counts = {};
+  (Array.isArray(deckIds) ? deckIds : []).forEach(id => {
+    if (!available.has(id) || next.length >= DECK_SIZE || (counts[id] || 0) >= MAX_CARD_COPIES) return;
+    counts[id] = (counts[id] || 0) + 1;
+    next.push(id);
+  });
+  return next;
+};
+
+const getEditableDeckIdsForCar = (carId, rows, customDecks = {}) => {
+  const customDeck = customDecks?.[carId];
+  return Array.isArray(customDeck) ? sanitizeEditableDeckForCar(carId, customDeck, rows) : getDefaultDeckIdsForCar(carId, rows);
+};
+
+const getDeckIdsForCar = (carId, rows, customDecks = {}) => {
+  const customDeck = sanitizeDeckForCar(carId, customDecks?.[carId], rows);
+  return customDeck || getDefaultDeckIdsForCar(carId, rows);
+};
+
+const readStoredDecks = () => {
+  if (typeof window === 'undefined') return {};
+  try {
+    const parsed = JSON.parse(window.localStorage?.getItem('arcade-racing-custom-decks') || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
 };
 
 const shuffle = (array) => {
@@ -1166,6 +1361,12 @@ const drawCards = (deck, discard, hand, count) => {
   }
   return { deck: newDeck, discard: newDiscard, hand: newHand };
 };
+
+const getKnownCardPoolForPlayer = (player) => [...new Set([
+  ...(player?.deck || []),
+  ...(player?.discard || []),
+  ...(player?.hand || [])
+])];
 
 const RenderCard = ({ card, scale = 1, isHovered = false, onClick, onMouseEnter, onMouseLeave, disabled = false, extraClasses = "", isSelected = false }) => {
   const rulesType = card.rulesType || card.type;
@@ -1240,13 +1441,9 @@ const RenderCard = ({ card, scale = 1, isHovered = false, onClick, onMouseEnter,
 };
 
 const RenderCardBack = ({ playerId }) => (
-  <div className={`w-48 h-64 rounded-xl border-2 shadow-2xl p-3 ${playerId === 0 ? 'border-red-500 bg-red-950' : 'border-blue-500 bg-blue-950'}`}>
-    <div className="w-full h-full rounded-lg border border-white/20 bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.08)_0px,rgba(255,255,255,0.08)_8px,transparent_8px,transparent_16px)] flex flex-col items-center justify-center">
-      <div className="w-16 h-16 border-4 border-white/70 rotate-45 mb-8 flex items-center justify-center">
-        <div className="w-7 h-7 bg-white/80" />
-      </div>
-      <div className="text-xs font-black tracking-[0.3em] text-white/80">DRIVING CARD</div>
-      <div className="mt-2 text-[10px] font-bold tracking-[0.2em] text-white/40">FACE DOWN</div>
+  <div className={`w-48 h-64 rounded-xl border-2 shadow-2xl overflow-hidden ${playerId === 0 ? 'border-red-500 bg-red-950' : 'border-blue-500 bg-blue-950'}`}>
+    <div className="h-full w-full rounded-[0.6rem] overflow-hidden">
+      <img src={RACE_CARD_BACK_IMAGE} alt="" draggable="false" className="h-full w-full object-cover" />
     </div>
   </div>
 );
@@ -1603,19 +1800,27 @@ function ArcadeRacingGame() {
     if (typeof window === 'undefined') return 'ja';
     return window.localStorage?.getItem('arcade-racing-language') || 'ja';
   });
-  const [translationRows, setTranslationRows] = useState([]);
-  const [localizationDataSource, setLocalizationDataSource] = useState('loading');
+  const [translationRows, setTranslationRows] = useState(readEmbeddedLocalizationRows);
+  const [localizationDataSource, setLocalizationDataSource] = useState(() => readEmbeddedLocalizationRows().length ? 'embedded' : 'loading');
+  const [assetVersion] = useState(() => Date.now());
   const [selectedCourseId, setSelectedCourseId] = useState('akagi');
   const [courseDirection, setCourseDirection] = useState('downhill');
   const [randomMapSize, setRandomMapSize] = useState('medium');
   const [selectedCars, setSelectedCars] = useState([null, null]);
   const [activeCarPlayer, setActiveCarPlayer] = useState(0);
+  const [aiDifficulty, setAiDifficulty] = useState('normal');
+  const [playerStartsFirst, setPlayerStartsFirst] = useState(true);
   const [tutorialEnabled, setTutorialEnabled] = useState(false);
   const [activeTutorialId, setActiveTutorialId] = useState(null);
   const [onlineSession, setOnlineSession] = useState(ONLINE_SESSION_INITIAL);
   const [codexTab, setCodexTab] = useState('racing');
   const [codexHoveredId, setCodexHoveredId] = useState(null);
   const [codexLockedId, setCodexLockedId] = useState(null);
+  const [customDecks, setCustomDecks] = useState(readStoredDecks);
+  const [deckEditorCarId, setDeckEditorCarId] = useState('ae86');
+  const [deckEditorHoveredId, setDeckEditorHoveredId] = useState(null);
+  const [deckEditorLockedId, setDeckEditorLockedId] = useState(null);
+  const [onlinePlayerDecks, setOnlinePlayerDecks] = useState([null, null]);
 
   // Panning & Zoom State
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
@@ -1639,7 +1844,7 @@ function ArcadeRacingGame() {
   const trackBounds = useMemo(() => getTrackBounds(TRACK), [TRACK]);
   const translationTable = useMemo(() => buildTranslationTable(translationRows), [translationRows]);
   const t = (key, fallback, vars) => translateFromTable(translationTable, language, key, fallback, vars);
-  const CARDS = useMemo(() => buildCardCatalog(cardRows, t), [cardRows, translationTable, language]);
+  const CARDS = useMemo(() => buildCardCatalog(cardRows, t, assetVersion), [cardRows, translationTable, language, assetVersion]);
   const ROAD_CARDS = useMemo(() => parseCornerCardRows(cornerCardRows).map(card => ({
     ...card,
     name: t(`road.${card.id}.name`, card.name)
@@ -1652,6 +1857,12 @@ function ArcadeRacingGame() {
       window.localStorage?.setItem('arcade-racing-language', language);
     }
   }, [language]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage?.setItem('arcade-racing-custom-decks', JSON.stringify(customDecks));
+    }
+  }, [customDecks]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1799,7 +2010,7 @@ function ArcadeRacingGame() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
-    if (!onlineSession.role || !onlineSession.roomKey || appState === 'TITLE' || appState === 'CODEX') return undefined;
+    if (!onlineSession.role || !onlineSession.roomKey || appState === 'TITLE' || appState === 'CODEX' || appState === 'DECK_EDITOR') return undefined;
 
     const handleOnlineMessage = (message) => {
       if (message.senderId === onlineClientIdRef.current || message.roomKey !== onlineRoomKeyRef.current) return;
@@ -1833,7 +2044,10 @@ function ArcadeRacingGame() {
         setCourseDirection(message.selection.courseDirection);
         setRandomMapSize(message.selection.randomMapSize);
         setSelectedCars(message.selection.selectedCars);
+        if (Array.isArray(message.selection.onlinePlayerDecks)) setOnlinePlayerDecks(message.selection.onlinePlayerDecks);
         setActiveCarPlayer(message.selection.activeCarPlayer);
+        if (message.selection.aiDifficulty) setAiDifficulty(message.selection.aiDifficulty);
+        if (typeof message.selection.playerStartsFirst === 'boolean') setPlayerStartsFirst(message.selection.playerStartsFirst);
         if (typeof message.selection.tutorialEnabled === 'boolean') setTutorialEnabled(message.selection.tutorialEnabled);
         setTimeout(() => { applyingRemoteSelectionRef.current = false; }, 0);
       }
@@ -1887,9 +2101,9 @@ function ArcadeRacingGame() {
       type: 'selection-state',
       roomKey: onlineSession.roomKey,
       senderRole: onlineSession.role,
-      selection: { selectedCourseId, courseDirection, randomMapSize, selectedCars, activeCarPlayer, tutorialEnabled }
+      selection: { selectedCourseId, courseDirection, randomMapSize, selectedCars, activeCarPlayer, aiDifficulty, playerStartsFirst, tutorialEnabled, onlinePlayerDecks }
     });
-  }, [gameMode, appState, onlineSession.roomKey, onlineSession.role, selectedCourseId, courseDirection, randomMapSize, selectedCars, activeCarPlayer, tutorialEnabled]);
+  }, [gameMode, appState, onlineSession.roomKey, onlineSession.role, selectedCourseId, courseDirection, randomMapSize, selectedCars, activeCarPlayer, aiDifficulty, playerStartsFirst, tutorialEnabled, onlinePlayerDecks]);
 
   useEffect(() => {
     if (gameMode !== 'OnlinePvP' || !gameState || !['PLAYING', 'GAMEOVER'].includes(appState)) return;
@@ -1914,7 +2128,10 @@ function ArcadeRacingGame() {
     setCourseDirection('downhill');
     setRandomMapSize('medium');
     setSelectedCars([null, mode === 'PvE' ? 'huracan' : null]);
+    setOnlinePlayerDecks([null, null]);
     setActiveCarPlayer(0);
+    setAiDifficulty('normal');
+    setPlayerStartsFirst(true);
     setTutorialEnabled(false);
     setActiveTutorialId(null);
     setAppState('SELECT');
@@ -1931,7 +2148,9 @@ function ArcadeRacingGame() {
     setCourseDirection('downhill');
     setRandomMapSize('medium');
     setSelectedCars([null, null]);
+    setOnlinePlayerDecks([null, null]);
     setActiveCarPlayer(0);
+    setPlayerStartsFirst(true);
     setTutorialEnabled(false);
     setActiveTutorialId(null);
     setAppState('MATCHMAKING');
@@ -1986,6 +2205,13 @@ function ArcadeRacingGame() {
     setAppState('CODEX');
   };
 
+  const openDeckEditor = () => {
+    setDeckEditorCarId('ae86');
+    setDeckEditorHoveredId(null);
+    setDeckEditorLockedId(null);
+    setAppState('DECK_EDITOR');
+  };
+
   const openRoadDebugMap = () => {
     setCodexTab('road');
     setCodexHoveredId(null);
@@ -2004,27 +2230,34 @@ function ArcadeRacingGame() {
       : selectedCourse.seed + directionOffset;
     const backgroundImage = getCourseBackground(selectedCourse.id);
     const nextTrack = generateTrack(nextSeed, cornerCardRows, 0, cardCount);
-    const p1Draw = drawCards(shuffle(getDeckIdsForCar(selectedCars[0], cardRows)), [], [], 4);
-    const p2Draw = drawCards(shuffle(getDeckIdsForCar(selectedCars[1], cardRows)), [], [], 4);
+    const p1DeckIds = gameMode === 'OnlinePvP' && onlinePlayerDecks[0]
+      ? sanitizeDeckForCar(selectedCars[0], onlinePlayerDecks[0], cardRows) || getDeckIdsForCar(selectedCars[0], cardRows, customDecks)
+      : getDeckIdsForCar(selectedCars[0], cardRows, customDecks);
+    const p2DeckIds = gameMode === 'OnlinePvP' && onlinePlayerDecks[1]
+      ? sanitizeDeckForCar(selectedCars[1], onlinePlayerDecks[1], cardRows) || getDeckIdsForCar(selectedCars[1], cardRows, customDecks)
+      : getDeckIdsForCar(selectedCars[1], cardRows, customDecks);
+    const p1Draw = drawCards(shuffle(p1DeckIds), [], [], 4);
+    const p2Draw = drawCards(shuffle(p2DeckIds), [], [], 4);
     const startLane = 0;
-    const p2StartIdx = 0;
-    const p1StartIdx = Math.min(1, nextTrack[startLane].length - 1);
+    const p1StartIdx = playerStartsFirst ? Math.min(1, nextTrack[startLane].length - 1) : 0;
+    const p2StartIdx = playerStartsFirst ? 0 : Math.min(1, nextTrack[startLane].length - 1);
+    const initialTurnOrder = playerStartsFirst ? [0, 1] : [1, 0];
 
     setTrackSeed(nextSeed);
     setTrackCardCount(cardCount);
     setGameState({
-      raceSetup: { courseId: selectedCourse.id, direction: selectedCourse.id === 'random' ? null : courseDirection, size: selectedCourse.id === 'random' ? randomMapSize : null, cars: [...selectedCars], backgroundImage },
+      raceSetup: { courseId: selectedCourse.id, direction: selectedCourse.id === 'random' ? null : courseDirection, size: selectedCourse.id === 'random' ? randomMapSize : null, cars: [...selectedCars], backgroundImage, aiDifficulty: gameMode === 'PvE' ? aiDifficulty : null, playerStartsFirst },
       tutorial: { enabled: tutorialEnabled, seen: {} },
       players: [
         { id: 0, name: 'Player 1', carId: selectedCars[0], color: 'red', speed: 20, lane: startLane, idx: p1StartIdx, distance: nextTrack[startLane][p1StartIdx].distance, ...p1Draw, modifiers: {}, lastPlayed: null },
         { id: 1, name: gameMode === 'PvE' ? 'AI Racer' : 'Player 2', carId: selectedCars[1], color: 'blue', speed: 20, lane: startLane, idx: p2StartIdx, distance: nextTrack[startLane][p2StartIdx].distance, ...p2Draw, modifiers: {}, lastPlayed: null }
       ],
-      playerTurnsStarted: { 0: 1, 1: 0 },
-      turnOrder: [0, 1],
+      playerTurnsStarted: { 0: initialTurnOrder[0] === 0 ? 1 : 0, 1: initialTurnOrder[0] === 1 ? 1 : 0 },
+      turnOrder: initialTurnOrder,
       activePlayerIdx: 0,
       phase: 'PLAY_CARD',
       mpLeft: 0,
-      logs: [t('log.race_started', 'Race started! Player 1 is the Lead Player.')],
+      logs: [t('log.race_started_lead', 'Race started! {player} is the Lead Player.', { player: playerStartsFirst ? 'Player 1' : (gameMode === 'PvE' ? 'AI Racer' : 'Player 2') })],
       winner: null,
       overtakeEvent: null,
       bonusTurnPlayerId: null,
@@ -2327,52 +2560,162 @@ function ArcadeRacingGame() {
     return () => clearTimeout(timer);
   }, [appState, canAdvanceAutomaticState, gameState?.phase, gameState?.nnMpLeft?.[0], gameState?.nnMpLeft?.[1]]);
 
+  const cloneAIPlayer = (player) => ({
+    ...player,
+    hand: [...(player.hand || [])],
+    deck: [...(player.deck || [])],
+    discard: [...(player.discard || [])],
+    modifiers: { ...(player.modifiers || {}) }
+  });
+
+  const scoreAIPosition = (player, opponent) => {
+    if (!player) return -Infinity;
+    const space = TRACK[player.lane]?.[player.idx];
+    let score = (player.distance || 0) + player.speed * 2 + getGear(player.speed).mp * 14;
+    if (opponent) {
+      score += (player.distance - opponent.distance) * 0.35;
+      if (player.distance > opponent.distance) score += 120;
+      if (player.lane === opponent.lane && player.idx === opponent.idx) score -= 280;
+    }
+    if (space?.isGoal) score += 100000;
+    const check = getEffectiveSpeedCheck(player, space);
+    if (check && check.effectiveSpeed > check.effectiveLimit) {
+      const over = check.effectiveSpeed - check.effectiveLimit;
+      score -= over * (space.isOuter ? 9 : 5);
+      if (space.isOuter && !player.modifiers.tractionControl && !player.modifiers.countersteerCancel) score -= 220;
+    }
+    return score;
+  };
+
+  const resolveAIPendingChoiceForScore = (player) => {
+    if (!player.modifiers?.pendingChoice) return player;
+    const { pendingChoice, ...remainingModifiers } = player.modifiers;
+    if (pendingChoice === 'torque_split') {
+      const currentSpace = TRACK[player.lane]?.[player.idx];
+      const check = getEffectiveSpeedCheck({ ...player, modifiers: remainingModifiers }, currentSpace);
+      if (check && check.effectiveSpeed > check.effectiveLimit) {
+        return { ...player, modifiers: { ...remainingModifiers, speedCheckBonusOnce: Math.max(remainingModifiers.speedCheckBonusOnce || 0, 40) } };
+      }
+      return { ...player, speed: clampSpeed(player.speed + 30), modifiers: remainingModifiers };
+    }
+    if (pendingChoice === 'change_shift') {
+      const nextSpace = TRACK[player.lane]?.[Math.min(player.idx + 1, TRACK[player.lane].length - 1)];
+      const check = getEffectiveSpeedCheck({ ...player, speed: clampSpeed(player.speed + 10), modifiers: remainingModifiers }, nextSpace);
+      const delta = check && check.effectiveSpeed > check.effectiveLimit ? -10 : 10;
+      return { ...player, speed: clampSpeed(player.speed + delta), modifiers: { ...remainingModifiers, extraCardPlay: true } };
+    }
+    return { ...player, modifiers: remainingModifiers };
+  };
+
+  const scoreAICard = (cardId, player, opponent) => {
+    const card = CARDS[cardId];
+    if (!card || !card.canPlay(player)) return -Infinity;
+    let testPlayer = cloneAIPlayer(player);
+    testPlayer = card.play(testPlayer, TRACK, opponent);
+    testPlayer = resolveAIPendingChoiceForScore(testPlayer);
+    const nextMoveScore = getValidMoves(testPlayer)
+      .map(move => scoreAIPosition({ ...testPlayer, lane: move.lane, idx: move.idx, distance: TRACK[move.lane][move.idx].distance }, opponent))
+      .sort((a, b) => b - a)[0] ?? scoreAIPosition(testPlayer, opponent);
+    const discardPenalty = Math.max(0, (player.hand?.length || 0) - (testPlayer.hand?.length || 0)) * 8;
+    return nextMoveScore - discardPenalty;
+  };
+
+  const chooseAICard = () => {
+    const handCandidates = activePlayer.hand
+      .map((id, idx) => ({ id, idx, score: scoreAICard(id, activePlayer, otherPlayer) }))
+      .filter(candidate => Number.isFinite(candidate.score));
+
+    const sourceCandidates = aiDifficulty === 'cheat'
+      ? getKnownCardPoolForPlayer(activePlayer)
+        .map(id => ({ id, idx: activePlayer.hand.indexOf(id), score: scoreAICard(id, activePlayer, otherPlayer) }))
+        .filter(candidate => Number.isFinite(candidate.score))
+      : handCandidates;
+
+    if (sourceCandidates.length === 0) return null;
+    const ranked = [...sourceCandidates].sort((a, b) => b.score - a.score);
+    if (aiDifficulty === 'normal') {
+      const pool = ranked.slice(0, Math.max(1, Math.ceil(ranked.length / 2)));
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+    return ranked[0];
+  };
+
+  const chooseAIDiscardSelection = (max = 1, required = false) => {
+    const ranked = activePlayer.hand
+      .map((id, idx) => ({ idx, keepScore: scoreAICard(id, activePlayer, otherPlayer) }))
+      .sort((a, b) => a.keepScore - b.keepScore);
+    const count = required ? Math.min(max, activePlayer.hand.length) : Math.min(max, activePlayer.hand.length, aiDifficulty === 'normal' ? 1 : 2);
+    return ranked.slice(0, count).map(item => item.idx);
+  };
+
+  const chooseAIMove = () => {
+    const validMoves = getValidMoves(activePlayer);
+    if (validMoves.length === 0) return null;
+    const ranked = validMoves
+      .map(move => {
+        const moved = { ...activePlayer, lane: move.lane, idx: move.idx, distance: TRACK[move.lane][move.idx].distance };
+        let score = scoreAIPosition(moved, otherPlayer);
+        if (move.lane === activePlayer.lane) score += 15;
+        if (willMoveUndersteer(activePlayer, move.lane, move.idx, TRACK)) score -= aiDifficulty === 'normal' ? 70 : 160;
+        return { ...move, score };
+      })
+      .sort((a, b) => b.score - a.score);
+    if (aiDifficulty === 'normal' && ranked.length > 1 && Math.random() < 0.25) return ranked[1];
+    return ranked[0];
+  };
+
+  const chooseAICardChoice = () => {
+    const type = gameState.choiceContext?.type;
+    const choicePlayer = gameState.players?.[gameState.choiceContext?.playerId] || activePlayer;
+    if (type === 'micro_correction') {
+      const currentSpace = TRACK[choicePlayer.lane]?.[choicePlayer.idx];
+      const downCheck = getEffectiveSpeedCheck({ ...choicePlayer, speed: clampSpeed(choicePlayer.speed - 10) }, currentSpace);
+      return downCheck && downCheck.effectiveSpeed <= downCheck.effectiveLimit ? 'speed_down' : 'speed_up';
+    }
+    if (type === 'change_shift') {
+      const nextSpace = TRACK[choicePlayer.lane]?.[Math.min(choicePlayer.idx + 1, TRACK[choicePlayer.lane].length - 1)];
+      const upCheck = getEffectiveSpeedCheck({ ...choicePlayer, speed: clampSpeed(choicePlayer.speed + 10) }, nextSpace);
+      return upCheck && upCheck.effectiveSpeed > upCheck.effectiveLimit ? 'speed_down' : 'speed_up';
+    }
+    if (type === 'torque_split') {
+      const nextSpace = TRACK[choicePlayer.lane]?.[Math.min(choicePlayer.idx + 1, TRACK[choicePlayer.lane].length - 1)];
+      const upCheck = getEffectiveSpeedCheck({ ...choicePlayer, speed: clampSpeed(choicePlayer.speed + 30) }, nextSpace);
+      return upCheck && upCheck.effectiveSpeed > upCheck.effectiveLimit ? 'check_bonus' : 'speed';
+    }
+    return 'speed';
+  };
+
   useEffect(() => {
     if (appState !== 'PLAYING' || gameMode !== 'PvE' || !gameState || gameState.winner || activePlayerId !== 1 || gameState.phase === 'NN_REVEAL') return;
 
     const aiTimer = setTimeout(() => {
       if (gameState.phase === 'PLAY_CARD' || gameState.phase === 'NN_SELECT_CARD') {
-        const playableIdxs = activePlayer.hand.map((id, idx) => ({ id, idx })).filter(c => CARDS[c.id].canPlay(activePlayer));
-        if (playableIdxs.length > 0) {
-          const pick = playableIdxs[Math.floor(Math.random() * playableIdxs.length)];
+        const pick = chooseAICard();
+        if (pick) {
           playCard(pick.id, pick.idx);
         } else skipToDiscard();
       } else if (gameState.phase === 'DISCARD') {
-         // AI discards 1 random card if hand has unplayable, or just 1 card to cycle
-         let selection = [];
-         if (activePlayer.hand.length > 0) {
-             selection = [Math.floor(Math.random() * activePlayer.hand.length)];
-         }
-         confirmDiscard(selection);
+         confirmDiscard(chooseAIDiscardSelection(2, false));
       } else if (gameState.phase === 'CARD_CYCLE' || gameState.phase === 'NN_CARD_CYCLE') {
-        const selection = activePlayer.hand.length > 0 ? [Math.floor(Math.random() * activePlayer.hand.length)] : [];
+        const max = gameState.phase === 'CARD_CYCLE' ? gameState.cycleContext.max : (activePlayer.modifiers.cycleCards || 1);
+        const required = gameState.phase === 'CARD_CYCLE' ? gameState.cycleContext.required : Boolean(activePlayer.modifiers.cycleRequired);
+        const selection = chooseAIDiscardSelection(max, required);
         confirmCardCycle(selection);
       } else if (gameState.phase === 'CARD_CHOICE') {
-        const defaultChoice = gameState.choiceContext?.type === 'micro_correction' ? 'speed_up'
-          : gameState.choiceContext?.type === 'change_shift' ? 'speed_up'
-          : 'speed';
-        resolveCardChoice(defaultChoice);
+        resolveCardChoice(chooseAICardChoice());
       } else if (gameState.phase === 'SLIPSTREAM') {
         acceptSlipstream(true);
       } else if (gameState.phase === 'MOVE' && gameState.mpLeft > 0) {
-        const validMoves = getValidMoves(activePlayer);
-        let target = validMoves.find(m => m.lane === activePlayer.lane);
-        if (!target || (target.lane === otherPlayer.lane && target.idx === otherPlayer.idx)) {
-          target = validMoves.find(m => m.lane !== activePlayer.lane) || validMoves[0];
-        }
+        const target = chooseAIMove();
         if (target) attemptMove(target.lane, target.idx);
       } else if (gameState.phase === 'NN_MOVE' && gameState.nnMpLeft[activePlayerId] > 0) {
-        const validMoves = getValidMoves(activePlayer);
-        let target = validMoves.find(m => m.lane === activePlayer.lane);
-        if (!target || (target.lane === otherPlayer.lane && target.idx === otherPlayer.idx)) {
-          target = validMoves.find(m => m.lane !== activePlayer.lane) || validMoves[0];
-        }
+        const target = chooseAIMove();
         if (target) attemptMove(target.lane, target.idx);
       }
     }, 800);
 
     return () => clearTimeout(aiTimer);
-  }, [gameState, appState, gameMode, discardSelection, activePlayerId]);
+  }, [gameState, appState, gameMode, discardSelection, activePlayerId, aiDifficulty, cardRows, CARDS, TRACK]);
 
   const playCard = (cardId, handIndex) => {
     if (isOnlineGame && !isLocalPlayersTurn) return;
@@ -2417,7 +2760,9 @@ function ArcadeRacingGame() {
     const cycleMax = p.modifiers.cycleCards || 0;
     const shouldCycle = cycleMax > 0 && p.hand.length > 0;
     const pendingChoice = p.modifiers.pendingChoice;
-    const canPlayExtraCard = p.modifiers.extraCardPlay && p.hand.some(id => CARDS[id].canPlay(p));
+    const aiCanCheatExtraCard = gameMode === 'PvE' && activePlayerId === 1 && aiDifficulty === 'cheat'
+      && getKnownCardPoolForPlayer(p).some(id => CARDS[id]?.canPlay(p));
+    const canPlayExtraCard = p.modifiers.extraCardPlay && (p.hand.some(id => CARDS[id].canPlay(p)) || aiCanCheatExtraCard);
     if (canPlayExtraCard) {
       const { extraCardPlay, ...remainingModifiers } = p.modifiers;
       p.modifiers = remainingModifiers;
@@ -2573,7 +2918,9 @@ function ArcadeRacingGame() {
       let cycleContext = prev.cycleContext;
 
       if (context.type === 'change_shift') {
-        const canPlayExtraCard = player.modifiers.extraCardPlay && player.hand.some(id => CARDS[id].canPlay(player));
+        const aiCanCheatExtraCard = gameMode === 'PvE' && context.playerId === 1 && aiDifficulty === 'cheat'
+          && getKnownCardPoolForPlayer(player).some(id => CARDS[id]?.canPlay(player));
+        const canPlayExtraCard = player.modifiers.extraCardPlay && (player.hand.some(id => CARDS[id].canPlay(player)) || aiCanCheatExtraCard);
         if (canPlayExtraCard) {
           const { extraCardPlay, ...remainingModifiers } = player.modifiers;
           player = { ...player, modifiers: remainingModifiers };
@@ -3206,7 +3553,7 @@ function ArcadeRacingGame() {
       >
         <div className="absolute -right-2 -top-2 flex h-8 min-w-8 items-center justify-center rounded-full border border-white/20 bg-black px-2 text-sm font-black text-white shadow-xl">{count}</div>
         <div className="text-[10px] font-black uppercase tracking-widest text-zinc-400">{title}</div>
-        <div className="mt-3 h-44 rounded-lg border border-white/15 overflow-hidden">
+        <div className="mt-3 flex h-44 items-center justify-center rounded-lg border border-white/15 bg-black/35 overflow-hidden">
           {isDiscard && topCard ? (
             topCard.imageSrc ? (
               <img src={topCard.imageSrc} alt="" draggable="false" className="h-full w-full object-cover" />
@@ -3217,11 +3564,10 @@ function ArcadeRacingGame() {
                 <div className="mt-2 text-[9px] leading-tight text-zinc-400 line-clamp-3">{topCard.desc}</div>
               </div>
             )
+          ) : isDiscard ? (
+            <div className="h-full w-full rounded-md border border-dashed border-white/10 bg-zinc-950/30" />
           ) : (
-            <div className="flex h-full flex-col items-center justify-center bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.08)_0px,rgba(255,255,255,0.08)_7px,transparent_7px,transparent_14px)]">
-              <div className="h-8 w-8 rotate-45 border-4 border-white/50" />
-              <div className="mt-4 text-[9px] font-black tracking-[0.2em] text-white/40">{t('ui.face_down', 'FACE DOWN')}</div>
-            </div>
+            <img src={RACE_CARD_BACK_IMAGE} alt="" draggable="false" className="h-full w-full object-contain" />
           )}
         </div>
       </button>
@@ -3236,16 +3582,13 @@ function ArcadeRacingGame() {
         {Array.from({ length: cardCount }).map((_, index) => (
           <div
             key={index}
-            className="absolute h-28 w-20 rounded-lg border-2 border-yellow-200 bg-zinc-950 shadow-[0_0_18px_rgba(250,204,21,0.45)]"
+            className="absolute h-28 w-20 overflow-hidden rounded-lg border-2 border-yellow-200 bg-zinc-950 shadow-[0_0_18px_rgba(250,204,21,0.45)]"
             style={{
               animation: `deck-card-draw-to-hand 0.9s ${index * 0.08}s cubic-bezier(0.22, 1, 0.36, 1) forwards`,
               transform: `translate(${index * -5}px, ${index * -4}px) rotate(${index * 5 - 8}deg)`
             }}
           >
-            <div className="flex h-full w-full flex-col items-center justify-center rounded-md bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.1)_0px,rgba(255,255,255,0.1)_6px,transparent_6px,transparent_12px)]">
-              <div className="h-7 w-7 rotate-45 border-4 border-yellow-200/80" />
-              <div className="mt-3 text-[8px] font-black tracking-[0.2em] text-yellow-100/70">{t('ui.draw', 'DRAW')}</div>
-            </div>
+            <img src={RACE_CARD_BACK_IMAGE} alt="" draggable="false" className="h-full w-full object-contain" />
           </div>
         ))}
       </div>
@@ -3298,10 +3641,16 @@ function ArcadeRacingGame() {
             <div className="relative flex items-center gap-3 text-xl font-bold"><Radio className="text-zinc-400 group-hover:text-emerald-300" /><span>{t('ui.online_2_player', 'Online 2 Player')}</span></div>
           </button>
         </div>
-        <button onClick={openCodex} className="group relative mt-5 min-w-64 overflow-hidden rounded-xl border-2 border-zinc-700 bg-zinc-950/90 px-8 py-3 shadow-xl transition-all hover:border-yellow-400 hover:bg-zinc-900">
-          <div className="absolute inset-0 bg-yellow-400/15 translate-y-full transition-transform group-hover:translate-y-0"></div>
-          <div className="relative flex items-center justify-center gap-3 text-lg font-black uppercase tracking-wide"><BookOpen className="text-zinc-400 group-hover:text-yellow-300" /><span>{t('ui.codex', 'Codex')}</span></div>
-        </button>
+        <div className="mt-5 flex flex-wrap justify-center gap-4">
+          <button onClick={openDeckEditor} className="group relative min-w-64 overflow-hidden rounded-xl border-2 border-zinc-700 bg-zinc-950/90 px-8 py-3 shadow-xl transition-all hover:border-emerald-400 hover:bg-zinc-900">
+            <div className="absolute inset-0 bg-emerald-400/15 translate-y-full transition-transform group-hover:translate-y-0"></div>
+            <div className="relative flex items-center justify-center gap-3 text-lg font-black uppercase tracking-wide"><PanelsTopLeft className="text-zinc-400 group-hover:text-emerald-300" /><span>{t('ui.deck_editor', 'Deck Editor')}</span></div>
+          </button>
+          <button onClick={openCodex} className="group relative min-w-64 overflow-hidden rounded-xl border-2 border-zinc-700 bg-zinc-950/90 px-8 py-3 shadow-xl transition-all hover:border-yellow-400 hover:bg-zinc-900">
+            <div className="absolute inset-0 bg-yellow-400/15 translate-y-full transition-transform group-hover:translate-y-0"></div>
+            <div className="relative flex items-center justify-center gap-3 text-lg font-black uppercase tracking-wide"><BookOpen className="text-zinc-400 group-hover:text-yellow-300" /><span>{t('ui.codex', 'Codex')}</span></div>
+          </button>
+        </div>
         </div>
         <div className={`fixed bottom-6 px-4 py-2 rounded-full border text-xs font-bold tracking-wide ${cardDataSource === 'csv' && cornerDataSource === 'csv' ? 'bg-emerald-950/80 border-emerald-700 text-emerald-300' : cardDataSource === 'loading' || cornerDataSource === 'loading' ? 'bg-zinc-900/80 border-zinc-700 text-zinc-400' : 'bg-amber-950/80 border-amber-700 text-amber-300'}`}>
           {cardDataSource === 'loading' || cornerDataSource === 'loading'
@@ -3320,7 +3669,7 @@ function ArcadeRacingGame() {
       <div className="h-screen w-full overflow-y-auto bg-[#060808] text-white">
         <div className="flex min-h-screen flex-col bg-[radial-gradient(circle_at_48%_18%,rgba(16,185,129,0.2),transparent_36%),linear-gradient(125deg,rgba(127,29,29,0.18),transparent_34%,rgba(30,64,175,0.18))] px-4 py-5 sm:px-8">
           <header className="mx-auto flex w-full max-w-6xl items-center justify-between border-b border-white/15 pb-4">
-            <button onClick={() => setAppState(gameMode === 'OnlinePvP' ? 'MATCHMAKING' : 'TITLE')} className="flex items-center gap-1 text-xs font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white"><ChevronLeft size={18}/> {gameMode === 'OnlinePvP' ? t('ui.matchmaking', 'Matchmaking') : t('ui.mode_select', 'Mode Select')}</button>
+            <button onClick={() => setAppState('TITLE')} className="flex items-center gap-1 text-xs font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white"><ChevronLeft size={18}/> {t('ui.mode_select', 'Mode Select')}</button>
             <div className="text-center">
               <div className="text-3xl font-black italic uppercase tracking-tight sm:text-5xl">{t('ui.online_2_player', 'Online 2 Player')}</div>
               <div className="text-[10px] font-bold uppercase tracking-[0.35em] text-emerald-300">{t('ui.room_matchmaking', 'Room Matchmaking')}</div>
@@ -3712,15 +4061,259 @@ function ArcadeRacingGame() {
     );
   }
 
+  if (appState === 'DECK_EDITOR') {
+    const localizedCarOptions = CAR_OPTIONS.map(car => ({
+      ...car,
+      specialty: t(`car.${car.id}.specialty`, car.specialty)
+    }));
+    const activeCar = localizedCarOptions.find(car => car.id === deckEditorCarId) || localizedCarOptions[0];
+    const activeDeckIds = getEditableDeckIdsForCar(deckEditorCarId, cardRows, customDecks);
+    const deckCounts = countCardsById(activeDeckIds);
+    const availableCards = getAvailableCardIdsForCar(deckEditorCarId, cardRows).map(id => CARDS[id]).filter(Boolean);
+    const selectedDeckCard = activeDeckIds.includes(deckEditorLockedId || deckEditorHoveredId) ? CARDS[deckEditorLockedId || deckEditorHoveredId] : null;
+    const activeItem = selectedDeckCard || availableCards.find(card => card.id === (deckEditorLockedId || deckEditorHoveredId)) || CARDS[activeDeckIds[0]] || availableCards[0];
+    const selectedId = activeItem?.id;
+    const deckIsFull = activeDeckIds.length >= DECK_SIZE;
+    const availableGroupedCards = availableCards.reduce((groups, card) => {
+      const key = COMMON_CARD_IDS.includes(card.id) ? t('ui.common_cards', 'Common Cards') : (card.deckCode || 'CARDS');
+      return { ...groups, [key]: [...(groups[key] || []), card] };
+    }, {});
+    const setDeckForActiveCar = (deckIds) => {
+      const sanitized = sanitizeEditableDeckForCar(deckEditorCarId, deckIds, cardRows);
+      setCustomDecks(current => ({ ...current, [deckEditorCarId]: sanitized }));
+    };
+    const addCardToDeck = (cardId) => {
+      const cardCount = deckCounts[cardId] || 0;
+      if (deckIsFull || cardCount >= MAX_CARD_COPIES) return;
+      setDeckForActiveCar([...activeDeckIds, cardId]);
+      setDeckEditorLockedId(cardId);
+    };
+    const removeCardFromDeck = (cardId) => {
+      const removeIndex = activeDeckIds.lastIndexOf(cardId);
+      if (removeIndex < 0) return;
+      const nextDeck = activeDeckIds.filter((_, index) => index !== removeIndex);
+      setDeckForActiveCar(nextDeck);
+      setDeckEditorLockedId(cardId);
+    };
+    const resetDeckForActiveCar = () => {
+      setCustomDecks(current => {
+        const next = { ...current };
+        delete next[deckEditorCarId];
+        return next;
+      });
+      setDeckEditorLockedId(null);
+      setDeckEditorHoveredId(null);
+    };
+    const renderMiniCardButton = (card, content, onClick, disabled = false) => {
+      const isActive = selectedId === card.id;
+      const typeTone = (card.rulesType || card.type) === 'Gas' ? 'border-yellow-400/70' : (card.rulesType || card.type) === 'Brake' ? 'border-red-400/70' : (card.rulesType || card.type) === 'Attack' ? 'border-orange-400/70' : 'border-blue-400/70';
+      return (
+        <button
+          key={card.id}
+          disabled={disabled}
+          onMouseEnter={() => !deckEditorLockedId && setDeckEditorHoveredId(card.id)}
+          onClick={onClick}
+          className={`group relative overflow-hidden rounded-md border bg-zinc-950 text-left shadow-lg transition hover:-translate-y-0.5 hover:border-white ${disabled ? 'cursor-not-allowed opacity-45' : ''} ${isActive ? 'border-yellow-300 ring-2 ring-yellow-300/65' : typeTone}`}
+        >
+          {content}
+        </button>
+      );
+    };
+
+    return (
+      <div onClick={() => setDeckEditorLockedId(null)} className="h-screen w-full overflow-hidden bg-[#070807] text-white">
+        <style>{`
+          .deck-editor-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(52, 211, 153, 0.85) rgba(9, 9, 11, 0.9);
+          }
+          .deck-editor-scrollbar::-webkit-scrollbar {
+            width: 14px;
+            height: 14px;
+          }
+          .deck-editor-scrollbar::-webkit-scrollbar-track {
+            background: linear-gradient(180deg, rgba(9, 9, 11, 0.95), rgba(24, 24, 27, 0.82));
+            border-left: 1px solid rgba(255, 255, 255, 0.12);
+          }
+          .deck-editor-scrollbar::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, #34d399, #facc15);
+            border: 3px solid rgba(9, 9, 11, 0.95);
+            border-radius: 999px;
+            box-shadow: 0 0 14px rgba(52, 211, 153, 0.25);
+          }
+          .deck-editor-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(180deg, #6ee7b7, #fde047);
+          }
+          .deck-editor-scrollbar::-webkit-scrollbar-corner {
+            background: rgba(9, 9, 11, 0.95);
+          }
+        `}</style>
+        <div className="flex h-full flex-col bg-[radial-gradient(circle_at_68%_15%,rgba(52,211,153,0.12),transparent_34%),linear-gradient(135deg,rgba(127,29,29,0.15),transparent_38%,rgba(24,24,27,0.72))]">
+          <header className="flex items-center justify-between border-b border-white/15 px-5 py-4 sm:px-8">
+            <button onClick={() => setAppState('TITLE')} className="flex items-center gap-1 text-xs font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white"><ChevronLeft size={18}/> {t('ui.back_to_title', 'Back to Title')}</button>
+            <div className="text-center">
+              <div className="text-3xl font-black italic tracking-tight sm:text-4xl">{t('ui.deck_editor', 'DECK EDITOR')}</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.35em] text-emerald-300">{activeCar.name}</div>
+            </div>
+            <div className={`hidden rounded border px-3 py-2 text-xs font-black uppercase sm:block ${activeDeckIds.length === DECK_SIZE ? 'border-emerald-400/40 bg-emerald-950/40 text-emerald-200' : 'border-yellow-400/40 bg-yellow-950/30 text-yellow-200'}`}>
+              {activeDeckIds.length} / {DECK_SIZE}
+            </div>
+          </header>
+
+          <main className="flex min-h-0 flex-1 flex-col">
+            <nav className="border-b border-white/15 bg-zinc-950/70 px-3 py-3" onClick={event => event.stopPropagation()}>
+              <div className="grid grid-cols-4 gap-2">
+                {localizedCarOptions.map(car => (
+                  <button
+                    key={car.id}
+                    onClick={() => {
+                      setDeckEditorCarId(car.id);
+                      setDeckEditorHoveredId(null);
+                      setDeckEditorLockedId(null);
+                    }}
+                    className={`group relative h-20 overflow-hidden border text-left transition hover:-translate-y-0.5 hover:border-white sm:h-24 ${deckEditorCarId === car.id ? 'border-emerald-300 shadow-[0_0_22px_rgba(52,211,153,0.22)]' : 'border-white/15'}`}
+                  >
+                    <img src={car.portrait} alt="" aria-hidden="true" draggable="false" className="absolute inset-0 h-full w-full object-cover opacity-70 saturate-125 transition duration-300 group-hover:scale-105 group-hover:opacity-95" />
+                    <div className={`absolute inset-0 ${deckEditorCarId === car.id ? 'bg-emerald-400/22' : 'bg-black/48 group-hover:bg-black/30'}`} />
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/52 to-transparent" />
+                    <div className="relative flex h-full flex-col justify-end p-3">
+                      <div className={`text-[10px] font-black uppercase tracking-[0.28em] ${deckEditorCarId === car.id ? 'text-emerald-100' : 'text-zinc-300'}`}>{CAR_DECK_CODES[car.id]}</div>
+                      <div className="mt-1 text-sm font-black uppercase leading-tight text-white drop-shadow-[0_2px_3px_rgba(0,0,0,0.9)] sm:text-base">{car.name}</div>
+                    </div>
+                    {deckEditorCarId === car.id && <div className="absolute inset-x-0 bottom-0 h-1 bg-emerald-300 shadow-[0_0_14px_rgba(52,211,153,0.85)]" />}
+                  </button>
+                ))}
+              </div>
+            </nav>
+
+            <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[22rem_minmax(25rem,30rem)_1fr]">
+            <aside className="min-h-0 overflow-y-auto border-b border-white/15 bg-black/65 px-4 py-5 lg:border-b-0 lg:border-r lg:px-5" onClick={() => setDeckEditorLockedId(null)}>
+              {activeItem && (
+                <div>
+                  <div className="flex justify-center">
+                    <RenderCard card={activeItem} scale={1.12} extraClasses="cursor-default origin-top" />
+                  </div>
+                  <div className="mt-7">
+                    <div className="text-[10px] font-black uppercase tracking-[0.35em] text-emerald-300">{activeItem.deckCode}</div>
+                    <h2 className="mt-2 text-3xl font-black italic uppercase leading-none">{activeItem.name}</h2>
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <span className="border border-white/15 bg-black/50 px-3 py-2 text-xs font-black uppercase text-zinc-300">{activeItem.type}</span>
+                      <span className="border border-white/15 bg-black/50 px-3 py-2 text-xs font-black uppercase text-zinc-300">{activeItem.timing}</span>
+                      <span className="border border-white/15 bg-black/50 px-3 py-2 text-xs font-black uppercase text-zinc-300">{activeItem.req}</span>
+                      <span className="border border-white/15 bg-black/50 px-3 py-2 text-xs font-black uppercase text-zinc-300">{t('ui.deck_count', 'Deck x{count}', { count: deckCounts[activeItem.id] || 0 })}</span>
+                    </div>
+                    <div className="mt-6 border-l-4 border-emerald-400 bg-black/45 p-4">
+                      <div className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">{t('ui.effect', 'Effect')}</div>
+                      <p className="mt-2 text-sm font-bold leading-relaxed text-zinc-100">{activeItem.desc}</p>
+                    </div>
+                    <div className="mt-4 text-xs font-bold leading-relaxed text-zinc-400">{activeItem.category}</div>
+                  </div>
+                </div>
+              )}
+            </aside>
+
+            <section className="flex min-h-0 flex-col border-b border-white/15 bg-black/50 lg:border-b-0 lg:border-r" onClick={event => event.stopPropagation()}>
+              <div className="flex items-center justify-between border-b border-white/15 px-4 py-3">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.28em] text-emerald-300">{t('ui.current_deck', 'Current Deck')}</div>
+                  <div className="mt-1 text-xs font-bold uppercase tracking-widest text-zinc-500">{t('ui.max_copies', 'Max {count} copies', { count: MAX_CARD_COPIES })}</div>
+                </div>
+                <button onClick={resetDeckForActiveCar} className="border border-white/15 bg-black px-3 py-2 text-[10px] font-black uppercase tracking-widest text-zinc-300 transition hover:border-yellow-300 hover:text-yellow-200">{t('ui.reset', 'Reset')}</button>
+              </div>
+
+              <div className="deck-editor-scrollbar min-h-0 flex-1 overflow-y-auto p-4 pr-5">
+                <div className="mb-4 h-2 overflow-hidden bg-zinc-900">
+                  <div className={`h-full ${activeDeckIds.length === DECK_SIZE ? 'bg-emerald-400' : 'bg-yellow-400'}`} style={{ width: `${Math.min(100, activeDeckIds.length / DECK_SIZE * 100)}%` }} />
+                </div>
+                <div className="space-y-2">
+                  {Object.entries(deckCounts).map(([cardId, count]) => {
+                    const card = CARDS[cardId];
+                    if (!card) return null;
+                    return renderMiniCardButton(card, (
+                      <div className="flex items-center gap-3 p-3">
+                        <div className="flex h-11 w-8 shrink-0 items-center justify-center overflow-hidden rounded border border-white/15 bg-black">
+                          {card.imageSrc ? <img src={card.imageSrc} alt="" draggable="false" className="h-full w-full object-cover" /> : <span className="text-[9px] font-black text-zinc-500">{card.deckCode}</span>}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-black uppercase">{card.name}</div>
+                          <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500">{card.type} / {card.deckCode}</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="min-w-8 border border-emerald-300/30 bg-emerald-400/10 px-2 py-1 text-center text-xs font-black text-emerald-200">x{count}</span>
+                          <span className="border border-red-400/40 bg-red-500/10 px-2 py-1 text-xs font-black text-red-200">-</span>
+                        </div>
+                      </div>
+                    ), () => removeCardFromDeck(card.id));
+                  })}
+                </div>
+              </div>
+            </section>
+
+            <section className="flex min-h-0 flex-col bg-black/30" onClick={event => event.stopPropagation()}>
+              <div className="flex items-center justify-between border-b border-white/15 bg-zinc-950/65 p-4">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.32em] text-yellow-400">{t('ui.available_cards', 'Available Cards')}</div>
+                  <div className="mt-1 text-xs font-bold uppercase tracking-widest text-zinc-500">{t('ui.deck_editor_available_hint', 'Common cards and this machine set')}</div>
+                </div>
+                <div className={`border px-3 py-2 text-xs font-black uppercase ${deckIsFull ? 'border-emerald-400/40 bg-emerald-950/40 text-emerald-200' : 'border-yellow-400/40 bg-yellow-950/30 text-yellow-200'}`}>
+                  {deckIsFull ? t('ui.deck_full', 'Deck Full') : t('ui.open_slots', '{count} Slots', { count: DECK_SIZE - activeDeckIds.length })}
+                </div>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+                {Object.entries(availableGroupedCards).map(([group, cards]) => (
+                  <div key={group} className="mb-7">
+                    <div className="mb-3 flex items-center gap-3">
+                      <div className="text-sm font-black uppercase tracking-[0.24em] text-zinc-300">{group}</div>
+                      <div className="h-px flex-1 bg-white/10" />
+                      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{cards.length}</div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-7 2xl:grid-cols-9">
+                      {cards.map(card => {
+                        const count = deckCounts[card.id] || 0;
+                        const disabled = deckIsFull || count >= MAX_CARD_COPIES;
+                        return renderMiniCardButton(card, (
+                          <div className="aspect-[23/32]">
+                            {card.imageSrc ? (
+                              <img src={card.imageSrc} alt="" draggable="false" className="absolute inset-0 h-full w-full object-cover" />
+                            ) : (
+                              <div className="flex h-full flex-col justify-between p-2">
+                                <div className="text-[8px] font-black uppercase tracking-widest text-zinc-400">{card.deckCode}</div>
+                                <div className="text-xs font-black uppercase leading-tight text-white">{card.name}</div>
+                                <div className="text-[8px] font-black uppercase tracking-widest text-zinc-400">{card.type}</div>
+                              </div>
+                            )}
+                            <div className={`absolute right-1 top-1 rounded-sm border px-1.5 py-0.5 text-[10px] font-black ${count >= MAX_CARD_COPIES ? 'border-red-300 bg-red-500 text-white' : 'border-black/40 bg-yellow-400 text-black'}`}>x{count}</div>
+                            {!disabled && <div className="absolute inset-x-1 bottom-1 bg-black/78 py-1 text-center text-[10px] font-black uppercase tracking-widest text-emerald-200 opacity-0 transition group-hover:opacity-100">{t('ui.add', 'Add')}</div>}
+                          </div>
+                        ), () => addCardToDeck(card.id), disabled);
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
+
   if (appState === 'SELECT') {
     const selectedCourse = COURSE_OPTIONS.find(course => course.id === selectedCourseId) || COURSE_OPTIONS[0];
     const onlineRole = gameMode === 'OnlinePvP' ? onlineSession.role : null;
-    const activePicker = gameMode === 'PvE' ? 0 : onlineRole === 'guest' ? 1 : onlineRole === 'host' ? 0 : activeCarPlayer;
+    const activePicker = gameMode === 'PvE' ? activeCarPlayer : onlineRole === 'guest' ? 1 : onlineRole === 'host' ? 0 : activeCarPlayer;
     const canEditCourse = gameMode !== 'OnlinePvP' || onlineRole === 'host';
     const canStartRaceSetup = selectedCars.every(Boolean) && (gameMode !== 'OnlinePvP' || onlineRole === 'host');
     const chooseCar = (carId) => {
       setSelectedCars(current => current.map((car, index) => index === activePicker ? carId : car));
+      if (gameMode === 'OnlinePvP') {
+        setOnlinePlayerDecks(current => current.map((deck, index) => (
+          index === activePicker ? getDeckIdsForCar(carId, cardRows, customDecks) : deck
+        )));
+      }
       if (gameMode !== 'PvE' && activePicker === 0 && selectedCars[1] === null) setActiveCarPlayer(1);
+      if (gameMode === 'PvE' && activePicker === 0) setActiveCarPlayer(1);
     };
     const localizedCarOptions = CAR_OPTIONS.map(car => ({
       ...car,
@@ -3796,14 +4389,24 @@ function ArcadeRacingGame() {
                 const car = selectedCarData[player];
                 const waiting = activePicker === player;
                 const lockedByOnlineRole = gameMode === 'OnlinePvP' && ((onlineRole === 'host' && player === 1) || (onlineRole === 'guest' && player === 0));
-                return <button type="button" key={player} onClick={() => !(player === 1 && gameMode === 'PvE') && !lockedByOnlineRole && setActiveCarPlayer(player)} className={`overflow-hidden border bg-black/65 text-left ${player === 1 ? 'lg:col-start-3' : ''} ${player === 1 && gameMode === 'PvE' || lockedByOnlineRole ? 'cursor-default' : 'cursor-pointer hover:border-white/50'} ${waiting ? player === 0 ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.25)]' : 'border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.25)]' : 'border-white/15'}`}>
+                return <div role="button" tabIndex={lockedByOnlineRole ? -1 : 0} key={player} onClick={() => !lockedByOnlineRole && setActiveCarPlayer(player)} onKeyDown={event => { if (!lockedByOnlineRole && (event.key === 'Enter' || event.key === ' ')) setActiveCarPlayer(player); }} className={`overflow-hidden border bg-black/65 text-left ${player === 1 ? 'lg:col-start-3' : ''} ${lockedByOnlineRole ? 'cursor-default' : 'cursor-pointer hover:border-white/50'} ${waiting ? player === 0 ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.25)]' : 'border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.25)]' : 'border-white/15'}`}>
                   <CarPortrait car={car} player={player}/>
                   <div className={`p-4 ${player === 1 ? 'text-right' : ''}`}>
                     <div className="flex items-center justify-between gap-3"><h3 className="text-xl font-black uppercase">{car?.name || (waiting ? t('ui.choose_machine', 'Choose Machine') : t('ui.waiting_ellipsis', 'Waiting...'))}</h3>{car && <span className="border border-yellow-500/50 bg-yellow-500/10 px-2 py-1 text-xs font-black text-yellow-300">{car.drive}</span>}</div>
-                    <p className="mt-2 min-h-10 text-xs leading-relaxed text-zinc-400">{car?.specialty || (player === 1 && gameMode === 'PvE' ? t('ui.cpu_machine_locked', 'CPU machine locked.') : lockedByOnlineRole ? t('ui.remote_player_machine_slot', 'Remote player machine slot.') : t('ui.select_from_machine_grid', 'Select from machine grid.'))}</p>
-                    {car && !(player === 1 && gameMode === 'PvE') && !lockedByOnlineRole && <div className="mt-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">{t('ui.press_panel_machine', 'Press panel, then press any machine')}</div>}
+                    <p className="mt-2 min-h-10 text-xs leading-relaxed text-zinc-400">{car?.specialty || (lockedByOnlineRole ? t('ui.remote_player_machine_slot', 'Remote player machine slot.') : t('ui.select_from_machine_grid', 'Select from machine grid.'))}</p>
+                    {gameMode === 'PvE' && player === 0 && (
+                      <div className="mt-3 flex justify-start gap-1" onClick={event => event.stopPropagation()}>
+                        {[true, false].map(startsFirst => <button type="button" key={String(startsFirst)} onClick={() => setPlayerStartsFirst(startsFirst)} className={`px-3 py-2 text-[10px] font-black uppercase tracking-widest ${playerStartsFirst === startsFirst ? 'bg-red-500 text-white' : 'border border-white/15 bg-black/70 text-zinc-400 hover:border-red-300 hover:text-white'}`}>{startsFirst ? t('ui.go_first', 'Go First') : t('ui.go_second', 'Go Second')}</button>)}
+                      </div>
+                    )}
+                    {gameMode === 'PvE' && player === 1 && (
+                      <div className="mt-3 flex justify-end gap-1" onClick={event => event.stopPropagation()}>
+                        {AI_DIFFICULTIES.map(difficulty => <button type="button" key={difficulty} onClick={() => setAiDifficulty(difficulty)} className={`px-3 py-2 text-[10px] font-black uppercase tracking-widest ${aiDifficulty === difficulty ? 'bg-blue-500 text-white' : 'border border-white/15 bg-black/70 text-zinc-400 hover:border-blue-300 hover:text-white'}`}>{t(`ui.ai_${difficulty}`, difficulty.charAt(0).toUpperCase() + difficulty.slice(1))}</button>)}
+                      </div>
+                    )}
+                    {car && !lockedByOnlineRole && <div className="mt-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">{t('ui.press_panel_machine', 'Press panel, then press any machine')}</div>}
                   </div>
-                </button>;
+                </div>;
               })}
 
               <div className="grid grid-cols-2 gap-2 self-stretch lg:col-start-2 lg:row-start-1">
@@ -3818,7 +4421,7 @@ function ArcadeRacingGame() {
                   </button>;
                 })}
                 <div className="col-span-2 flex min-h-14 items-center justify-center">
-                  {canStartRaceSetup ? <button onClick={initGame} className="group flex items-center gap-3 border-2 border-yellow-300 bg-yellow-400 px-8 py-3 text-lg font-black italic uppercase text-black shadow-[0_0_26px_rgba(250,204,21,0.4)] transition hover:scale-105 hover:bg-yellow-300">{t('ui.start_your_engines', 'Start Your Engines')} <Play size={20}/></button> : <div className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">{gameMode === 'OnlinePvP' && onlineRole === 'guest' ? t('ui.waiting_host_start', 'Waiting for host to start') : activePicker === 0 ? t('ui.player_choose_machine', '{player}: choose machine', { player: 'Player 1' }) : t('ui.player_choose_machine', '{player}: choose machine', { player: 'Player 2' })}</div>}
+                  {canStartRaceSetup ? <button onClick={initGame} className="group flex items-center gap-3 border-2 border-yellow-300 bg-yellow-400 px-8 py-3 text-lg font-black italic uppercase text-black shadow-[0_0_26px_rgba(250,204,21,0.4)] transition hover:scale-105 hover:bg-yellow-300">{t('ui.start_your_engines', 'Start Your Engines')} <Play size={20}/></button> : <div className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">{gameMode === 'OnlinePvP' && onlineRole === 'guest' ? t('ui.waiting_host_start', 'Waiting for host to start') : activePicker === 0 ? t('ui.player_choose_machine', '{player}: choose machine', { player: 'Player 1' }) : t('ui.player_choose_machine', '{player}: choose machine', { player: gameMode === 'PvE' ? 'CPU' : 'Player 2' })}</div>}
                 </div>
               </div>
             </section>
@@ -4594,6 +5197,7 @@ function ArcadeRacingGame() {
     </div>
   );
 }
+
 ReactDOM.createRoot(document.getElementById('root')).render(<ArcadeRacingGame />);
   </script>
 </body>
