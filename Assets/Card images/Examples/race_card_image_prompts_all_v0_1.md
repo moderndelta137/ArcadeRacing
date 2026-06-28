@@ -21,7 +21,7 @@ Create a single poker-card-size player race card. Keep the same established raci
 ## 1. Drift
 
 ```text
-Create a player race card using the shared racing card layout. The player's car must be a bright red AE86-style compact sports car. Card details: Name: "Drift". Requirement: Max 60. Timing keyword box: "Drive". Card type: "Turn". Effect text: "+20 km/h to the corner speed limit calculation." Illustration: a bright red AE86-style car countersteering through a mountain corner, tire smoke pouring from the rear wheels, close to the guardrail, emphasizing stylish controlled drift and cornering technique. Use a full-color Japanese street-racing manga style with speed lines and dramatic night/touge energy.
+Create a player race card using the shared racing card layout. The player's car must be a bright red AE86-style compact sports car. Card details: Name: "Drift". Requirement: Max 70. Timing keyword box: "Drive". Card type: "Turn". Effect text: "+20 km/h to the corner speed limit calculation." Illustration: a bright red AE86-style car countersteering through a mountain corner, tire smoke pouring from the rear wheels, close to the guardrail, emphasizing stylish controlled drift and cornering technique. Use a full-color Japanese street-racing manga style with speed lines and dramatic night/touge energy.
 ```
 
 ## 2. Accelerate
@@ -45,7 +45,7 @@ Create a player race card using the shared racing card layout. The player's car 
 ## 5. Early Brake Cornering
 
 ```text
-Create a player race card using the shared racing card layout. The player's car must be a bright red AE86-style compact sports car. Card details: Name: "Early Brake Cornering". Requirement: Max 50. Timing keyword box: "Before". Card type: "Turn". Effect text: "Speed -20 km/h. You may move to the inner lane." Illustration: the bright red AE86-style car braking early and moving from the outer lane toward the inner lane before a corner apex, with brake lights, clear racing line, and controlled corner setup. Use a full-color Japanese street-racing manga style.
+Create a player race card using the shared racing card layout. The player's car must be a bright red AE86-style compact sports car. Card details: Name: "Early Brake Cornering". Requirement: Max 110. Timing keyword box: "Before". Card type: "Turn". Effect text: "Speed -20 km/h. You may move to the inner lane." Illustration: the bright red AE86-style car braking early and moving from the outer lane toward the inner lane before a corner apex, with brake lights, clear racing line, and controlled corner setup. Use a full-color Japanese street-racing manga style.
 ```
 
 ## 6. In-Out-In
@@ -57,7 +57,7 @@ Create a player race card using the shared racing card layout. The player's car 
 ## 7. Rocket Start
 
 ```text
-Create a player race card using the shared racing card layout. The player's car must be a bright red AE86-style compact sports car. Card details: Name: "Rocket Start". Requirement: Max 30. Timing keyword box: "After". Card type: "Gas". Effect text: "Speed +40 km/h." Illustration: the bright red AE86-style car launching explosively from low speed, front wheels light, tire smoke and dramatic speed lines, low front-side angle, suggesting sudden acceleration after a slow corner. Use a full-color Japanese street-racing manga style.
+Create a player race card using the shared racing card layout. The player's car must be a bright red AE86-style compact sports car. Card details: Name: "Rocket Start". Requirement: Max 50. Timing keyword box: "After". Card type: "Gas". Effect text: "Speed +40 km/h." Illustration: the bright red AE86-style car launching explosively from low speed, front wheels light, tire smoke and dramatic speed lines, low front-side angle, suggesting sudden acceleration after a slow corner. Use a full-color Japanese street-racing manga style.
 ```
 
 ## 8. Change Shift

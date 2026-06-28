@@ -1,9 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#09090b">
+  <link rel="icon" href="data:,">
   <title>山道疾走：ドリフトデュエル Mountain Chase: Drift Duel</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
@@ -55,15 +56,7 @@ const Radio = (p) => <Icon {...p}><circle cx="12" cy="12" r="2"/><path d="M16.24
 const FastForward = (p) => <Icon {...p}><polygon points="13 19 22 12 13 5 13 19"/><polygon points="2 19 11 12 2 5 2 19"/></Icon>;
 const Crosshair = (p) => <Icon {...p}><circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></Icon>;
 const BookOpen = (p) => <Icon {...p}><path d="M12 7v14M3 18a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></Icon>;
-
-
-
-
-
-
-
-
-
+const MapIcon = (p) => <Icon {...p}><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21 3 6"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></Icon>;
 
 
 
@@ -71,6 +64,8 @@ const BookOpen = (p) => <Icon {...p}><path d="M12 7v14M3 18a1 1 0 0 1-1-1V5a1 1 
 const MAX_SPEED = 140;
 const TERRAIN_BACKDROP_SIZE = 4500;
 const TERRAIN_BACKDROP_PADDING = TERRAIN_BACKDROP_SIZE / 2;
+const RACE_LANE_WIDTH = 70;
+const RACE_SPACE_LENGTH = 140;
 const BACKGROUND_ASSET_DIR = 'Assets/Backgrounds';
 const COURSE_BACKGROUNDS = {
   akagi: `${BACKGROUND_ASSET_DIR}/touge_topdown_forest_02.png`,
@@ -197,8 +192,8 @@ const parseCornerCardRows = (rows) => {
 function generateTrack(seed = Date.now(), cornerCardRows = DEFAULT_CORNER_CARD_ROWS, retry = 0, requestedRoadCards = 12) {
   let cx = 0, cy = 0, dir = 0; // dir 0 = UP
   let globalDistance = 0;
-  const LANE_W = 70;
-  const SPACE_LEN = 140;
+  const LANE_W = RACE_LANE_WIDTH;
+  const SPACE_LEN = RACE_SPACE_LENGTH;
   const MIN_TRACK_CLEARANCE = 340;
   const MAX_LAYOUT_RETRIES = 24;
   const random = createTrackRandom(seed);
@@ -478,6 +473,241 @@ const getTrackBounds = (track) => {
   };
 };
 
+const buildDebugRoadCardTrack = (card, cardIndex) => {
+  let cx = 0, cy = 0, dir = 0;
+  let globalDistance = 0;
+  const LANE_W = RACE_LANE_WIDTH;
+  const SPACE_LEN = RACE_SPACE_LENGTH;
+  const leftTrack = [];
+  const rightTrack = [];
+
+  const getP = (baseX, baseY, angleDeg, offset) => {
+    const r = angleDeg * Math.PI / 180;
+    return {
+      x: baseX + Math.cos(r) * offset,
+      y: baseY + Math.sin(r) * offset
+    };
+  };
+
+  const addNodesStraight = (len, limitL = null, limitR = null) => {
+    const startL = leftTrack.length;
+    const startR = rightTrack.length;
+
+    for (let i = 0; i < len; i++) {
+      const fwdX = Math.sin(dir * Math.PI / 180);
+      const fwdY = -Math.cos(dir * Math.PI / 180);
+      const bx = cx + fwdX * (i * SPACE_LEN);
+      const by = cy + fwdY * (i * SPACE_LEN);
+      const fx = cx + fwdX * ((i + 1) * SPACE_LEN);
+      const fy = cy + fwdY * ((i + 1) * SPACE_LEN);
+
+      const bl_L = getP(bx, by, dir, -LANE_W);
+      const br_L = getP(bx, by, dir, 0);
+      const fl_L = getP(fx, fy, dir, -LANE_W);
+      const fr_L = getP(fx, fy, dir, 0);
+      const centerL = getP(cx + fwdX * ((i + 0.5) * SPACE_LEN), cy + fwdY * ((i + 0.5) * SPACE_LEN), dir, -LANE_W / 2);
+      const d = globalDistance + (i + 0.5) * SPACE_LEN;
+
+      leftTrack.push({
+        id: `debug-${card.id}-L${leftTrack.length}`,
+        path: `M ${bl_L.x} ${bl_L.y} L ${br_L.x} ${br_L.y} L ${fr_L.x} ${fr_L.y} L ${fl_L.x} ${fl_L.y} Z`,
+        center: centerL,
+        limit: limitL,
+        adj: [startR + i],
+        angle: dir,
+        isOuter: false,
+        distance: d
+      });
+
+      const br_R = getP(bx, by, dir, LANE_W);
+      const fr_R = getP(fx, fy, dir, LANE_W);
+      const centerR = getP(cx + fwdX * ((i + 0.5) * SPACE_LEN), cy + fwdY * ((i + 0.5) * SPACE_LEN), dir, LANE_W / 2);
+      rightTrack.push({
+        id: `debug-${card.id}-R${rightTrack.length}`,
+        path: `M ${br_L.x} ${br_L.y} L ${br_R.x} ${br_R.y} L ${fr_R.x} ${fr_R.y} L ${fr_L.x} ${fr_L.y} Z`,
+        center: centerR,
+        limit: limitR,
+        adj: [startL + i],
+        angle: dir,
+        isOuter: false,
+        distance: d
+      });
+    }
+
+    cx += Math.sin(dir * Math.PI / 180) * (len * SPACE_LEN);
+    cy += -Math.cos(dir * Math.PI / 180) * (len * SPACE_LEN);
+    globalDistance += len * SPACE_LEN;
+  };
+
+  const addNodesCurve = (turnRight, angleDeg, inSpaces, outSpaces, inLimit, outLimit, guardrail, radius = 350) => {
+    const sign = turnRight ? 1 : -1;
+    const rotCx = cx + Math.cos(dir * Math.PI / 180) * sign * radius;
+    const rotCy = cy + Math.sin(dir * Math.PI / 180) * sign * radius;
+    const totalSweep = sign * angleDeg;
+    const rotStartAngle = turnRight ? dir + 180 : dir;
+    const lSpaces = turnRight ? outSpaces : inSpaces;
+    const rSpaces = turnRight ? inSpaces : outSpaces;
+    const lLimitVal = turnRight ? outLimit : inLimit;
+    const startIdxL = leftTrack.length;
+    const startIdxR = rightTrack.length;
+    const curveLenCenter = radius * (angleDeg * Math.PI / 180);
+
+    const getArcPath = (r1, r2, stepIdx, totalSteps) => {
+      const a1 = rotStartAngle + (stepIdx / totalSteps) * totalSweep;
+      const a2 = rotStartAngle + ((stepIdx + 1) / totalSteps) * totalSweep;
+      const rad1 = a1 * Math.PI / 180;
+      const rad2 = a2 * Math.PI / 180;
+      const p1x = rotCx + r1 * Math.cos(rad1), p1y = rotCy + r1 * Math.sin(rad1);
+      const p2x = rotCx + r2 * Math.cos(rad1), p2y = rotCy + r2 * Math.sin(rad1);
+      const p3x = rotCx + r2 * Math.cos(rad2), p3y = rotCy + r2 * Math.sin(rad2);
+      const p4x = rotCx + r1 * Math.cos(rad2), p4y = rotCy + r1 * Math.sin(rad2);
+      const sweep = turnRight ? 1 : 0;
+      const sweepBack = turnRight ? 0 : 1;
+      return `M ${p1x} ${p1y} L ${p2x} ${p2y} A ${r2} ${r2} 0 0 ${sweep} ${p3x} ${p3y} L ${p4x} ${p4y} A ${r1} ${r1} 0 0 ${sweepBack} ${p1x} ${p1y} Z`;
+    };
+
+    const l_r1 = turnRight ? radius : radius - LANE_W;
+    const l_r2 = turnRight ? radius + LANE_W : radius;
+    for (let i = 0; i < lSpaces; i++) {
+      const midA = rotStartAngle + ((i + 0.5) / lSpaces) * totalSweep;
+      const midR = (l_r1 + l_r2) / 2;
+      const d = globalDistance + ((i + 0.5) / lSpaces) * curveLenCenter;
+      let effLimitL = lLimitVal;
+      if (turnRight && i < lSpaces - rSpaces) effLimitL = null;
+      leftTrack.push({
+        id: `debug-${card.id}-L${leftTrack.length}`,
+        path: getArcPath(l_r1, l_r2, i, lSpaces),
+        center: { x: rotCx + midR * Math.cos(midA * Math.PI / 180), y: rotCy + midR * Math.sin(midA * Math.PI / 180) },
+        limit: effLimitL,
+        guardrail: guardrail === 'outer' && turnRight,
+        angle: dir + ((i + 0.5) / lSpaces) * totalSweep,
+        isOuter: turnRight,
+        distance: d,
+        adj: []
+      });
+    }
+
+    const r_r1 = turnRight ? radius - LANE_W : radius;
+    const r_r2 = turnRight ? radius : radius + LANE_W;
+    const rLimitVal = turnRight ? inLimit : outLimit;
+    for (let i = 0; i < rSpaces; i++) {
+      const midA = rotStartAngle + ((i + 0.5) / rSpaces) * totalSweep;
+      const midR = (r_r1 + r_r2) / 2;
+      const d = globalDistance + ((i + 0.5) / rSpaces) * curveLenCenter;
+      let effLimitR = rLimitVal;
+      if (!turnRight && i < rSpaces - lSpaces) effLimitR = null;
+      rightTrack.push({
+        id: `debug-${card.id}-R${rightTrack.length}`,
+        path: getArcPath(r_r1, r_r2, i, rSpaces),
+        center: { x: rotCx + midR * Math.cos(midA * Math.PI / 180), y: rotCy + midR * Math.sin(midA * Math.PI / 180) },
+        limit: effLimitR,
+        guardrail: guardrail === 'outer' && !turnRight,
+        angle: dir + ((i + 0.5) / rSpaces) * totalSweep,
+        isOuter: !turnRight,
+        distance: d,
+        adj: []
+      });
+    }
+
+    if (lSpaces >= rSpaces) {
+      for (let i = 0; i < lSpaces; i++) {
+        const rIdx = Math.floor((i + 0.5) / lSpaces * rSpaces);
+        leftTrack[startIdxL + i].adj.push(startIdxR + rIdx);
+        if (!rightTrack[startIdxR + rIdx].adj.includes(startIdxL + i)) rightTrack[startIdxR + rIdx].adj.push(startIdxL + i);
+      }
+    } else {
+      for (let i = 0; i < rSpaces; i++) {
+        const lIdx = Math.floor((i + 0.5) / rSpaces * lSpaces);
+        rightTrack[startIdxR + i].adj.push(startIdxL + lIdx);
+        if (!leftTrack[startIdxL + lIdx].adj.includes(startIdxR + i)) leftTrack[startIdxL + lIdx].adj.push(startIdxR + i);
+      }
+    }
+
+    dir += totalSweep;
+    const newCenterA = rotStartAngle + totalSweep;
+    cx = rotCx + radius * Math.cos(newCenterA * Math.PI / 180);
+    cy = rotCy + radius * Math.sin(newCenterA * Math.PI / 180);
+    globalDistance += curveLenCenter;
+  };
+
+  const addCard = () => {
+    const startLeft = leftTrack.length;
+    addNodesStraight(card.entrySpaces);
+    let turnRight = true;
+    card.segments.forEach(segment => {
+      if (segment.type === 'straight') {
+        addNodesStraight(segment.spaces);
+        return;
+      }
+      if (segment.direction === 'opposite') turnRight = !turnRight;
+      addNodesCurve(turnRight, segment.angle, segment.in_spaces, segment.out_spaces, segment.speed_limit, segment.speed_limit, 'outer', segment.radius);
+    });
+    addNodesStraight(card.exitSpaces);
+    if (leftTrack[startLeft]) leftTrack[startLeft].roadCardStart = { index: cardIndex + 1, name: card.name };
+  };
+
+  addCard();
+  [...leftTrack, ...rightTrack].forEach(space => {
+    space.roadCard = card.name;
+    space.roadCardIndex = cardIndex;
+  });
+  return { 0: leftTrack, 1: rightTrack };
+};
+
+const buildRoadDebugLayout = (cards) => {
+  const builtCards = cards.map((card, index) => {
+    const track = buildDebugRoadCardTrack(card, index);
+    const bounds = getTrackBounds(track);
+    return {
+      card,
+      track,
+      bounds,
+      width: bounds.maxX - bounds.minX,
+      height: bounds.maxY - bounds.minY
+    };
+  });
+  const columns = Math.min(4, Math.max(1, builtCards.length));
+  const margin = 520;
+  const maxWidth = Math.max(...builtCards.map(item => item.width), 1);
+  const maxHeight = Math.max(...builtCards.map(item => item.height), 1);
+  const cellWidth = maxWidth + margin;
+  const cellHeight = maxHeight + margin;
+
+  const groups = builtCards.map((item, index) => {
+    const col = index % columns;
+    const row = Math.floor(index / columns);
+    return {
+      ...item,
+      offset: {
+        x: col * cellWidth - item.bounds.center.x,
+        y: row * cellHeight - item.bounds.center.y
+      }
+    };
+  });
+
+  const allBounds = groups.flatMap(group => ([
+    { x: group.bounds.minX + group.offset.x, y: group.bounds.minY + group.offset.y },
+    { x: group.bounds.maxX + group.offset.x, y: group.bounds.maxY + group.offset.y }
+  ]));
+  const bounds = allBounds.reduce((acc, point) => ({
+    minX: Math.min(acc.minX, point.x),
+    maxX: Math.max(acc.maxX, point.x),
+    minY: Math.min(acc.minY, point.y),
+    maxY: Math.max(acc.maxY, point.y)
+  }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
+
+  return {
+    groups,
+    bounds: {
+      ...bounds,
+      center: {
+        x: (bounds.minX + bounds.maxX) / 2,
+        y: (bounds.minY + bounds.maxY) / 2
+      }
+    }
+  };
+};
+
 const IMPLEMENTED_CARD_IDS = [
   'drift', 'full_throttle', 'back_down', 'hard_brake', 'change_lane', 'early_brake_cornering', 'rocket_start', 'change_shift',
   'clutch_kick', 'trail_braking', 'full_countersteer', 'exit_drift', 'drift_extend', 'gutter_boost', 'blind_attack', 'jump_exit',
@@ -486,13 +716,13 @@ const IMPLEMENTED_CARD_IDS = [
 ];
 
 const DEFAULT_CARD_ROWS = [
-  { id: 'drift', name: 'Drift', category: 'Common / Starter Cards - Bright Red AE86', requirement: 'Max 60', type: 'Turn', timing: 'Drive', effect: '+30 km/h to the speed check this turn.', implemented: 'true', deck_code: 'AE86', serial_number: 'AE86-01' },
+  { id: 'drift', name: 'Drift', category: 'Common / Starter Cards - Bright Red AE86', requirement: 'Max 70', type: 'Turn', timing: 'Drive', effect: '+30 km/h to the speed check this turn.', implemented: 'true', deck_code: 'AE86', serial_number: 'AE86-01' },
   { id: 'full_throttle', name: 'Full throttle', category: 'Common / Starter Cards - Bright Red AE86', requirement: 'Any', type: 'Gas', timing: 'Before', effect: 'Speed +40 km/h.', implemented: 'true', deck_code: 'AE86', serial_number: 'AE86-02' },
   { id: 'back_down', name: 'Back down', category: 'Common / Starter Cards - Bright Red AE86', requirement: 'Any', type: 'Brake', timing: 'Before', effect: 'Speed -20 km/h. Discard 1 card.', implemented: 'true', deck_code: 'AE86', serial_number: 'AE86-03' },
   { id: 'hard_brake', name: 'Hard Brake', category: 'Balance set / Starter Cards - Bright Red AE86', requirement: 'Min 50', type: 'Brake', timing: 'Before', effect: 'Speed -50 km/h.', implemented: 'true', deck_code: 'AE86', serial_number: 'AE86-04' },
   { id: 'change_lane', name: 'Change Lane', category: 'Balance set / Starter Cards - Bright Red AE86', requirement: 'Any', type: 'Turn', timing: 'Before', effect: 'Move to the other lane. Discard 1 card.', implemented: 'true', deck_code: 'AE86', serial_number: 'AE86-05' },
-  { id: 'early_brake_cornering', name: 'Early Brake Cornering', category: 'Balance set / Starter Cards - Bright Red AE86', requirement: 'Max 60', type: 'Turn', timing: 'Before', effect: 'Speed -20 km/h. Move to the inner lane.', implemented: 'true', deck_code: 'AE86', serial_number: 'AE86-06' },
-  { id: 'rocket_start', name: 'Rocket Start', category: 'Balance set / Starter Cards - Bright Red AE86', requirement: 'Max 40', type: 'Gas', timing: 'After', effect: 'Speed +50 km/h. You may discard 2 cards.', implemented: 'true', deck_code: 'AE86', serial_number: 'AE86-07' },
+  { id: 'early_brake_cornering', name: 'Early Brake Cornering', category: 'Balance set / Starter Cards - Bright Red AE86', requirement: 'Max 110', type: 'Turn', timing: 'Before', effect: 'Speed -20 km/h. Move to the inner lane.', implemented: 'true', deck_code: 'AE86', serial_number: 'AE86-06' },
+  { id: 'rocket_start', name: 'Rocket Start', category: 'Balance set / Starter Cards - Bright Red AE86', requirement: 'Max 50', type: 'Gas', timing: 'After', effect: 'Speed +50 km/h. You may discard 2 cards.', implemented: 'true', deck_code: 'AE86', serial_number: 'AE86-07' },
   { id: 'change_shift', name: 'Change Shift', category: 'Balance set / Starter Cards - Bright Red AE86', requirement: 'Any', type: 'Gas', timing: 'Before', effect: 'Speed +10 km/h or -10 km/h. You may then play another card.', implemented: 'true', deck_code: 'AE86', serial_number: 'AE86-08' },
   { id: 'clutch_kick', name: 'Clutch Kick', category: 'RWD Drift set - Bright Green Lamborghini Huracan', requirement: 'Min 60', type: 'Gas', timing: 'Before', effect: 'Speed +20 km/h. This turn, your first speed check gains +50 km/h.', implemented: 'true', deck_code: 'HRCN', serial_number: 'HRCN-01' },
   { id: 'trail_braking', name: 'Trail Braking', category: 'RWD Drift set - Bright Green Lamborghini Huracan', requirement: 'Max 80', type: 'Brake', timing: 'Drive', effect: 'Before each speed check this turn, you may reduce Speed by 10 km/h.', implemented: 'true', deck_code: 'HRCN', serial_number: 'HRCN-02' },
@@ -584,12 +814,36 @@ const parseCSV = (text) => {
   return rows.slice(1).map(values => Object.fromEntries(headers.map((header, index) => [header, (values[index] || '').trim()])));
 };
 
-const getRequirementRule = (requirement) => {
+const LANGUAGES = [
+  { code: 'en', labelKey: 'language.english', shortLabel: 'EN' },
+  { code: 'ja', labelKey: 'language.japanese', shortLabel: '日本語' }
+];
+
+const buildTranslationTable = (rows) => {
+  const table = {};
+  rows.forEach(row => {
+    if (!row.key) return;
+    table[row.key] = row;
+  });
+  return table;
+};
+
+const interpolateText = (text, vars = {}) => String(text ?? '').replace(/\{(\w+)\}/g, (_, key) => (
+  vars[key] === undefined || vars[key] === null ? `{${key}}` : String(vars[key])
+));
+
+const translateFromTable = (table, language, key, fallback = key, vars = {}) => {
+  const row = table?.[key];
+  const value = row?.[language] || row?.en || fallback;
+  return interpolateText(value, vars);
+};
+
+const getRequirementRule = (requirement, t = null) => {
   const match = requirement.match(/^(Min|Max)\s+(\d+)/i);
-  if (!match) return { label: 'None', canPlay: () => true };
+  if (!match) return { label: t ? t('card.requirement.none', 'None') : 'None', canPlay: () => true };
   const value = Number(match[2]);
-  if (match[1].toLowerCase() === 'min') return { label: `Min ${value} km/h`, canPlay: player => player.speed >= value };
-  return { label: `Max ${value} km/h`, canPlay: player => player.speed <= value };
+  if (match[1].toLowerCase() === 'min') return { label: t ? t('card.requirement.min', `Min ${value} km/h`, { value }) : `Min ${value} km/h`, canPlay: player => player.speed >= value };
+  return { label: t ? t('card.requirement.max', `Max ${value} km/h`, { value }) : `Max ${value} km/h`, canPlay: player => player.speed <= value };
 };
 
 const getSpeedDelta = (effect) => {
@@ -627,13 +881,23 @@ const getUndersteerTarget = (lane, idx, track) => {
   const current = track[lane][idx];
   const outLane = 1 - lane;
   const adjacent = current.adj.filter(adjIdx => track[outLane]?.[adjIdx]);
+  const sortByNearestAhead = (a, b) => track[outLane][a].distance - track[outLane][b].distance || a - b;
   const ahead = adjacent
     .filter(adjIdx => track[outLane][adjIdx].distance >= current.distance)
-    .sort((a, b) => track[outLane][a].distance - track[outLane][b].distance)[0];
+    .sort(sortByNearestAhead)[0];
+  const laneAhead = track[outLane]
+    .map((space, laneIdx) => ({ space, laneIdx }))
+    .filter(({ space }) => space.distance >= current.distance && space.roadCardIndex === current.roadCardIndex)
+    .map(({ laneIdx }) => laneIdx)
+    .sort(sortByNearestAhead)[0] ?? track[outLane]
+    .map((space, laneIdx) => ({ space, laneIdx }))
+    .filter(({ space }) => space.distance >= current.distance)
+    .map(({ laneIdx }) => laneIdx)
+    .sort(sortByNearestAhead)[0];
   const fallback = adjacent
     .sort((a, b) => track[outLane][b].distance - track[outLane][a].distance)[0];
 
-  return { lane: outLane, idx: ahead ?? fallback ?? idx };
+  return { lane: outLane, idx: ahead ?? laneAhead ?? fallback ?? idx };
 };
 
 const getEffectiveSpeedCheck = (player, space) => {
@@ -658,16 +922,39 @@ const willMoveUndersteer = (player, lane, idx, track) => {
   return Boolean(speedCheck && speedCheck.effectiveSpeed > speedCheck.effectiveLimit);
 };
 
+const getRoadsideBadgeOffset = (player, track, offset = 106) => {
+  const space = track[player.lane]?.[player.idx];
+  if (!space) return { x: player.lane === 0 ? -offset : offset, y: -6 };
+
+  const otherLane = 1 - player.lane;
+  const adjacentIdx = [...(space.adj || [])]
+    .filter(idx => track[otherLane]?.[idx])
+    .sort((a, b) => Math.abs(track[otherLane][a].distance - space.distance) - Math.abs(track[otherLane][b].distance - space.distance))[0];
+
+  if (adjacentIdx === undefined) return { x: player.lane === 0 ? -offset : offset, y: -6 };
+
+  const adjacentSpace = track[otherLane][adjacentIdx];
+  const angleRad = (space.angle || 0) * Math.PI / 180;
+  const localRightX = Math.cos(angleRad);
+  const localRightY = Math.sin(angleRad);
+  const adjacentSide = Math.sign(
+    (adjacentSpace.center.x - space.center.x) * localRightX +
+    (adjacentSpace.center.y - space.center.y) * localRightY
+  ) || 1;
+
+  return { x: -adjacentSide * offset, y: -6 };
+};
+
 const canOccupy = (lane, idx, otherPlayer) => !(otherPlayer.lane === lane && otherPlayer.idx === idx);
 
-const buildCardCatalog = (rows) => {
+const buildCardCatalog = (rows, t = null) => {
   const rowById = Object.fromEntries(rows.map(row => [row.id, row]));
 
   return Object.fromEntries(IMPLEMENTED_CARD_IDS.map(id => {
     const row = rowById[id];
     if (!row) throw new Error(`Missing implemented card in CSV: ${id}`);
 
-    const requirement = getRequirementRule(row.requirement);
+    const requirement = getRequirementRule(row.requirement, t);
     const speedDelta = getSpeedDelta(row.effect);
     const cornerBonus = getCornerLimitBonus(row.effect);
     const optionalCycleCards = getOptionalDiscardCount(row.effect);
@@ -683,16 +970,19 @@ const buildCardCatalog = (rows) => {
 
     const card = {
       id: row.id,
-      name: row.name,
+      name: t ? t(`card.${row.id}.name`, row.name) : row.name,
       category: row.category,
       deckCode: row.deck_code || '',
       serialNumber: row.serial_number || '',
       plateSerial: getPlateSerial(row.deck_code, row.serial_number),
       imageSrc: getCardImageSrc(row),
-      type: row.type,
-      timing: row.timing,
+      type: t ? t(`card.type.${String(row.type || '').toLowerCase()}`, row.type) : row.type,
+      rulesType: row.type,
+      timing: t ? t(`card.timing.${String(row.timing || '').toLowerCase()}`, row.timing) : row.timing,
+      rulesTiming: row.timing,
       req: requirement.label,
-      desc: row.effect,
+      desc: t ? t(`card.${row.id}.effect`, row.effect) : row.effect,
+      rulesDesc: row.effect,
       canPlay: requirement.canPlay
     };
 
@@ -878,9 +1168,10 @@ const drawCards = (deck, discard, hand, count) => {
 };
 
 const RenderCard = ({ card, scale = 1, isHovered = false, onClick, onMouseEnter, onMouseLeave, disabled = false, extraClasses = "", isSelected = false }) => {
-  const shadowColor = card.type === 'Gas' ? 'rgba(253,224,71,0.8)' : card.type === 'Brake' ? 'rgba(239,68,68,0.8)' : 'rgba(59,130,246,0.8)';
-  const textColor = card.type === 'Gas' ? 'text-yellow-50' : card.type === 'Brake' ? 'text-red-50' : 'text-blue-50';
-  const typeColor = card.type === 'Gas' ? 'text-yellow-500' : card.type === 'Brake' ? 'text-red-500' : 'text-blue-500';
+  const rulesType = card.rulesType || card.type;
+  const shadowColor = rulesType === 'Gas' ? 'rgba(253,224,71,0.8)' : rulesType === 'Brake' ? 'rgba(239,68,68,0.8)' : 'rgba(59,130,246,0.8)';
+  const textColor = rulesType === 'Gas' ? 'text-yellow-50' : rulesType === 'Brake' ? 'text-red-50' : 'text-blue-50';
+  const typeColor = rulesType === 'Gas' ? 'text-yellow-500' : rulesType === 'Brake' ? 'text-red-500' : 'text-blue-500';
   const [spriteFailed, setSpriteFailed] = useState(false);
   const hasSprite = Boolean(card.imageSrc && !spriteFailed);
 
@@ -1185,8 +1476,8 @@ const TUTORIAL_STEPS = [
   {
     id: 'skip-turn',
     target: 'hand',
-    title: 'Skip Turn and Dig',
-    body: 'Skip Turn means you choose not to play a driving card this turn. That is not always wasted: it opens the discard step, lets you throw away cards you do not want, and helps dig through the deck. At the end of the turn, your hand draws back up to 4 cards.',
+    title: 'Skip/Refresh',
+    body: 'Skip/Refresh means you choose not to play a driving card this turn and instead move into the discard step. Use it when your hand is awkward: discard cards you do not want, dig deeper into the deck, then draw back up to 4 cards at the end of the turn.',
     trigger: ({ gameState, activePlayer, canControlActivePlayer }) => canControlActivePlayer && gameState.phase === 'PLAY_CARD' && activePlayer?.id === 0 && (gameState.playerTurnsStarted?.[0] || 0) >= 2
   },
   {
@@ -1244,17 +1535,19 @@ const TUTORIAL_STEPS = [
   }
 ];
 
-const TutorialOverlay = ({ step, onDismiss, onSkip }) => {
+const TutorialOverlay = ({ step, onDismiss, onSkip, t = (_, fallback) => fallback }) => {
   if (!step) return null;
+  const title = t(`tutorial.${step.id}.title`, step.title);
+  const body = t(`tutorial.${step.id}.body`, step.body);
   return (
     <div className="fixed left-1/2 top-24 z-[150] w-[min(92vw,430px)] -translate-x-1/2 no-pan pointer-events-auto">
       <div className="border-2 border-yellow-300 bg-zinc-950/95 p-5 shadow-[0_0_40px_rgba(250,204,21,0.28)] backdrop-blur-md">
-        <div className="text-[10px] font-black uppercase tracking-[0.35em] text-yellow-300">Tutorial</div>
-        <h3 className="mt-2 text-2xl font-black italic uppercase text-white">{step.title}</h3>
-        <p className="mt-3 text-sm font-bold leading-relaxed text-zinc-300">{step.body}</p>
+        <div className="text-[10px] font-black uppercase tracking-[0.35em] text-yellow-300">{t('ui.tutorial', 'Tutorial')}</div>
+        <h3 className="mt-2 text-2xl font-black italic uppercase text-white">{title}</h3>
+        <p className="mt-3 text-sm font-bold leading-relaxed text-zinc-300">{body}</p>
         <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
-          <button onClick={onSkip} className="border border-zinc-700 bg-zinc-900 px-4 py-2 text-xs font-black uppercase tracking-widest text-zinc-400 transition hover:border-white hover:text-white">Skip Tutorial</button>
-          <button onClick={onDismiss} className="bg-yellow-400 px-5 py-2 text-sm font-black uppercase tracking-wider text-black transition hover:bg-yellow-300">Got It</button>
+          <button onClick={onSkip} className="border border-zinc-700 bg-zinc-900 px-4 py-2 text-xs font-black uppercase tracking-widest text-zinc-400 transition hover:border-white hover:text-white">{t('ui.tutorial_skip', 'Skip Tutorial')}</button>
+          <button onClick={onDismiss} className="bg-yellow-400 px-5 py-2 text-sm font-black uppercase tracking-wider text-black transition hover:bg-yellow-300">{t('ui.got_it', 'Got It')}</button>
         </div>
       </div>
     </div>
@@ -1306,6 +1599,12 @@ function ArcadeRacingGame() {
   const [cardDataSource, setCardDataSource] = useState('loading');
   const [cornerCardRows, setCornerCardRows] = useState(DEFAULT_CORNER_CARD_ROWS);
   const [cornerDataSource, setCornerDataSource] = useState('loading');
+  const [language, setLanguage] = useState(() => {
+    if (typeof window === 'undefined') return 'ja';
+    return window.localStorage?.getItem('arcade-racing-language') || 'ja';
+  });
+  const [translationRows, setTranslationRows] = useState([]);
+  const [localizationDataSource, setLocalizationDataSource] = useState('loading');
   const [selectedCourseId, setSelectedCourseId] = useState('akagi');
   const [courseDirection, setCourseDirection] = useState('downhill');
   const [randomMapSize, setRandomMapSize] = useState('medium');
@@ -1338,9 +1637,44 @@ function ArcadeRacingGame() {
   const [trackCardCount, setTrackCardCount] = useState(12);
   const TRACK = useMemo(() => generateTrack(trackSeed, cornerCardRows, 0, trackCardCount), [trackSeed, cornerCardRows, trackCardCount]);
   const trackBounds = useMemo(() => getTrackBounds(TRACK), [TRACK]);
-  const CARDS = useMemo(() => buildCardCatalog(cardRows), [cardRows]);
-  const ROAD_CARDS = useMemo(() => parseCornerCardRows(cornerCardRows), [cornerCardRows]);
+  const translationTable = useMemo(() => buildTranslationTable(translationRows), [translationRows]);
+  const t = (key, fallback, vars) => translateFromTable(translationTable, language, key, fallback, vars);
+  const CARDS = useMemo(() => buildCardCatalog(cardRows, t), [cardRows, translationTable, language]);
+  const ROAD_CARDS = useMemo(() => parseCornerCardRows(cornerCardRows).map(card => ({
+    ...card,
+    name: t(`road.${card.id}.name`, card.name)
+  })), [cornerCardRows, translationTable, language]);
+  const roadDebugLayout = useMemo(() => buildRoadDebugLayout(ROAD_CARDS), [ROAD_CARDS]);
   const racingCodexCards = useMemo(() => IMPLEMENTED_CARD_IDS.map(id => CARDS[id]).filter(Boolean), [CARDS]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage?.setItem('arcade-racing-language', language);
+    }
+  }, [language]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const url = `localization.csv?updated=${Date.now()}`;
+
+    fetch(url, { cache: 'no-store' })
+      .then(response => {
+        if (!response.ok) throw new Error(`Localization CSV request failed: ${response.status}`);
+        return response.text();
+      })
+      .then(text => {
+        const rows = parseCSV(text);
+        if (!cancelled) {
+          setTranslationRows(rows);
+          setLocalizationDataSource('csv');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLocalizationDataSource('fallback');
+      });
+
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -1424,20 +1758,20 @@ function ArcadeRacingGame() {
     onlinePeerConnectionRef.current = connection;
     connection.on('open', () => {
       if (onlineRoleRef.current === 'host') {
-        setOnlineSession(current => ({ ...current, guestConnected: true, message: 'Guest connected. Waiting for ready signal.' }));
+        setOnlineSession(current => ({ ...current, guestConnected: true, message: t('online.guest_connected_waiting_ready', 'Guest connected. Waiting for ready signal.') }));
         postOnlineMessage({ type: 'host-ack', roomKey: onlineRoomKeyRef.current, senderRole: 'host' });
       } else {
-        setOnlineSession(current => ({ ...current, guestConnected: true, message: 'Connected to host. Mark ready when you are set.' }));
+        setOnlineSession(current => ({ ...current, guestConnected: true, message: t('online.connected_mark_ready', 'Connected to host. Mark ready when you are set.') }));
         postOnlineMessage({ type: 'guest-join', roomKey: onlineRoomKeyRef.current, senderRole: 'guest' });
       }
     });
     connection.on('data', message => onlineMessageHandlerRef.current?.(message));
     connection.on('close', () => {
       onlinePeerConnectionRef.current = null;
-      setOnlineSession(current => ({ ...current, guestConnected: false, guestReady: false, message: 'Connection closed. Rejoin or host a new room.' }));
+      setOnlineSession(current => ({ ...current, guestConnected: false, guestReady: false, message: t('online.connection_closed', 'Connection closed. Rejoin or host a new room.') }));
     });
     connection.on('error', () => {
-      setOnlineSession(current => ({ ...current, message: 'Peer connection error. Check the room key or retry.' }));
+      setOnlineSession(current => ({ ...current, message: t('online.peer_error', 'Peer connection error. Check the room key or retry.') }));
     });
   };
 
@@ -1451,7 +1785,7 @@ function ArcadeRacingGame() {
       onlinePeerRef.current = peer;
       peer.on('connection', attachPeerConnection);
       peer.on('error', () => {
-        setOnlineSession(current => ({ ...current, message: 'Online broker unavailable. Same-browser fallback is still active.' }));
+        setOnlineSession(current => ({ ...current, message: t('online.broker_unavailable', 'Online broker unavailable. Same-browser fallback is still active.') }));
       });
       if (role === 'guest') {
         peer.on('open', () => {
@@ -1459,7 +1793,7 @@ function ArcadeRacingGame() {
         });
       }
     } catch {
-      setOnlineSession(current => ({ ...current, message: 'Online networking could not load. Same-browser fallback is still active.' }));
+      setOnlineSession(current => ({ ...current, message: t('online.networking_unavailable', 'Online networking could not load. Same-browser fallback is still active.') }));
     }
   };
 
@@ -1472,17 +1806,17 @@ function ArcadeRacingGame() {
 
       if (onlineRoleRef.current === 'host') {
         if (message.type === 'guest-join') {
-          setOnlineSession(current => ({ ...current, guestConnected: true, message: 'Guest connected. Waiting for ready signal.' }));
+          setOnlineSession(current => ({ ...current, guestConnected: true, message: t('online.guest_connected_waiting_ready', 'Guest connected. Waiting for ready signal.') }));
           postOnlineMessage({ type: 'host-ack', roomKey: onlineRoomKeyRef.current, senderRole: 'host' });
         }
         if (message.type === 'guest-ready') {
-          setOnlineSession(current => ({ ...current, guestConnected: true, guestReady: true, message: 'Guest is ready. You can start the race setup.' }));
+          setOnlineSession(current => ({ ...current, guestConnected: true, guestReady: true, message: t('online.guest_ready_start_setup', 'Guest is ready. You can start the race setup.') }));
         }
       }
 
       if (onlineRoleRef.current === 'guest') {
         if (message.type === 'host-ack') {
-          setOnlineSession(current => ({ ...current, guestConnected: true, message: 'Connected to host. Mark ready when you are set.' }));
+          setOnlineSession(current => ({ ...current, guestConnected: true, message: t('online.connected_mark_ready', 'Connected to host. Mark ready when you are set.') }));
         }
         if (message.type === 'start-select') {
           setGameMode('OnlinePvP');
@@ -1609,7 +1943,7 @@ function ArcadeRacingGame() {
       ...ONLINE_SESSION_INITIAL,
       role: 'host',
       roomKey,
-      message: 'Share this room key with your guest.'
+      message: t('online.share_room_key', 'Share this room key with your guest.')
     });
     startPeerNetworking('host', roomKey);
   };
@@ -1617,7 +1951,7 @@ function ArcadeRacingGame() {
   const joinOnlineRoom = () => {
     const roomKey = onlineSession.guestInput.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
     if (!roomKey) {
-      setOnlineSession(current => ({ ...current, message: 'Enter a room key first.' }));
+      setOnlineSession(current => ({ ...current, message: t('online.enter_room_key', 'Enter a room key first.') }));
       return;
     }
     setOnlineSession(current => ({
@@ -1626,14 +1960,14 @@ function ArcadeRacingGame() {
       roomKey,
       guestReady: false,
       guestConnected: false,
-      message: 'Looking for host...'
+      message: t('online.looking_for_host', 'Looking for host...')
     }));
     startPeerNetworking('guest', roomKey);
   };
 
   const setGuestReady = () => {
     postOnlineMessage({ type: 'guest-ready', roomKey: onlineSession.roomKey, senderRole: 'guest' });
-    setOnlineSession(current => ({ ...current, guestReady: true, message: 'Ready sent. Waiting for the host to start.' }));
+    setOnlineSession(current => ({ ...current, guestReady: true, message: t('online.ready_sent', 'Ready sent. Waiting for the host to start.') }));
   };
 
   const startOnlineSelection = () => {
@@ -1650,6 +1984,15 @@ function ArcadeRacingGame() {
     setCodexHoveredId(null);
     setCodexLockedId(null);
     setAppState('CODEX');
+  };
+
+  const openRoadDebugMap = () => {
+    setCodexTab('road');
+    setCodexHoveredId(null);
+    setCodexLockedId(null);
+    setPanOffset({ x: 0, y: 0 });
+    setZoom(winSize.w < 640 ? 0.3 : 0.55);
+    setAppState('ROAD_DEBUG');
   };
 
   const initGame = () => {
@@ -1681,7 +2024,7 @@ function ArcadeRacingGame() {
       activePlayerIdx: 0,
       phase: 'PLAY_CARD',
       mpLeft: 0,
-      logs: ['Race started! Player 1 is the Lead Player.'],
+      logs: [t('log.race_started', 'Race started! Player 1 is the Lead Player.')],
       winner: null,
       overtakeEvent: null,
       bonusTurnPlayerId: null,
@@ -1853,7 +2196,7 @@ function ArcadeRacingGame() {
     if (!bannerPhases.includes(gameState.phase)) return;
 
     const key = `${gameState.phase}-${activePlayerId}-${gameState.activePlayerIdx}-${gameState.nnActiveTurnIdx ?? 'normal'}`;
-    const label = gameState.phase === 'NN_MOVE' ? 'Movement Step' : gameState.phase === 'NN_SELECT_CARD' ? 'Lock In Card' : 'Turn Start';
+    const label = gameState.phase === 'NN_MOVE' ? t('ui.movement_step', 'Movement Step') : gameState.phase === 'NN_SELECT_CARD' ? t('ui.lock_in_card', 'Lock In Card') : t('ui.turn_start', 'Turn Start');
     setTurnBanner({ key, playerId: activePlayerId, playerName: activePlayer.name, label });
 
     const timer = setTimeout(() => {
@@ -2036,7 +2379,7 @@ function ArcadeRacingGame() {
     const card = CARDS[cardId];
 
     if (gameState.phase === 'NN_SELECT_CARD') {
-      addLog(`${activePlayer.name} locked in a card.`);
+      addLog(t('log.locked_card', '{player} locked in a card.', { player: activePlayer.name }));
       let newPlayers = [...gameState.players];
       let p = { ...activePlayer };
       p.hand = p.hand.filter((_, i) => i !== handIndex);
@@ -2055,7 +2398,7 @@ function ArcadeRacingGame() {
       return;
     }
 
-    addLog(`${activePlayer.name} played ${card.name}.`);
+    addLog(t('log.played_card', '{player} played {card}.', { player: activePlayer.name, card: card.name }));
 
     let newPlayers = [...gameState.players];
     let p = { ...activePlayer };
@@ -2081,7 +2424,7 @@ function ArcadeRacingGame() {
       newPlayers[activePlayerId] = p;
       nextPhase = 'PLAY_CARD';
       mp = 0;
-      addLog(`${p.name} may play another card.`);
+      addLog(t('log.may_play_another', '{player} may play another card.', { player: p.name }));
     }
     setDiscardSelection([]);
     setGameState(prev => ({
@@ -2091,14 +2434,14 @@ function ArcadeRacingGame() {
       mpLeft: mp,
       cycleContext: shouldCycle ? { max: cycleMax, required: Boolean(p.modifiers.cycleRequired), resumePhase: nextPhase, resumeMp: mp } : null,
       choiceContext: pendingChoice ? { type: pendingChoice, playerId: activePlayerId, resumePhase: nextPhase, resumeMp: mp } : null,
-      mangaCutin: { card: cardId, player: p.name, color: p.id === 0 ? 'text-red-500' : 'text-blue-500', type: card.type }
+      mangaCutin: { card: cardId, player: p.name, color: p.id === 0 ? 'text-red-500' : 'text-blue-500', type: card.rulesType || card.type }
     }));
     setHoveredCardIdx(null);
   };
 
   const skipToDiscard = () => {
     if (isOnlineGame && !isLocalPlayersTurn) return;
-    addLog(`${activePlayer.name} skips card play.`);
+    addLog(t('log.skips_card', '{player} skips card play.', { player: activePlayer.name }));
     setDiscardSelection([]);
     setGameState(prev => ({ ...prev, phase: 'DISCARD' }));
   };
@@ -2119,7 +2462,7 @@ function ArcadeRacingGame() {
     p.discard.push(...discardedIds);
     p.lastPlayed = null;
 
-    if (discardedIds.length > 0) addLog(`${p.name} discarded ${discardedIds.length} cards.`);
+    if (discardedIds.length > 0) addLog(t('log.discarded_cards', '{player} discarded {count} cards.', { player: p.name, count: discardedIds.length }));
 
     newPlayers[activePlayerId] = p;
 
@@ -2170,7 +2513,7 @@ function ArcadeRacingGame() {
     player.modifiers = remainingModifiers;
     newPlayers[activePlayerId] = player;
 
-    if (discardedIds.length > 0) addLog(`${player.name} cycles ${discardedIds.length} card.`);
+    if (discardedIds.length > 0) addLog(t('log.cycles_cards', '{player} cycles {count} card.', { player: player.name, count: discardedIds.length }));
 
     if (gameState.phase === 'CARD_CYCLE') {
       setGameState(prev => ({
@@ -2261,9 +2604,9 @@ function ArcadeRacingGame() {
 
     if (accept) {
       p.speed = Math.min(MAX_SPEED, p.speed + 10);
-      addLog(`${p.name} takes the Slipstream! (+10 km/h)`);
+      addLog(t('log.takes_slipstream', '{player} takes the Slipstream! (+10 km/h)', { player: p.name }));
     } else {
-      addLog(`${p.name} declined the Slipstream.`);
+      addLog(t('log.declined_slipstream', '{player} declined the Slipstream.', { player: p.name }));
     }
 
     newPlayers[activePlayerId] = p;
@@ -2282,21 +2625,21 @@ function ArcadeRacingGame() {
     let triggeredCrash = null;
 
     if (op.modifiers.noRoomLane !== undefined && targetLane === op.modifiers.noRoomLane && !(targetLane === op.lane && targetIdx === op.idx)) {
-      addLog(`NO ROOM: ${op.name} blocks ${p.name} from entering that lane.`);
+      addLog(t('log.no_room', 'NO ROOM: {opponent} blocks {player} from entering that lane.', { player: p.name, opponent: op.name }));
       return;
     }
 
     if (targetLane === op.lane && targetIdx === op.idx) {
-      addLog(`${p.name} is blocked by ${op.name}!`);
+      addLog(t('log.blocked_by', '{player} is blocked by {opponent}!', { player: p.name, opponent: op.name }));
       if (p.modifiers.chromeBumper && p.hand.length > 0) {
         const discardedId = p.hand[0];
         p = { ...p, hand: p.hand.slice(1), discard: [...p.discard, discardedId], modifiers: { ...p.modifiers, chromeBumper: false } };
         op = { ...op, speed: clampSpeed(op.speed - 40) };
-        addLog(`CHROME BUMPER: ${op.name} loses 40 km/h.`);
+        addLog(t('log.chrome_bumper', 'CHROME BUMPER: {opponent} loses 40 km/h.', { opponent: op.name }));
       }
       if (p.modifiers.doorSlam) {
         op = { ...op, speed: clampSpeed(op.speed - 20), modifiers: { ...op.modifiers, skipRemainingMove: true } };
-        addLog(`DOOR SLAM: ${op.name} loses 20 km/h and remaining move points.`);
+        addLog(t('log.door_slam', 'DOOR SLAM: {opponent} loses 20 km/h and remaining move points.', { opponent: op.name }));
       }
       if (p.modifiers.shoveAside) {
         const shoveTarget = getLaneChangeTarget(op, TRACK);
@@ -2306,7 +2649,7 @@ function ArcadeRacingGame() {
           const oldIdx = op.idx;
           op = { ...op, lane: shoveTarget.lane, idx: shoveTarget.idx, distance: TRACK[shoveTarget.lane][shoveTarget.idx].distance };
           p = { ...p, lane: oldLane, idx: oldIdx, distance: TRACK[oldLane][oldIdx].distance, modifiers: { ...p.modifiers, shoveAside: false } };
-          addLog(`SHOVE ASIDE: ${p.name} forces ${op.name} out of the lane.`);
+          addLog(t('log.shove_aside', 'SHOVE ASIDE: {player} forces {opponent} out of the lane.', { player: p.name, opponent: op.name }));
           newPlayers[activePlayerId] = p;
           newPlayers[1 - activePlayerId] = op;
           if (isNN) advanceNNTurn(newPlayers, activePlayerId, mpAvail - 1, triggeredCrash || gameState.crashEvent);
@@ -2316,7 +2659,7 @@ function ArcadeRacingGame() {
         triggeredCrash = { name: `${p.name} / ${op.name}`, type: 'SPIN OFF', penalty: '-2 Gears' };
         p.speed = getPenaltySpeed(getGear(p.speed).gear - 2);
         op = { ...op, speed: getPenaltySpeed(getGear(op.speed).gear - 2), modifiers: { ...op.modifiers, skipRemainingMove: true } };
-        addLog(`SHOVE ASIDE: no space. Both cars spin off and lose remaining move points.`);
+        addLog(t('log.shove_aside_no_space', 'SHOVE ASIDE: no space. Both cars spin off and lose remaining move points.'));
         newPlayers[activePlayerId] = p;
         newPlayers[1 - activePlayerId] = op;
         if (isNN) advanceNNTurn(newPlayers, activePlayerId, 0, triggeredCrash || gameState.crashEvent);
@@ -2335,7 +2678,7 @@ function ArcadeRacingGame() {
             distance: TRACK[blindTarget.lane][blindTarget.idx].distance,
             modifiers: remainingModifiers
           };
-          addLog(`BLIND ATTACK: ${p.name} switches lanes and keeps momentum.`);
+          addLog(t('log.blind_attack', 'BLIND ATTACK: {player} switches lanes and keeps momentum.', { player: p.name }));
           newPlayers[activePlayerId] = p;
           if (isNN) advanceNNTurn(newPlayers, activePlayerId, mpAvail, triggeredCrash || gameState.crashEvent);
           else setGameState(prev => ({ ...prev, players: newPlayers, mpLeft: prev.mpLeft }));
@@ -2344,7 +2687,7 @@ function ArcadeRacingGame() {
       }
       if (p.speed > op.speed) {
         p.speed = op.speed;
-        addLog(`${p.name} matches speed to ${op.speed}.`);
+        addLog(t('log.matches_speed', '{player} matches speed to {speed}.', { player: p.name, speed: op.speed }));
       }
       newPlayers[activePlayerId] = p;
       newPlayers[1 - activePlayerId] = op;
@@ -2364,7 +2707,7 @@ function ArcadeRacingGame() {
       const { balancedChassis, ...remainingModifiers } = p.modifiers;
       p = { ...p, hand: p.hand.slice(1), discard: [...p.discard, discardedId], modifiers: remainingModifiers };
       currentMp = mpAvail;
-      addLog(`BALANCED CHASSIS: ${p.name} discards 1 card for a free side step.`);
+      addLog(t('log.balanced_chassis', 'BALANCED CHASSIS: {player} discards 1 card for a free side step.', { player: p.name }));
     }
     let understeering = true;
 
@@ -2401,7 +2744,7 @@ function ArcadeRacingGame() {
         }
         if (p.modifiers.trailBraking && p.speed > effLimit && p.speed - 10 >= 0) {
           p.speed = Math.max(0, p.speed - 10);
-          addLog(`TRAIL BRAKING: ${p.name} sheds 10 km/h before the speed check.`);
+          addLog(t('log.trail_braking', 'TRAIL BRAKING: {player} sheds 10 km/h before the speed check.', { player: p.name }));
         }
       }
 
@@ -2409,7 +2752,7 @@ function ArcadeRacingGame() {
         if (p.modifiers.tractionControl) {
           const { tractionControl, ...remainingModifiers } = p.modifiers;
           p = { ...p, speed: clampSpeed(p.speed - 20), modifiers: remainingModifiers };
-          addLog(`TRACTION CONTROL: ${p.name} loses 20 km/h and cancels understeer.`);
+          addLog(t('log.traction_control', 'TRACTION CONTROL: {player} loses 20 km/h and cancels understeer.', { player: p.name }));
           understeering = false;
           continue;
         }
@@ -2422,21 +2765,21 @@ function ArcadeRacingGame() {
             discard: [...p.discard, discardedId],
             modifiers: remainingModifiers
           };
-          addLog(`FULL COUNTERSTEER: ${p.name} discards 1 card and cancels understeer.`);
+          addLog(t('log.full_countersteer', 'FULL COUNTERSTEER: {player} discards 1 card and cancels understeer.', { player: p.name }));
           understeering = false;
           continue;
         }
-        addLog(`UNDERSTEER: ${p.name} speed ${p.speed} exceeds limit ${effLimit}.`);
+        addLog(t('log.understeer', 'UNDERSTEER: {player} speed {speed} exceeds limit {limit}.', { player: p.name, speed: p.speed, limit: effLimit }));
         p.modifiers = { ...p.modifiers, speedCheckFailed: true };
         if (space.isOuter) {
           const pGear = getGear(p.speed).gear;
           if (space.guardrail) {
             triggeredCrash = { name: p.name, type: 'GUARDRAIL', penalty: '-1 Gear' };
-            addLog(`CRASH: ${p.name} hits the guardrail. (-1 Gear, remaining move points lost)`);
+            addLog(t('log.crash_guardrail', 'CRASH: {player} hits the guardrail. (-1 Gear, remaining move points lost)', { player: p.name }));
             p.speed = getPenaltySpeed(pGear - 1);
           } else {
             triggeredCrash = { name: p.name, type: 'SPIN OFF', penalty: '-2 Gears' };
-            addLog(`SPIN OFF: ${p.name} leaves the road. (-2 Gears, remaining move points lost)`);
+            addLog(t('log.spin_off', 'SPIN OFF: {player} leaves the road. (-2 Gears, remaining move points lost)', { player: p.name }));
             p.speed = getPenaltySpeed(pGear - 2);
           }
           currentMp = 0;
@@ -2450,7 +2793,7 @@ function ArcadeRacingGame() {
 
           if (p.lane === op.lane && p.idx === op.idx) {
             triggeredCrash = { name: p.name, type: 'COLLISION', penalty: '-1 Gear' };
-            addLog(`COLLISION: ${p.name} side-swipes ${op.name}.`);
+            addLog(t('log.collision', 'COLLISION: {player} side-swipes {opponent}.', { player: p.name, opponent: op.name }));
             p.speed = getPenaltySpeed(getGear(p.speed).gear - 1);
             op.speed = getPenaltySpeed(getGear(op.speed).gear - 1);
             understeering = false;
@@ -2495,7 +2838,7 @@ function ArcadeRacingGame() {
 
     if (p.modifiers.progressiveAcceleration) {
       p.speed = clampSpeed(p.speed + 10);
-      addLog(`PROGRESSIVE ACCELERATION: ${p.name} gains 10 km/h.`);
+      addLog(t('log.progressive_acceleration', 'PROGRESSIVE ACCELERATION: {player} gains 10 km/h.', { player: p.name }));
     }
 
     newPlayers[activePlayerId] = p;
@@ -2534,21 +2877,21 @@ function ArcadeRacingGame() {
          let p = { ...newPlayers[pid] };
          if (p.modifiers.rocketSpeedDelta) {
            p.speed = clampSpeed(p.speed + p.modifiers.rocketSpeedDelta);
-           newLogs.unshift(`ROCKET START: ${p.name} gains ${p.modifiers.rocketSpeedDelta} km/h.`);
+           newLogs.unshift(t('log.rocket_start', 'ROCKET START: {player} gains {amount} km/h.', { player: p.name, amount: p.modifiers.rocketSpeedDelta }));
          }
          if (p.modifiers.exitDriftPending && p.modifiers.passedSpeedCheck) {
            p.speed = clampSpeed(p.speed + 30);
-           newLogs.unshift(`EXIT DRIFT: ${p.name} gains 30 km/h.`);
+           newLogs.unshift(t('log.exit_drift', 'EXIT DRIFT: {player} gains 30 km/h.', { player: p.name }));
          }
          if (p.modifiers.earlyPowerPending && p.modifiers.passedSpeedCheck && !p.modifiers.speedCheckFailed) {
            p.speed = clampSpeed(p.speed + 40);
-           newLogs.unshift(`EARLY POWER: ${p.name} gains 40 km/h.`);
+           newLogs.unshift(t('log.early_power', 'EARLY POWER: {player} gains 40 km/h.', { player: p.name }));
          }
          if (p.modifiers.burnRubberPending && p.distance > newPlayers[1 - pid].distance) {
            p.speed = clampSpeed(p.speed + 60);
            p.discard = [...p.discard, ...p.hand];
            p.hand = [];
-           newLogs.unshift(`BURN RUBBER: ${p.name} gains 60 km/h and discards all cards.`);
+           newLogs.unshift(t('log.burn_rubber', 'BURN RUBBER: {player} gains 60 km/h and discards all cards.', { player: p.name }));
          }
          p.lastCornerSpeedBonus = Math.max(
            p.modifiers.driftBonus || 0,
@@ -2564,7 +2907,6 @@ function ArcadeRacingGame() {
          p.lastPlayed = null;
          newPlayers[pid] = p;
       });
-      const totalCardsDrawn = newPlayers.reduce((sum, player) => sum + (player.cardsDrawnLastCleanup || 0), 0);
       newPlayers = newPlayers.map(({ cardsDrawnLastCleanup, ...player }) => player);
 
       const p1 = newPlayers[0], p2 = newPlayers[1];
@@ -2581,10 +2923,10 @@ function ArcadeRacingGame() {
 
       if (newTurnOrder[0] !== prev.turnOrder[0]) {
         newOvertakeEvent = newPlayers[newTurnOrder[0]].name;
-        newLogs.unshift(`OVERTAKE: ${newPlayers[newTurnOrder[0]].name} takes the lead!`);
+        newLogs.unshift(t('log.overtake_lead', 'OVERTAKE: {player} takes the lead!', { player: newPlayers[newTurnOrder[0]].name }));
       }
 
-      newLogs.unshift(`-- N&N Complete. ${newPlayers[newTurnOrder[0]].name} is Lead. --`);
+      newLogs.unshift(t('log.nn_complete', '-- N&N Complete. {player} is Lead. --', { player: newPlayers[newTurnOrder[0]].name }));
 
       const isNextNN = p1.lane !== p2.lane && TRACK[p1.lane][p1.idx].adj.includes(p2.idx);
       const nextStarted = !isNextNN ? {
@@ -2599,7 +2941,7 @@ function ArcadeRacingGame() {
          phase: isNextNN ? 'NN_SELECT_CARD' : 'PLAY_CARD',
          mpLeft: 0, logs: newLogs.slice(0, 20), overtakeEvent: newOvertakeEvent, bonusTurnPlayerId: null,
          nnSelections: isNextNN ? {0:null, 1:null} : null,
-         drawAnimation: totalCardsDrawn > 0 ? { key: Date.now(), playerId: 'both', count: totalCardsDrawn } : null,
+      drawAnimation: null,
          isNNRound: isNextNN
       };
     });
@@ -2615,22 +2957,22 @@ function ArcadeRacingGame() {
 
       if (p.modifiers.rocketSpeedDelta) {
         p.speed = clampSpeed(p.speed + p.modifiers.rocketSpeedDelta);
-           newLogs.unshift(`ROCKET START: ${p.name} gains ${p.modifiers.rocketSpeedDelta} km/h.`);
+           newLogs.unshift(t('log.rocket_start', 'ROCKET START: {player} gains {amount} km/h.', { player: p.name, amount: p.modifiers.rocketSpeedDelta }));
       }
       if (p.modifiers.exitDriftPending && p.modifiers.passedSpeedCheck) {
         p.speed = clampSpeed(p.speed + 30);
-        newLogs.unshift(`EXIT DRIFT: ${p.name} gains 30 km/h.`);
+        newLogs.unshift(t('log.exit_drift', 'EXIT DRIFT: {player} gains 30 km/h.', { player: p.name }));
       }
       if (p.modifiers.earlyPowerPending && p.modifiers.passedSpeedCheck && !p.modifiers.speedCheckFailed) {
         p.speed = clampSpeed(p.speed + 40);
-        newLogs.unshift(`EARLY POWER: ${p.name} gains 40 km/h.`);
+        newLogs.unshift(t('log.early_power', 'EARLY POWER: {player} gains 40 km/h.', { player: p.name }));
       }
       const opponent = newPlayers[1 - p.id];
       if (p.modifiers.burnRubberPending && p.distance > opponent.distance) {
         p.speed = clampSpeed(p.speed + 60);
         p.discard = [...p.discard, ...p.hand];
         p.hand = [];
-        newLogs.unshift(`BURN RUBBER: ${p.name} gains 60 km/h and discards all cards.`);
+        newLogs.unshift(t('log.burn_rubber', 'BURN RUBBER: {player} gains 60 km/h and discards all cards.', { player: p.name }));
       }
 
       p.lastCornerSpeedBonus = Math.max(
@@ -2654,7 +2996,7 @@ function ArcadeRacingGame() {
 
       if (isNNNow) {
         newPlayers = newPlayers.map(player => ({ ...player, lastPlayed: null }));
-        newLogs.unshift(`NECK AND NECK: Both cards are locked in.`);
+        newLogs.unshift(t('log.nn_locked', 'NECK AND NECK: Both cards are locked in.'));
         return {
           ...prev,
           players: newPlayers,
@@ -2667,7 +3009,7 @@ function ArcadeRacingGame() {
           nnActionOrder: null,
           nnActiveTurnIdx: null,
           nnMpLeft: null,
-          drawAnimation: cardsDrawn > 0 ? { key: Date.now(), playerId: p.id, count: cardsDrawn } : null,
+          drawAnimation: cardsDrawn > 0 && (isOnlineGame ? p.id === localPlayerId : gameMode !== 'PvE' || p.id === 0) ? { key: Date.now(), playerId: p.id, count: cardsDrawn } : null,
           isNNRound: true
         };
       }
@@ -2692,15 +3034,15 @@ function ArcadeRacingGame() {
 
         if (newTurnOrder[0] !== prev.turnOrder[0]) {
           newOvertakeEvent = newPlayers[newTurnOrder[0]].name;
-          newLogs.unshift(`OVERTAKE: ${newPlayers[newTurnOrder[0]].name} takes the lead!`);
+          newLogs.unshift(t('log.overtake_lead', 'OVERTAKE: {player} takes the lead!', { player: newPlayers[newTurnOrder[0]].name }));
         }
 
-        newLogs.unshift(`-- Round End. ${newPlayers[newTurnOrder[0]].name} is Lead. --`);
+        newLogs.unshift(t('log.round_end', '-- Round End. {player} is Lead. --', { player: newPlayers[newTurnOrder[0]].name }));
 
         isNN = p1.lane !== p2.lane && TRACK[p1.lane][p1.idx].adj.includes(p2.idx);
         if (isNN) {
            nextPhase = 'NN_SELECT_CARD';
-           newLogs.unshift(`NECK AND NECK ENGAGED!`);
+           newLogs.unshift(t('log.nn_engaged', 'NECK AND NECK ENGAGED!'));
         }
       }
 
@@ -2719,7 +3061,7 @@ function ArcadeRacingGame() {
         playerTurnsStarted: nextStarted,
         phase: nextPhase, mpLeft: 0, logs: newLogs.slice(0, 20), overtakeEvent: newOvertakeEvent, bonusTurnPlayerId,
         nnSelections: isNN ? {0:null, 1:null} : null,
-        drawAnimation: cardsDrawn > 0 ? { key: Date.now(), playerId: p.id, count: cardsDrawn } : null,
+        drawAnimation: cardsDrawn > 0 && (isOnlineGame ? p.id === localPlayerId : gameMode !== 'PvE' || p.id === 0) ? { key: Date.now(), playerId: p.id, count: cardsDrawn } : null,
         isNNRound: isNN
       };
     });
@@ -2786,7 +3128,7 @@ function ArcadeRacingGame() {
 
         {/* Lead / Following Badge */}
         <div className={`absolute -top-3 right-4 px-3 py-1 rounded-full text-[12px] font-black uppercase tracking-widest shadow-lg border ${isLeadStatus ? 'bg-yellow-400 text-black border-yellow-500 whitespace-nowrap' : 'bg-zinc-800 text-zinc-400 border-zinc-600 whitespace-nowrap'}`}>
-          {isLeadStatus ? 'LEADING' : 'FOLLOWING'}
+          {isLeadStatus ? t('ui.leading', 'LEADING') : t('ui.following', 'FOLLOWING')}
         </div>
 
         <div className="mb-1 flex items-end justify-between gap-3 pr-20">
@@ -2802,12 +3144,12 @@ function ArcadeRacingGame() {
           />
 
           <div className="absolute left-1/2 top-[40%] -translate-x-1/2 -translate-y-1/2 text-center">
-            <div className="text-sm font-black text-zinc-300/90 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">Speed</div>
+            <div className="text-sm font-black text-zinc-300/90 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]">{t('ui.speed', 'Speed')}</div>
             <div className="font-mono text-4xl font-black leading-none text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.95)]">{player.speed}</div>
           </div>
 
           <div className="absolute right-[8%] bottom-[8%] flex items-baseline gap-1 text-right drop-shadow-[0_3px_10px_rgba(0,0,0,0.95)]">
-            <span className="text-lg font-black text-zinc-300">Gear</span>
+            <span className="text-lg font-black text-zinc-300">{t('ui.gear', 'Gear')}</span>
             <span className="text-2xl font-black leading-none" style={{ color: gearAccent }}>{gearInfo.gear}</span>
           </div>
 
@@ -2843,7 +3185,7 @@ function ArcadeRacingGame() {
         {lastCard && (
           <div className={`absolute ${isBottomLeft ? 'bottom-full left-8 mb-5' : 'top-full right-8 mt-5'} z-50 pointer-events-auto animate-in fade-in slide-in-from-top-4 duration-300`}>
             <div className={`absolute ${isBottomLeft ? '-top-3' : '-top-3'} left-1/2 -translate-x-1/2 bg-zinc-900 border border-zinc-700 px-3 py-1 rounded-full text-[10px] font-black uppercase text-zinc-300 shadow-xl z-10 whitespace-nowrap`}>
-              Played Card
+              {t('ui.played_card', 'Played Card')}
             </div>
             <RenderCard card={lastCard} scale={0.62} extraClasses="opacity-90 grayscale-[0.2]" />
           </div>
@@ -2854,23 +3196,23 @@ function ArcadeRacingGame() {
 
   const PileWidget = ({ type, count, topCard, onClick }) => {
     const isDiscard = type === 'discard';
-    const title = isDiscard ? 'Discard' : 'Deck';
+    const title = isDiscard ? t('ui.discard', 'Discard') : t('ui.deck', 'Deck');
     return (
       <button
         type="button"
         onClick={onClick}
         disabled={!isDiscard || count === 0}
-        className={`relative h-44 w-32 rounded-xl border-2 p-2 text-left shadow-2xl transition no-pan ${isDiscard ? 'border-orange-500/70 bg-zinc-900 hover:border-orange-300 hover:-translate-y-1 cursor-pointer' : 'border-zinc-600 bg-zinc-950 cursor-not-allowed'}`}
+        className={`relative h-56 w-40 rounded-xl border-2 p-3 text-left shadow-2xl transition no-pan ${isDiscard ? 'border-orange-500/70 bg-zinc-900 hover:border-orange-300 hover:-translate-y-1 cursor-pointer' : 'border-zinc-600 bg-zinc-950 cursor-not-allowed'}`}
       >
         <div className="absolute -right-2 -top-2 flex h-8 min-w-8 items-center justify-center rounded-full border border-white/20 bg-black px-2 text-sm font-black text-white shadow-xl">{count}</div>
         <div className="text-[10px] font-black uppercase tracking-widest text-zinc-400">{title}</div>
-        <div className="mt-2 h-32 rounded-lg border border-white/15 overflow-hidden">
+        <div className="mt-3 h-44 rounded-lg border border-white/15 overflow-hidden">
           {isDiscard && topCard ? (
             topCard.imageSrc ? (
               <img src={topCard.imageSrc} alt="" draggable="false" className="h-full w-full object-cover" />
             ) : (
               <div className="h-full bg-zinc-800 p-2">
-                <div className={`text-[10px] font-black uppercase ${topCard.type === 'Gas' ? 'text-yellow-400' : topCard.type === 'Brake' ? 'text-red-400' : 'text-blue-400'}`}>{topCard.type}</div>
+                <div className={`text-[10px] font-black uppercase ${(topCard.rulesType || topCard.type) === 'Gas' ? 'text-yellow-400' : (topCard.rulesType || topCard.type) === 'Brake' ? 'text-red-400' : 'text-blue-400'}`}>{topCard.type}</div>
                 <div className="mt-2 text-sm font-black leading-tight text-white">{topCard.name}</div>
                 <div className="mt-2 text-[9px] leading-tight text-zinc-400 line-clamp-3">{topCard.desc}</div>
               </div>
@@ -2878,7 +3220,7 @@ function ArcadeRacingGame() {
           ) : (
             <div className="flex h-full flex-col items-center justify-center bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.08)_0px,rgba(255,255,255,0.08)_7px,transparent_7px,transparent_14px)]">
               <div className="h-8 w-8 rotate-45 border-4 border-white/50" />
-              <div className="mt-4 text-[9px] font-black tracking-[0.2em] text-white/40">FACE DOWN</div>
+              <div className="mt-4 text-[9px] font-black tracking-[0.2em] text-white/40">{t('ui.face_down', 'FACE DOWN')}</div>
             </div>
           )}
         </div>
@@ -2894,15 +3236,15 @@ function ArcadeRacingGame() {
         {Array.from({ length: cardCount }).map((_, index) => (
           <div
             key={index}
-            className="absolute h-24 w-16 rounded-lg border-2 border-yellow-200 bg-zinc-950 shadow-[0_0_18px_rgba(250,204,21,0.45)]"
+            className="absolute h-28 w-20 rounded-lg border-2 border-yellow-200 bg-zinc-950 shadow-[0_0_18px_rgba(250,204,21,0.45)]"
             style={{
-              animation: `deck-card-draw 0.82s ${index * 0.08}s cubic-bezier(0.22, 1, 0.36, 1) forwards`,
+              animation: `deck-card-draw-to-hand 0.9s ${index * 0.08}s cubic-bezier(0.22, 1, 0.36, 1) forwards`,
               transform: `translate(${index * -5}px, ${index * -4}px) rotate(${index * 5 - 8}deg)`
             }}
           >
             <div className="flex h-full w-full flex-col items-center justify-center rounded-md bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.1)_0px,rgba(255,255,255,0.1)_6px,transparent_6px,transparent_12px)]">
               <div className="h-7 w-7 rotate-45 border-4 border-yellow-200/80" />
-              <div className="mt-3 text-[8px] font-black tracking-[0.2em] text-yellow-100/70">DRAW</div>
+              <div className="mt-3 text-[8px] font-black tracking-[0.2em] text-yellow-100/70">{t('ui.draw', 'DRAW')}</div>
             </div>
           </div>
         ))}
@@ -2911,8 +3253,22 @@ function ArcadeRacingGame() {
   };
 
   if (appState === 'TITLE') {
+    const currentLanguage = LANGUAGES.find(item => item.code === language) || LANGUAGES[0];
+    const nextLanguage = LANGUAGES[(LANGUAGES.findIndex(item => item.code === language) + 1) % LANGUAGES.length] || LANGUAGES[0];
+    const cardsSourceLabel = cardDataSource === 'csv' ? t('ui.live', 'LIVE') : t('ui.fallback', 'FALLBACK');
+    const cornersSourceLabel = cornerDataSource === 'csv' ? t('ui.live', 'LIVE') : t('ui.fallback', 'FALLBACK');
     return (
       <div className="relative flex h-screen w-full overflow-hidden text-white flex-col items-center justify-center bg-[#050505]">
+        <button
+          type="button"
+          onClick={() => setLanguage(nextLanguage.code)}
+          className="fixed right-5 top-5 z-30 flex items-center gap-3 rounded-full border-2 border-yellow-400/70 bg-zinc-950/85 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-yellow-100 shadow-[0_0_22px_rgba(250,204,21,0.2)] backdrop-blur-md transition hover:border-yellow-300 hover:bg-yellow-400 hover:text-black"
+          aria-label={`${t('language.toggle', 'Language')}: ${t(currentLanguage.labelKey, currentLanguage.shortLabel)}`}
+          title={`${t('language.toggle', 'Language')}: ${t(currentLanguage.labelKey, currentLanguage.shortLabel)}`}
+        >
+          <span>{currentLanguage.shortLabel}</span>
+          <span className="text-[10px] opacity-70">{nextLanguage.shortLabel}</span>
+        </button>
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(127,29,29,0.38)_0%,rgba(17,24,39,0.42)_36%,rgba(0,0,0,0.96)_78%)]" />
         <div className="absolute inset-0 opacity-35 bg-[repeating-linear-gradient(135deg,rgba(255,255,255,0.08)_0px,rgba(255,255,255,0.08)_2px,transparent_2px,transparent_16px),repeating-linear-gradient(45deg,rgba(250,204,21,0.07)_0px,rgba(250,204,21,0.07)_1px,transparent_1px,transparent_34px)]" />
         <div className="absolute left-[-15vw] top-[12vh] h-[54vh] w-[130vw] -rotate-3 bg-[linear-gradient(105deg,transparent_0%,rgba(24,24,27,0.78)_14%,rgba(5,5,5,0.96)_48%,rgba(24,24,27,0.75)_82%,transparent_100%)] shadow-[0_0_70px_rgba(0,0,0,0.8)]" />
@@ -2927,30 +3283,30 @@ function ArcadeRacingGame() {
           alt="山道疾走：ドリフトデュエル Mountain Chase: Drift Duel"
           className="mb-8 max-h-[50vh] w-[min(92vw,940px)] object-contain drop-shadow-[0_0_28px_rgba(239,68,68,0.45)]"
         />
-        <p className="text-zinc-400 font-mono tracking-widest mb-12">TACTICAL DRIFT CARD BATTLES</p>
+        <p className="text-zinc-400 font-mono tracking-widest mb-12 uppercase">{t('ui.subtitle', 'TACTICAL DRIFT CARD BATTLES')}</p>
         <div className="flex flex-wrap justify-center gap-4">
           <button onClick={() => beginSetup('PvE')} className="group relative px-8 py-4 bg-zinc-900 border-2 border-zinc-700 rounded-xl hover:border-red-500 hover:bg-zinc-800 transition-all shadow-xl overflow-hidden">
             <div className="absolute inset-0 bg-red-500/20 translate-y-full group-hover:translate-y-0 transition-transform"></div>
-            <div className="relative flex items-center gap-3 text-xl font-bold"><Bot className="text-zinc-400 group-hover:text-red-400" /><span>VS AI Racers</span></div>
+            <div className="relative flex items-center gap-3 text-xl font-bold"><Bot className="text-zinc-400 group-hover:text-red-400" /><span>{t('ui.vs_ai_racers', 'VS AI Racers')}</span></div>
           </button>
           <button onClick={() => beginSetup('PvP')} className="group relative px-8 py-4 bg-zinc-900 border-2 border-zinc-700 rounded-xl hover:border-blue-500 hover:bg-zinc-800 transition-all shadow-xl overflow-hidden">
             <div className="absolute inset-0 bg-blue-500/20 translate-y-full group-hover:translate-y-0 transition-transform"></div>
-            <div className="relative flex items-center gap-3 text-xl font-bold"><Users className="text-zinc-400 group-hover:text-blue-400" /><span>Local 2 Player</span></div>
+            <div className="relative flex items-center gap-3 text-xl font-bold"><Users className="text-zinc-400 group-hover:text-blue-400" /><span>{t('ui.local_2_player', 'Local 2 Player')}</span></div>
           </button>
           <button onClick={openOnlineMatchmaking} className="group relative px-8 py-4 bg-zinc-900 border-2 border-zinc-700 rounded-xl hover:border-emerald-400 hover:bg-zinc-800 transition-all shadow-xl overflow-hidden">
             <div className="absolute inset-0 bg-emerald-400/20 translate-y-full group-hover:translate-y-0 transition-transform"></div>
-            <div className="relative flex items-center gap-3 text-xl font-bold"><Radio className="text-zinc-400 group-hover:text-emerald-300" /><span>Online 2 Player</span></div>
+            <div className="relative flex items-center gap-3 text-xl font-bold"><Radio className="text-zinc-400 group-hover:text-emerald-300" /><span>{t('ui.online_2_player', 'Online 2 Player')}</span></div>
           </button>
         </div>
         <button onClick={openCodex} className="group relative mt-5 min-w-64 overflow-hidden rounded-xl border-2 border-zinc-700 bg-zinc-950/90 px-8 py-3 shadow-xl transition-all hover:border-yellow-400 hover:bg-zinc-900">
           <div className="absolute inset-0 bg-yellow-400/15 translate-y-full transition-transform group-hover:translate-y-0"></div>
-          <div className="relative flex items-center justify-center gap-3 text-lg font-black uppercase tracking-wide"><BookOpen className="text-zinc-400 group-hover:text-yellow-300" /><span>Codex</span></div>
+          <div className="relative flex items-center justify-center gap-3 text-lg font-black uppercase tracking-wide"><BookOpen className="text-zinc-400 group-hover:text-yellow-300" /><span>{t('ui.codex', 'Codex')}</span></div>
         </button>
         </div>
         <div className={`fixed bottom-6 px-4 py-2 rounded-full border text-xs font-bold tracking-wide ${cardDataSource === 'csv' && cornerDataSource === 'csv' ? 'bg-emerald-950/80 border-emerald-700 text-emerald-300' : cardDataSource === 'loading' || cornerDataSource === 'loading' ? 'bg-zinc-900/80 border-zinc-700 text-zinc-400' : 'bg-amber-950/80 border-amber-700 text-amber-300'}`}>
           {cardDataSource === 'loading' || cornerDataSource === 'loading'
-            ? 'LOADING CSV DATA...'
-            : `DRIVING CARDS: ${cardDataSource === 'csv' ? 'LIVE' : 'FALLBACK'} / CORNER CARDS: ${cornerDataSource === 'csv' ? 'LIVE' : 'FALLBACK'}${cardDataSource !== 'csv' || cornerDataSource !== 'csv' ? ' / RUN start_arcade_racing.cmd FOR LIVE CSV' : ''}`}
+            ? t('ui.loading_csv_data', 'LOADING CSV DATA...')
+            : `${t('ui.cards_status', 'DRIVING CARDS: {cards} / CORNER CARDS: {corners}', { cards: cardsSourceLabel, corners: cornersSourceLabel })}${cardDataSource !== 'csv' || cornerDataSource !== 'csv' || localizationDataSource !== 'csv' ? ` / ${t('ui.run_live_csv', 'RUN start_arcade_racing.cmd FOR LIVE CSV')}` : ''}`}
         </div>
       </div>
     );
@@ -2964,56 +3320,56 @@ function ArcadeRacingGame() {
       <div className="h-screen w-full overflow-y-auto bg-[#060808] text-white">
         <div className="flex min-h-screen flex-col bg-[radial-gradient(circle_at_48%_18%,rgba(16,185,129,0.2),transparent_36%),linear-gradient(125deg,rgba(127,29,29,0.18),transparent_34%,rgba(30,64,175,0.18))] px-4 py-5 sm:px-8">
           <header className="mx-auto flex w-full max-w-6xl items-center justify-between border-b border-white/15 pb-4">
-            <button onClick={() => setAppState(gameMode === 'OnlinePvP' ? 'MATCHMAKING' : 'TITLE')} className="flex items-center gap-1 text-xs font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white"><ChevronLeft size={18}/> {gameMode === 'OnlinePvP' ? 'Matchmaking' : 'Mode Select'}</button>
+            <button onClick={() => setAppState(gameMode === 'OnlinePvP' ? 'MATCHMAKING' : 'TITLE')} className="flex items-center gap-1 text-xs font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white"><ChevronLeft size={18}/> {gameMode === 'OnlinePvP' ? t('ui.matchmaking', 'Matchmaking') : t('ui.mode_select', 'Mode Select')}</button>
             <div className="text-center">
-              <div className="text-3xl font-black italic uppercase tracking-tight sm:text-5xl">Online 2 Player</div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.35em] text-emerald-300">Room Matchmaking</div>
+              <div className="text-3xl font-black italic uppercase tracking-tight sm:text-5xl">{t('ui.online_2_player', 'Online 2 Player')}</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.35em] text-emerald-300">{t('ui.room_matchmaking', 'Room Matchmaking')}</div>
             </div>
-            <div className="hidden rounded border border-emerald-400/30 bg-emerald-950/40 px-3 py-2 text-xs font-black uppercase text-emerald-200 sm:block">{onlineSession.role || 'Choose Role'}</div>
+            <div className="hidden rounded border border-emerald-400/30 bg-emerald-950/40 px-3 py-2 text-xs font-black uppercase text-emerald-200 sm:block">{onlineSession.role ? t(`ui.${onlineSession.role}`, onlineSession.role) : t('ui.choose_role', 'Choose Role')}</div>
           </header>
 
           <main className="mx-auto grid w-full max-w-6xl flex-1 items-stretch gap-4 py-6 lg:grid-cols-2">
             <section className={`border bg-black/68 p-5 shadow-2xl transition ${onlineSession.role === 'host' ? 'border-emerald-300 shadow-[0_0_28px_rgba(16,185,129,0.18)]' : 'border-white/15'}`}>
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <div className="text-[10px] font-black uppercase tracking-[0.32em] text-emerald-300">Host</div>
-                  <h2 className="mt-2 text-3xl font-black italic uppercase">Create Room</h2>
+                  <div className="text-[10px] font-black uppercase tracking-[0.32em] text-emerald-300">{t('ui.host', 'Host')}</div>
+                  <h2 className="mt-2 text-3xl font-black italic uppercase">{t('ui.create_room', 'Create Room')}</h2>
                 </div>
                 <Radio className="text-emerald-300" size={34}/>
               </div>
-              <p className="mt-4 text-sm font-bold leading-relaxed text-zinc-400">Generate a room key, wait for the guest to connect, then start once their ready light is on.</p>
-              <button onClick={createOnlineRoom} className="mt-6 w-full border-2 border-emerald-300 bg-emerald-400 px-5 py-3 text-base font-black uppercase text-black transition hover:bg-emerald-300">Host A Room</button>
+              <p className="mt-4 text-sm font-bold leading-relaxed text-zinc-400">{t('ui.host_room_help', 'Generate a room key, wait for the guest to connect, then start once their ready light is on.')}</p>
+              <button onClick={createOnlineRoom} className="mt-6 w-full border-2 border-emerald-300 bg-emerald-400 px-5 py-3 text-base font-black uppercase text-black transition hover:bg-emerald-300">{t('ui.host_a_room', 'Host A Room')}</button>
 
               <div className="mt-6 border border-white/10 bg-zinc-950/80 p-4">
-                <div className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">Room Key</div>
+                <div className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">{t('ui.room_key', 'Room Key')}</div>
                 <div className="mt-3 flex min-h-20 items-center justify-center border border-dashed border-emerald-400/40 bg-black font-mono text-5xl font-black tracking-[0.22em] text-emerald-200">{onlineSession.role === 'host' ? onlineSession.roomKey : '------'}</div>
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div className={`border px-4 py-3 ${onlineSession.guestConnected ? 'border-emerald-400 bg-emerald-400/10 text-emerald-200' : 'border-white/15 bg-black/45 text-zinc-500'}`}>
-                  <div className="text-[10px] font-black uppercase tracking-widest">Guest</div>
-                  <div className="mt-1 text-sm font-black uppercase">{onlineSession.guestConnected ? 'Connected' : 'Waiting'}</div>
+                  <div className="text-[10px] font-black uppercase tracking-widest">{t('ui.guest', 'Guest')}</div>
+                  <div className="mt-1 text-sm font-black uppercase">{onlineSession.guestConnected ? t('ui.connected', 'Connected') : t('ui.waiting', 'Waiting')}</div>
                 </div>
                 <div className={`border px-4 py-3 ${onlineSession.guestReady ? 'border-yellow-300 bg-yellow-300/10 text-yellow-200' : 'border-white/15 bg-black/45 text-zinc-500'}`}>
-                  <div className="text-[10px] font-black uppercase tracking-widest">Ready</div>
-                  <div className="mt-1 text-sm font-black uppercase">{onlineSession.guestReady ? 'Locked In' : 'Not Yet'}</div>
+                  <div className="text-[10px] font-black uppercase tracking-widest">{t('ui.ready', 'Ready')}</div>
+                  <div className="mt-1 text-sm font-black uppercase">{onlineSession.guestReady ? t('ui.locked_in', 'Locked In') : t('ui.not_yet', 'Not Yet')}</div>
                 </div>
               </div>
 
-              <button onClick={startOnlineSelection} disabled={!canHostStart} className={`mt-6 flex w-full items-center justify-center gap-3 border-2 px-5 py-4 text-lg font-black italic uppercase transition ${canHostStart ? 'border-yellow-300 bg-yellow-400 text-black hover:bg-yellow-300' : 'cursor-not-allowed border-white/10 bg-zinc-900 text-zinc-600'}`}>Start Setup <Play size={20}/></button>
+              <button onClick={startOnlineSelection} disabled={!canHostStart} className={`mt-6 flex w-full items-center justify-center gap-3 border-2 px-5 py-4 text-lg font-black italic uppercase transition ${canHostStart ? 'border-yellow-300 bg-yellow-400 text-black hover:bg-yellow-300' : 'cursor-not-allowed border-white/10 bg-zinc-900 text-zinc-600'}`}>{t('ui.start_setup', 'Start Setup')} <Play size={20}/></button>
             </section>
 
             <section className={`border bg-black/68 p-5 shadow-2xl transition ${onlineSession.role === 'guest' ? 'border-blue-300 shadow-[0_0_28px_rgba(59,130,246,0.18)]' : 'border-white/15'}`}>
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <div className="text-[10px] font-black uppercase tracking-[0.32em] text-blue-300">Guest</div>
-                  <h2 className="mt-2 text-3xl font-black italic uppercase">Join Room</h2>
+                  <div className="text-[10px] font-black uppercase tracking-[0.32em] text-blue-300">{t('ui.guest', 'Guest')}</div>
+                  <h2 className="mt-2 text-3xl font-black italic uppercase">{t('ui.join_room', 'Join Room')}</h2>
                 </div>
                 <Users className="text-blue-300" size={34}/>
               </div>
-              <p className="mt-4 text-sm font-bold leading-relaxed text-zinc-400">Enter the host room key. Once connected, mark ready and wait for the host to launch setup.</p>
+              <p className="mt-4 text-sm font-bold leading-relaxed text-zinc-400">{t('ui.join_room_help', 'Enter the host room key. Once connected, mark ready and wait for the host to launch setup.')}</p>
               <div className="mt-6">
-                <label className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">Room Key</label>
+                <label className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">{t('ui.room_key', 'Room Key')}</label>
                 <input
                   value={onlineSession.guestInput}
                   onChange={event => setOnlineSession(current => ({ ...current, guestInput: event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) }))}
@@ -3022,20 +3378,20 @@ function ArcadeRacingGame() {
                   maxLength={8}
                 />
               </div>
-              <button onClick={joinOnlineRoom} disabled={!cleanGuestInput} className={`mt-4 w-full border-2 px-5 py-3 text-base font-black uppercase transition ${cleanGuestInput ? 'border-blue-300 bg-blue-400 text-black hover:bg-blue-300' : 'cursor-not-allowed border-white/10 bg-zinc-900 text-zinc-600'}`}>Join As Guest</button>
+              <button onClick={joinOnlineRoom} disabled={!cleanGuestInput} className={`mt-4 w-full border-2 px-5 py-3 text-base font-black uppercase transition ${cleanGuestInput ? 'border-blue-300 bg-blue-400 text-black hover:bg-blue-300' : 'cursor-not-allowed border-white/10 bg-zinc-900 text-zinc-600'}`}>{t('ui.join_as_guest', 'Join As Guest')}</button>
 
               <div className="mt-6 grid grid-cols-2 gap-3">
                 <div className={`border px-4 py-3 ${onlineSession.role === 'guest' && onlineSession.guestConnected ? 'border-blue-300 bg-blue-400/10 text-blue-100' : 'border-white/15 bg-black/45 text-zinc-500'}`}>
-                  <div className="text-[10px] font-black uppercase tracking-widest">Host</div>
-                  <div className="mt-1 text-sm font-black uppercase">{onlineSession.role === 'guest' && onlineSession.guestConnected ? 'Found' : 'Searching'}</div>
+                  <div className="text-[10px] font-black uppercase tracking-widest">{t('ui.host', 'Host')}</div>
+                  <div className="mt-1 text-sm font-black uppercase">{onlineSession.role === 'guest' && onlineSession.guestConnected ? t('ui.found', 'Found') : t('ui.searching', 'Searching')}</div>
                 </div>
                 <div className={`border px-4 py-3 ${onlineSession.role === 'guest' && onlineSession.guestReady ? 'border-yellow-300 bg-yellow-300/10 text-yellow-200' : 'border-white/15 bg-black/45 text-zinc-500'}`}>
-                  <div className="text-[10px] font-black uppercase tracking-widest">Ready</div>
-                  <div className="mt-1 text-sm font-black uppercase">{onlineSession.role === 'guest' && onlineSession.guestReady ? 'Sent' : 'Open'}</div>
+                  <div className="text-[10px] font-black uppercase tracking-widest">{t('ui.ready', 'Ready')}</div>
+                  <div className="mt-1 text-sm font-black uppercase">{onlineSession.role === 'guest' && onlineSession.guestReady ? t('ui.sent', 'Sent') : t('ui.open', 'Open')}</div>
                 </div>
               </div>
 
-              <button onClick={setGuestReady} disabled={onlineSession.role !== 'guest' || !onlineSession.guestConnected || onlineSession.guestReady} className={`mt-6 w-full border-2 px-5 py-4 text-lg font-black italic uppercase transition ${onlineSession.role === 'guest' && onlineSession.guestConnected && !onlineSession.guestReady ? 'border-yellow-300 bg-yellow-400 text-black hover:bg-yellow-300' : 'cursor-not-allowed border-white/10 bg-zinc-900 text-zinc-600'}`}>Ready</button>
+              <button onClick={setGuestReady} disabled={onlineSession.role !== 'guest' || !onlineSession.guestConnected || onlineSession.guestReady} className={`mt-6 w-full border-2 px-5 py-4 text-lg font-black italic uppercase transition ${onlineSession.role === 'guest' && onlineSession.guestConnected && !onlineSession.guestReady ? 'border-yellow-300 bg-yellow-400 text-black hover:bg-yellow-300' : 'cursor-not-allowed border-white/10 bg-zinc-900 text-zinc-600'}`}>{t('ui.ready', 'Ready')}</button>
             </section>
           </main>
 
@@ -3043,6 +3399,158 @@ function ArcadeRacingGame() {
             {onlineSession.message || 'Choose host or guest to begin matchmaking.'}
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (appState === 'ROAD_DEBUG') {
+    const debugBounds = roadDebugLayout.bounds;
+    const debugBackdropPadding = TERRAIN_BACKDROP_PADDING;
+    const debugBackdropBounds = {
+      x: debugBounds.minX - debugBackdropPadding,
+      y: debugBounds.minY - debugBackdropPadding,
+      width: (debugBounds.maxX - debugBounds.minX) + debugBackdropPadding * 2,
+      height: (debugBounds.maxY - debugBounds.minY) + debugBackdropPadding * 2
+    };
+    const showDebugRecenter = Math.abs(panOffset.x) > 10 || Math.abs(panOffset.y) > 10;
+
+    return (
+      <div
+        className="relative h-screen w-full overflow-hidden bg-[#070807] text-white cursor-grab active:cursor-grabbing"
+        onMouseDown={handlePointerDown} onMouseMove={handlePointerMove} onMouseUp={handlePointerUp} onMouseLeave={handlePointerUp}
+        onTouchStart={handlePointerDown} onTouchMove={handlePointerMove} onTouchEnd={handlePointerUp}
+        onWheel={handleWheel}
+      >
+        <svg width="100%" height="100%" className="absolute inset-0 z-0 bg-[#10140f]">
+          <defs>
+            <pattern id="debug-forest-fallback" width="120" height="120" patternUnits="userSpaceOnUse" patternTransform={`scale(${zoom})`}>
+              <rect width="120" height="120" fill="#10140f" />
+              <circle cx="30" cy="30" r="25" fill="#182016" />
+              <circle cx="90" cy="50" r="35" fill="#0c120b" />
+              <circle cx="40" cy="100" r="20" fill="#1b2518" />
+              <circle cx="100" cy="110" r="15" fill="#23301f" />
+            </pattern>
+            <pattern id="debug-asphalt" width="60" height="60" patternUnits="userSpaceOnUse" patternTransform={`scale(${zoom})`}>
+              <rect width="60" height="60" fill="#2a2a2c" />
+              <circle cx="15" cy="15" r="1" fill="rgba(255,255,255,0.05)" />
+              <circle cx="45" cy="40" r="1.5" fill="rgba(0,0,0,0.2)" />
+              <circle cx="20" cy="50" r="1" fill="rgba(255,255,255,0.03)" />
+            </pattern>
+            <pattern id="debug-red-asphalt" width="60" height="60" patternUnits="userSpaceOnUse" patternTransform={`scale(${zoom})`}>
+              <rect width="60" height="60" fill="#881313" />
+              <circle cx="15" cy="15" r="1" fill="rgba(255,255,255,0.1)" />
+              <circle cx="45" cy="40" r="1.5" fill="rgba(0,0,0,0.3)" />
+              <circle cx="20" cy="50" r="1" fill="rgba(255,255,255,0.08)" />
+            </pattern>
+            <pattern
+              id="debug-terrain-backdrop"
+              x={debugBounds.center.x - TERRAIN_BACKDROP_SIZE / 2}
+              y={debugBounds.center.y - TERRAIN_BACKDROP_SIZE / 2}
+              width={TERRAIN_BACKDROP_SIZE}
+              height={TERRAIN_BACKDROP_SIZE}
+              patternUnits="userSpaceOnUse"
+            >
+              <image
+                href={COURSE_BACKGROUNDS.hakone}
+                width={TERRAIN_BACKDROP_SIZE}
+                height={TERRAIN_BACKDROP_SIZE}
+                preserveAspectRatio="xMidYMid slice"
+              />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#debug-forest-fallback)" />
+
+          <g transform={`translate(${winSize.w / 2}, ${winSize.h / 2}) scale(${zoom}) translate(${-debugBounds.center.x + panOffset.x}, ${-debugBounds.center.y + panOffset.y})`} style={{ transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)' }}>
+            <rect
+              x={debugBackdropBounds.x}
+              y={debugBackdropBounds.y}
+              width={debugBackdropBounds.width}
+              height={debugBackdropBounds.height}
+              fill="url(#debug-terrain-backdrop)"
+              opacity="0.92"
+              className="pointer-events-none"
+            />
+            <rect
+              x={debugBackdropBounds.x}
+              y={debugBackdropBounds.y}
+              width={debugBackdropBounds.width}
+              height={debugBackdropBounds.height}
+              fill="rgba(2, 6, 23, 0.16)"
+              className="pointer-events-none"
+            />
+
+            {roadDebugLayout.groups.map(group => (
+              <g key={group.card.id} transform={`translate(${group.offset.x}, ${group.offset.y})`}>
+                {[0, 1].map(lane =>
+                  group.track[lane].map((space, index) => (
+                    <g key={`debug-base-${group.card.id}-${lane}-${index}`}>
+                      <path d={space.path} fill={space.limit ? 'url(#debug-red-asphalt)' : 'url(#debug-asphalt)'} stroke="#d4d4d8" strokeWidth="2" />
+                      {!space.isOuter && <path d={space.path} fill="none" stroke="#f59e0b" strokeWidth="4" strokeDasharray="20 20" />}
+                      {space.guardrail && <path d={space.path} fill="none" stroke="#9ca3af" strokeWidth="8" strokeDasharray="25 5" filter="drop-shadow(0 5px 5px rgba(0,0,0,0.6))" />}
+                    </g>
+                  ))
+                )}
+
+                {group.track[0].filter(space => space.roadCardStart).map(space => (
+                  <g key={`debug-card-label-${group.card.id}`} transform={`translate(${space.center.x}, ${space.center.y}) rotate(${space.angle})`} className="pointer-events-none">
+                    <g transform="translate(-35, 58)">
+                      <rect x="-110" y="-18" width="220" height="36" rx="8" fill="rgba(9,9,11,0.9)" stroke="#facc15" strokeWidth="2" />
+                      <text fill="#facc15" fontSize="13" fontWeight="900" fontFamily="sans-serif" textAnchor="middle" dy="5">
+                        {String(space.roadCardStart.index).padStart(2, '0')} / {space.roadCardStart.name}
+                      </text>
+                    </g>
+                  </g>
+                ))}
+
+                {[0, 1].map(lane =>
+                  group.track[lane].filter(space => space.limit).map((space, index) => {
+                    const xOffset = space.id.includes('-L') ? -65 : 65;
+                    return (
+                      <g key={`debug-limit-${group.card.id}-${lane}-${index}`} transform={`translate(${space.center.x}, ${space.center.y}) rotate(${space.angle})`}>
+                        <g transform={`translate(${xOffset}, 0)`}>
+                          <rect x="-4" y="0" width="8" height="35" fill="#9ca3af" stroke="#4b5563" strokeWidth="1" filter="drop-shadow(0 4px 4px rgba(0,0,0,0.5))" />
+                          <circle r="26" fill="#fff" filter="drop-shadow(0 5px 5px rgba(0,0,0,0.5))" />
+                          <circle r="22" fill="none" stroke="#dc2626" strokeWidth="6" />
+                          <text fill="#000" fontSize="24" fontWeight="900" fontFamily="sans-serif" textAnchor="middle" dy="8">{space.limit}</text>
+                        </g>
+                      </g>
+                    );
+                  })
+                )}
+              </g>
+            ))}
+          </g>
+        </svg>
+
+        <button
+          type="button"
+          onClick={() => {
+            setCodexTab('road');
+            setPanOffset({ x: 0, y: 0 });
+            setZoom(0.65);
+            setAppState('CODEX');
+          }}
+          className="fixed left-4 top-4 z-[90] flex items-center gap-2 rounded-full border border-white/15 bg-zinc-950/80 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-zinc-200 shadow-2xl backdrop-blur-md transition hover:border-yellow-300 hover:bg-zinc-900 hover:text-yellow-200 no-pan"
+        >
+          <ChevronLeft size={16} />
+          {t('ui.road_cards', 'Road Cards')}
+        </button>
+
+        <div className="fixed left-1/2 top-16 z-[80] max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-full border border-emerald-300/35 bg-zinc-950/80 px-5 py-2 text-center shadow-2xl backdrop-blur-md no-pan sm:top-4">
+          <div className="text-[10px] font-black uppercase tracking-[0.35em] text-emerald-300">{t('ui.debug_map', 'Debug Map')}</div>
+          <div className="text-xs font-bold uppercase tracking-widest text-zinc-300">{t('ui.cards_label', '{count} Cards', { count: roadDebugLayout.groups.length })} / {t('ui.race_scale_geometry', 'race-scale geometry')}</div>
+        </div>
+
+        {showDebugRecenter && (
+          <button
+            type="button"
+            onClick={() => setPanOffset({ x: 0, y: 0 })}
+            className="fixed bottom-5 left-1/2 z-[90] flex -translate-x-1/2 items-center gap-2 rounded-full border border-emerald-300/40 bg-emerald-500 px-5 py-2 text-xs font-black uppercase tracking-widest text-black shadow-2xl transition hover:bg-emerald-300 no-pan"
+          >
+            <Crosshair size={16} />
+            {t('ui.recenter', 'Recenter')}
+          </button>
+        )}
       </div>
     );
   }
@@ -3057,7 +3565,7 @@ function ArcadeRacingGame() {
     }, {});
     const renderCodexGridCard = (card) => {
       const isActive = selectedId === card.id;
-      const typeTone = card.type === 'Gas' ? 'border-yellow-400/70' : card.type === 'Brake' ? 'border-red-400/70' : card.type === 'Attack' ? 'border-orange-400/70' : 'border-blue-400/70';
+      const typeTone = (card.rulesType || card.type) === 'Gas' ? 'border-yellow-400/70' : (card.rulesType || card.type) === 'Brake' ? 'border-red-400/70' : (card.rulesType || card.type) === 'Attack' ? 'border-orange-400/70' : 'border-blue-400/70';
 
       return (
         <button
@@ -3091,12 +3599,12 @@ function ArcadeRacingGame() {
       <div onClick={() => setCodexLockedId(null)} className="h-screen w-full overflow-hidden bg-[#070807] text-white">
         <div className="flex h-full flex-col bg-[radial-gradient(circle_at_70%_15%,rgba(250,204,21,0.12),transparent_34%),linear-gradient(135deg,rgba(127,29,29,0.16),transparent_38%,rgba(24,24,27,0.72))]">
           <header className="flex items-center justify-between border-b border-white/15 px-5 py-4 sm:px-8">
-            <button onClick={() => setAppState('TITLE')} className="flex items-center gap-1 text-xs font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white"><ChevronLeft size={18}/> Title</button>
+            <button onClick={() => setAppState('TITLE')} className="flex items-center gap-1 text-xs font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white"><ChevronLeft size={18}/> {t('ui.back_to_title', 'Back to Title')}</button>
             <div className="text-center">
               <div className="text-3xl font-black italic tracking-tight sm:text-4xl">CODEX</div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.35em] text-yellow-400">Card Archive</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.35em] text-yellow-400">{t('ui.card_archive', 'Card Archive')}</div>
             </div>
-            <div className="hidden rounded border border-white/20 bg-black/40 px-3 py-2 text-xs font-black uppercase text-zinc-300 sm:block">{activeList.length} Cards</div>
+            <div className="hidden rounded border border-white/20 bg-black/40 px-3 py-2 text-xs font-black uppercase text-zinc-300 sm:block">{t('ui.cards_label', '{count} Cards', { count: activeList.length })}</div>
           </header>
 
           <main className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[22rem_1fr]">
@@ -3109,7 +3617,7 @@ function ArcadeRacingGame() {
                       : <div className="origin-top scale-[1.12]"><RoadCardPreview card={activeItem} /></div>}
                   </div>
                   <div className="mt-7">
-                    <div className="text-[10px] font-black uppercase tracking-[0.35em] text-yellow-400">{codexTab === 'racing' ? activeItem.deckCode : 'Road Card'}</div>
+                    <div className="text-[10px] font-black uppercase tracking-[0.35em] text-yellow-400">{codexTab === 'racing' ? activeItem.deckCode : t('ui.road_cards', 'Road Card')}</div>
                     <h2 className="mt-2 text-3xl font-black italic uppercase leading-none">{activeItem.name}</h2>
                     <div className="mt-4 grid grid-cols-2 gap-2">
                       {codexTab === 'racing' ? (
@@ -3121,9 +3629,9 @@ function ArcadeRacingGame() {
                         </>
                       ) : (
                         <>
-                          <span className="border border-white/15 bg-black/50 px-3 py-2 text-xs font-black uppercase text-zinc-300">Entry {activeItem.entrySpaces}</span>
-                          <span className="border border-white/15 bg-black/50 px-3 py-2 text-xs font-black uppercase text-zinc-300">Exit {activeItem.exitSpaces}</span>
-                          <span className="border border-white/15 bg-black/50 px-3 py-2 text-xs font-black uppercase text-zinc-300">Weight {activeItem.weight}</span>
+                          <span className="border border-white/15 bg-black/50 px-3 py-2 text-xs font-black uppercase text-zinc-300">{t('ui.entry', 'Entry {count}', { count: activeItem.entrySpaces })}</span>
+                          <span className="border border-white/15 bg-black/50 px-3 py-2 text-xs font-black uppercase text-zinc-300">{t('ui.exit', 'Exit {count}', { count: activeItem.exitSpaces })}</span>
+                          <span className="border border-white/15 bg-black/50 px-3 py-2 text-xs font-black uppercase text-zinc-300">{t('ui.weight', 'Weight {count}', { count: activeItem.weight })}</span>
                         </>
                       )}
                     </div>
@@ -3131,7 +3639,7 @@ function ArcadeRacingGame() {
                     {codexTab === 'racing' ? (
                       <>
                         <div className="mt-6 border-l-4 border-yellow-400 bg-black/45 p-4">
-                          <div className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">Effect</div>
+                          <div className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">{t('ui.effect', 'Effect')}</div>
                           <p className="mt-2 text-sm font-bold leading-relaxed text-zinc-100">{activeItem.desc}</p>
                         </div>
                         <div className="mt-4 text-xs font-bold leading-relaxed text-zinc-400">{activeItem.category}</div>
@@ -3140,25 +3648,25 @@ function ArcadeRacingGame() {
                       <div className="mt-6 space-y-3">
                         {activeItem.segments.map((segment, index) => (
                           <div key={index} className="border border-white/10 bg-black/45 p-4">
-                            <div className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">Segment {index + 1}</div>
-                            <div className="mt-2 text-base font-black uppercase text-white">{segment.type === 'straight' ? `Straight / ${segment.spaces} spaces` : `${segment.angle} degree ${segment.direction} curve`}</div>
-                            {segment.type === 'curve' && <div className="mt-1 text-xs font-bold text-zinc-400">Radius {segment.radius} / Inner {segment.in_spaces} spaces / Outer {segment.out_spaces} spaces / Speed limit {segment.speed_limit} km/h</div>}
+                            <div className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">{t('ui.segment', 'Segment {count}', { count: index + 1 })}</div>
+                            <div className="mt-2 text-base font-black uppercase text-white">{segment.type === 'straight' ? t('ui.straight_spaces', 'Straight / {count} spaces', { count: segment.spaces }) : t('ui.degree_curve', '{angle} degree {direction} curve', { angle: segment.angle, direction: segment.direction })}</div>
+                            {segment.type === 'curve' && <div className="mt-1 text-xs font-bold text-zinc-400">{t('ui.radius_inner_outer_limit', 'Radius {radius} / Inner {inner} spaces / Outer {outer} spaces / Speed limit {limit} km/h', { radius: segment.radius, inner: segment.in_spaces, outer: segment.out_spaces, limit: segment.speed_limit })}</div>}
                           </div>
                         ))}
                       </div>
                     )}
 
-                    {codexLockedId && <div className="mt-6 text-[10px] font-black uppercase tracking-[0.25em] text-yellow-400">Selection locked</div>}
+                    {codexLockedId && <div className="mt-6 text-[10px] font-black uppercase tracking-[0.25em] text-yellow-400">{t('ui.selection_locked', 'Selection locked')}</div>}
                   </div>
                 </div>
               )}
             </aside>
 
             <section className="flex min-h-0 flex-col bg-black/30" onClick={event => event.stopPropagation()}>
-              <div className="grid grid-cols-2 gap-2 border-b border-white/15 bg-zinc-950/65 p-3">
+              <div className="grid grid-cols-2 gap-2 border-b border-white/15 bg-zinc-950/65 p-3 lg:grid-cols-[1fr_1fr_auto]">
                 {[
-                  ['racing', 'Racing Cards'],
-                  ['road', 'Road Cards']
+                  ['racing', t('ui.racing_cards', 'Racing Cards')],
+                  ['road', t('ui.road_cards', 'Road Cards')]
                 ].map(([tab, label]) => (
                   <button
                     key={tab}
@@ -3172,6 +3680,16 @@ function ArcadeRacingGame() {
                     {label}
                   </button>
                 ))}
+                {codexTab === 'road' && (
+                  <button
+                    type="button"
+                    onClick={openRoadDebugMap}
+                    className="col-span-2 flex items-center justify-center gap-2 border-2 border-emerald-300 bg-emerald-400 px-4 py-3 text-xs font-black uppercase tracking-wider text-black shadow-[0_0_18px_rgba(52,211,153,0.25)] transition hover:bg-emerald-300 lg:col-span-1"
+                  >
+                    <MapIcon size={16} />
+                    {t('ui.debug_map', 'Debug Map')}
+                  </button>
+                )}
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
                 {Object.entries(groupedCards).map(([group, cards]) => (
@@ -3204,7 +3722,11 @@ function ArcadeRacingGame() {
       setSelectedCars(current => current.map((car, index) => index === activePicker ? carId : car));
       if (gameMode !== 'PvE' && activePicker === 0 && selectedCars[1] === null) setActiveCarPlayer(1);
     };
-    const selectedCarData = selectedCars.map(carId => CAR_OPTIONS.find(car => car.id === carId));
+    const localizedCarOptions = CAR_OPTIONS.map(car => ({
+      ...car,
+      specialty: t(`car.${car.id}.specialty`, car.specialty)
+    }));
+    const selectedCarData = selectedCars.map(carId => localizedCarOptions.find(car => car.id === carId));
     const CarPortrait = ({ car, player }) => (
       <div className={`relative h-36 sm:h-44 overflow-hidden border-b-4 ${player === 0 ? 'border-red-500 bg-gradient-to-br from-red-950 to-zinc-950' : 'border-blue-500 bg-gradient-to-bl from-blue-950 to-zinc-950'}`}>
         <div className={`absolute inset-0 opacity-25 ${player === 0 ? 'bg-[linear-gradient(135deg,transparent_32%,#ef4444_32%,#ef4444_35%,transparent_35%)]' : 'bg-[linear-gradient(45deg,transparent_32%,#3b82f6_32%,#3b82f6_35%,transparent_35%)]'}`} />
@@ -3229,8 +3751,8 @@ function ArcadeRacingGame() {
       <div className="h-screen w-full overflow-y-auto bg-[#090b08] text-white selection:bg-yellow-400 selection:text-black">
         <div className="min-h-screen bg-[radial-gradient(circle_at_50%_20%,rgba(91,108,59,0.32),transparent_45%),linear-gradient(120deg,rgba(127,29,29,0.16),transparent_38%,rgba(30,58,138,0.16))] px-4 py-4 sm:px-6 lg:px-10">
           <header className="mx-auto flex max-w-7xl items-center justify-between border-b border-white/15 pb-3">
-            <button onClick={() => setAppState('TITLE')} className="flex items-center gap-1 text-xs font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white"><ChevronLeft size={18}/> Mode Select</button>
-            <div className="text-center"><div className="text-2xl sm:text-4xl font-black italic tracking-tight">RACE SETUP</div><div className="text-[10px] font-bold tracking-[0.35em] text-yellow-400">COURSE & MACHINE SELECT</div></div>
+            <button onClick={() => setAppState('TITLE')} className="flex items-center gap-1 text-xs font-black uppercase tracking-[0.2em] text-zinc-400 hover:text-white"><ChevronLeft size={18}/> {t('ui.mode_select', 'Mode Select')}</button>
+            <div className="text-center"><div className="text-2xl sm:text-4xl font-black italic tracking-tight">{t('ui.race_setup', 'RACE SETUP')}</div><div className="text-[10px] font-bold tracking-[0.35em] text-yellow-400">{t('ui.course_machine_select', 'COURSE & MACHINE SELECT')}</div></div>
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -3242,28 +3764,28 @@ function ArcadeRacingGame() {
                 <span className={`h-4 w-8 border p-0.5 transition ${tutorialEnabled ? 'border-black/40 bg-black/20' : 'border-yellow-300/60 bg-zinc-950'}`}>
                   <span className={`block h-full w-3 bg-current transition-transform ${tutorialEnabled ? 'translate-x-3' : 'translate-x-0'}`} />
                 </span>
-                Tutorial {tutorialEnabled ? 'On' : 'Off'}
+                {tutorialEnabled ? t('ui.tutorial_on', 'Tutorial On') : t('ui.tutorial_off', 'Tutorial Off')}
               </button>
-              <div className="rounded border border-white/20 bg-black/40 px-3 py-2 text-xs font-black uppercase text-zinc-300">{gameMode === 'PvE' ? '1P vs CPU' : gameMode === 'OnlinePvP' ? 'Online 2P' : 'Local 2P'}</div>
+              <div className="rounded border border-white/20 bg-black/40 px-3 py-2 text-xs font-black uppercase text-zinc-300">{gameMode === 'PvE' ? '1P vs CPU' : gameMode === 'OnlinePvP' ? t('ui.online_2_player', 'Online 2P') : t('ui.local_2_player', 'Local 2P')}</div>
             </div>
           </header>
 
           <main className="mx-auto grid max-w-7xl gap-4 py-4 lg:grid-rows-[minmax(270px,42vh)_minmax(300px,1fr)]">
             <section className="grid overflow-hidden border border-white/15 bg-black/60 shadow-2xl lg:grid-cols-[1.25fr_1fr]">
               <div className="relative min-h-52 border-b border-white/15 p-5 lg:border-b-0 lg:border-r">
-                <div className="absolute left-5 top-4 z-10"><div className="text-[10px] font-black uppercase tracking-[0.3em] text-yellow-400">Player 1 Course Pick</div><h2 className="text-3xl font-black italic uppercase sm:text-4xl">{selectedCourse.name}</h2><p className="text-xs font-bold uppercase tracking-widest text-zinc-400">{selectedCourse.region} / {selectedCourse.difficulty} / {selectedCourse.id === 'random' ? randomMapSize : selectedCourse.length} / {selectedCourse.id === 'random' ? RANDOM_SIZE_CARDS[randomMapSize] : selectedCourse.cardCount} cards</p></div>
+                <div className="absolute left-5 top-4 z-10"><div className="text-[10px] font-black uppercase tracking-[0.3em] text-yellow-400">{t('ui.player_course_pick', 'Player 1 Course Pick')}</div><h2 className="text-3xl font-black italic uppercase sm:text-4xl">{selectedCourse.name}</h2><p className="text-xs font-bold uppercase tracking-widest text-zinc-400">{selectedCourse.region} / {selectedCourse.difficulty} / {selectedCourse.id === 'random' ? randomMapSize : selectedCourse.length} / {t('ui.cards_count', '{count} cards', { count: selectedCourse.id === 'random' ? RANDOM_SIZE_CARDS[randomMapSize] : selectedCourse.cardCount })}</p></div>
                 <svg viewBox="0 0 100 90" className="absolute inset-0 h-full w-full p-6 pt-16" aria-label={`${selectedCourse.name} mini map`}>
                   <path d={selectedCourse.path} fill="none" stroke="#18181b" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round" />
                   <path d={selectedCourse.path} fill="none" stroke={selectedCourse.id === 'random' ? '#facc15' : '#f4f4f5'} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" strokeDasharray={selectedCourse.id === 'random' ? '3 4' : undefined} />
                   <circle cx="14" cy={selectedCourse.id === 'haruna' ? '28' : selectedCourse.id === 'hakone' ? '78' : '70'} r="3" fill="#22c55e" stroke="white" strokeWidth="1" />
                 </svg>
                 <div className="absolute bottom-4 right-4 flex gap-2">
-                  {selectedCourse.id === 'random' ? Object.keys(RANDOM_SIZE_CARDS).map(size => <button key={size} disabled={!canEditCourse} onClick={() => canEditCourse && setRandomMapSize(size)} className={`px-3 py-2 text-xs font-black uppercase ${!canEditCourse ? 'cursor-not-allowed opacity-50' : ''} ${randomMapSize === size ? 'bg-yellow-400 text-black' : 'border border-white/20 bg-black/70 text-zinc-300 hover:border-yellow-400'}`}>{size}<span className="ml-1 text-[9px] opacity-60">{RANDOM_SIZE_CARDS[size]} cards</span></button>) : ['downhill', 'uphill'].map(direction => <button key={direction} disabled={!canEditCourse} onClick={() => canEditCourse && setCourseDirection(direction)} className={`px-4 py-2 text-xs font-black uppercase ${!canEditCourse ? 'cursor-not-allowed opacity-50' : ''} ${courseDirection === direction ? 'bg-yellow-400 text-black' : 'border border-white/20 bg-black/70 text-zinc-300 hover:border-yellow-400'}`}>{direction === 'downhill' ? 'DOWN' : 'UP'} {direction}</button>)}
+                  {selectedCourse.id === 'random' ? Object.keys(RANDOM_SIZE_CARDS).map(size => <button key={size} disabled={!canEditCourse} onClick={() => canEditCourse && setRandomMapSize(size)} className={`px-3 py-2 text-xs font-black uppercase ${!canEditCourse ? 'cursor-not-allowed opacity-50' : ''} ${randomMapSize === size ? 'bg-yellow-400 text-black' : 'border border-white/20 bg-black/70 text-zinc-300 hover:border-yellow-400'}`}>{size}<span className="ml-1 text-[9px] opacity-60">{t('ui.cards_count', '{count} cards', { count: RANDOM_SIZE_CARDS[size] })}</span></button>) : ['downhill', 'uphill'].map(direction => <button key={direction} disabled={!canEditCourse} onClick={() => canEditCourse && setCourseDirection(direction)} className={`px-4 py-2 text-xs font-black uppercase ${!canEditCourse ? 'cursor-not-allowed opacity-50' : ''} ${courseDirection === direction ? 'bg-yellow-400 text-black' : 'border border-white/20 bg-black/70 text-zinc-300 hover:border-yellow-400'}`}>{direction === 'downhill' ? t('ui.down', 'DOWN') : t('ui.up', 'UP')}</button>)}
                 </div>
               </div>
               <div className="grid grid-cols-4 gap-2 p-3 lg:grid-cols-2">
                 {COURSE_OPTIONS.map((course, index) => <button key={course.id} disabled={!canEditCourse} onClick={() => canEditCourse && setSelectedCourseId(course.id)} className={`group relative min-h-24 overflow-hidden border p-3 text-left transition ${!canEditCourse ? 'cursor-not-allowed opacity-60' : ''} ${selectedCourseId === course.id ? 'border-yellow-400 bg-yellow-400/15' : 'border-white/15 bg-zinc-950/80 hover:border-white/50'}`}>
-                  <span className="text-[10px] font-black text-zinc-500">0{index + 1}</span><div className="mt-2 text-xs sm:text-base font-black uppercase leading-tight">{course.name}</div><div className="mt-1 hidden text-[10px] uppercase tracking-widest text-zinc-500 sm:block">{course.difficulty} / {course.id === 'random' ? `${RANDOM_SIZE_CARDS[randomMapSize]} cards` : `${course.length} / ${course.cardCount} cards`}</div>
+                  <span className="text-[10px] font-black text-zinc-500">0{index + 1}</span><div className="mt-2 text-xs sm:text-base font-black uppercase leading-tight">{course.name}</div><div className="mt-1 hidden text-[10px] uppercase tracking-widest text-zinc-500 sm:block">{course.difficulty} / {course.id === 'random' ? t('ui.cards_count', '{count} cards', { count: RANDOM_SIZE_CARDS[randomMapSize] }) : `${course.length} / ${t('ui.cards_count', '{count} cards', { count: course.cardCount })}`}</div>
                   {selectedCourseId === course.id && <span className="absolute right-2 top-2 h-2 w-2 bg-yellow-400 shadow-[0_0_10px_#facc15]"/>}
                 </button>)}
               </div>
@@ -3277,26 +3799,26 @@ function ArcadeRacingGame() {
                 return <button type="button" key={player} onClick={() => !(player === 1 && gameMode === 'PvE') && !lockedByOnlineRole && setActiveCarPlayer(player)} className={`overflow-hidden border bg-black/65 text-left ${player === 1 ? 'lg:col-start-3' : ''} ${player === 1 && gameMode === 'PvE' || lockedByOnlineRole ? 'cursor-default' : 'cursor-pointer hover:border-white/50'} ${waiting ? player === 0 ? 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.25)]' : 'border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.25)]' : 'border-white/15'}`}>
                   <CarPortrait car={car} player={player}/>
                   <div className={`p-4 ${player === 1 ? 'text-right' : ''}`}>
-                    <div className="flex items-center justify-between gap-3"><h3 className="text-xl font-black uppercase">{car?.name || (waiting ? 'Choose Machine' : 'Waiting...')}</h3>{car && <span className="border border-yellow-500/50 bg-yellow-500/10 px-2 py-1 text-xs font-black text-yellow-300">{car.drive}</span>}</div>
-                    <p className="mt-2 min-h-10 text-xs leading-relaxed text-zinc-400">{car?.specialty || (player === 1 && gameMode === 'PvE' ? 'CPU machine locked.' : lockedByOnlineRole ? 'Remote player machine slot.' : 'Select from machine grid.')}</p>
-                    {car && !(player === 1 && gameMode === 'PvE') && !lockedByOnlineRole && <div className="mt-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">Press panel, then press any machine</div>}
+                    <div className="flex items-center justify-between gap-3"><h3 className="text-xl font-black uppercase">{car?.name || (waiting ? t('ui.choose_machine', 'Choose Machine') : t('ui.waiting_ellipsis', 'Waiting...'))}</h3>{car && <span className="border border-yellow-500/50 bg-yellow-500/10 px-2 py-1 text-xs font-black text-yellow-300">{car.drive}</span>}</div>
+                    <p className="mt-2 min-h-10 text-xs leading-relaxed text-zinc-400">{car?.specialty || (player === 1 && gameMode === 'PvE' ? t('ui.cpu_machine_locked', 'CPU machine locked.') : lockedByOnlineRole ? t('ui.remote_player_machine_slot', 'Remote player machine slot.') : t('ui.select_from_machine_grid', 'Select from machine grid.'))}</p>
+                    {car && !(player === 1 && gameMode === 'PvE') && !lockedByOnlineRole && <div className="mt-2 text-[10px] font-black uppercase tracking-widest text-zinc-500">{t('ui.press_panel_machine', 'Press panel, then press any machine')}</div>}
                   </div>
                 </button>;
               })}
 
               <div className="grid grid-cols-2 gap-2 self-stretch lg:col-start-2 lg:row-start-1">
-                {CAR_OPTIONS.map((car, index) => {
+                {localizedCarOptions.map((car, index) => {
                   const pickedBy = selectedCars.reduce((players, id, player) => id === car.id ? [...players, player] : players, []);
                   return <button key={car.id} onClick={() => chooseCar(car.id)} className={`group relative min-h-36 overflow-hidden border bg-zinc-950 p-3 text-left transition hover:-translate-y-1 hover:border-yellow-400 ${pickedBy.length ? 'border-yellow-500/60' : 'border-white/15'}`}>
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_48%,rgba(250,204,21,0.18),transparent_42%)]" />
                     <img src={car.cutout} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-[1.34] object-contain object-center opacity-60 saturate-125 drop-shadow-[0_12px_12px_rgba(0,0,0,0.65)] transition duration-300 group-hover:scale-[1.46] group-hover:opacity-90" />
                     <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-black/10" />
-                    <div className="absolute -right-3 -top-4 text-7xl font-black italic text-white/[0.07]">0{index + 1}</div><div className="relative text-[10px] font-black uppercase tracking-widest text-zinc-400">{car.drive} / Machine 0{index + 1}</div><div className="relative mt-4 text-lg font-black uppercase leading-tight drop-shadow-[0_2px_0_rgba(0,0,0,0.8)]">{car.name}</div>
+                    <div className="absolute -right-3 -top-4 text-7xl font-black italic text-white/[0.07]">0{index + 1}</div><div className="relative text-[10px] font-black uppercase tracking-widest text-zinc-400">{car.drive} / {t('ui.machine_number', 'Machine {number}', { number: `0${index + 1}` })}</div><div className="relative mt-4 text-lg font-black uppercase leading-tight drop-shadow-[0_2px_0_rgba(0,0,0,0.8)]">{car.name}</div>
                     <div className="absolute bottom-2 left-2 flex gap-1">{pickedBy.map(player => <span key={player} className={`px-2 py-1 text-[10px] font-black text-white ${player === 0 ? 'bg-red-600' : 'bg-blue-600'}`}>{player === 0 ? '1P' : gameMode === 'PvE' ? 'CPU' : gameMode === 'OnlinePvP' ? '2P NET' : '2P'}</span>)}</div>
                   </button>;
                 })}
                 <div className="col-span-2 flex min-h-14 items-center justify-center">
-                  {canStartRaceSetup ? <button onClick={initGame} className="group flex items-center gap-3 border-2 border-yellow-300 bg-yellow-400 px-8 py-3 text-lg font-black italic uppercase text-black shadow-[0_0_26px_rgba(250,204,21,0.4)] transition hover:scale-105 hover:bg-yellow-300">Start Your Engines <Play size={20}/></button> : <div className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">{gameMode === 'OnlinePvP' && onlineRole === 'guest' ? 'Waiting for host to start' : activePicker === 0 ? 'Player 1: choose machine' : 'Player 2: choose machine'}</div>}
+                  {canStartRaceSetup ? <button onClick={initGame} className="group flex items-center gap-3 border-2 border-yellow-300 bg-yellow-400 px-8 py-3 text-lg font-black italic uppercase text-black shadow-[0_0_26px_rgba(250,204,21,0.4)] transition hover:scale-105 hover:bg-yellow-300">{t('ui.start_your_engines', 'Start Your Engines')} <Play size={20}/></button> : <div className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">{gameMode === 'OnlinePvP' && onlineRole === 'guest' ? t('ui.waiting_host_start', 'Waiting for host to start') : activePicker === 0 ? t('ui.player_choose_machine', '{player}: choose machine', { player: 'Player 1' }) : t('ui.player_choose_machine', '{player}: choose machine', { player: 'Player 2' })}</div>}
                 </div>
               </div>
             </section>
@@ -3318,6 +3840,11 @@ function ArcadeRacingGame() {
   const showRecenter = Math.abs(panOffset.x) > 10 || Math.abs(panOffset.y) > 10;
   const canControlActivePlayer = !isAITurn && isLocalPlayersTurn;
   const validMovesList = gameState && (gameState.phase === 'MOVE' || gameState.phase === 'NN_MOVE') && canControlActivePlayer && ((gameState.phase === 'MOVE' && gameState.mpLeft > 0) || (gameState.phase === 'NN_MOVE' && gameState.nnMpLeft[activePlayerId] > 0)) ? getValidMoves(activePlayer) : [];
+  const activeMovePointsLeft = gameState?.phase === 'NN_MOVE'
+    ? (gameState.nnMpLeft?.[activePlayerId] || 0)
+    : gameState?.phase === 'MOVE'
+      ? (gameState.mpLeft || 0)
+      : 0;
 
   const p1 = gameState?.players[0];
   const p2 = gameState?.players[1];
@@ -3329,13 +3856,16 @@ function ArcadeRacingGame() {
   const activeCycleRequired = gameState?.phase === 'CARD_CYCLE' ? Boolean(gameState.cycleContext?.required) : gameState?.phase === 'NN_CARD_CYCLE' ? Boolean(activePlayer.modifiers.cycleRequired) : false;
   const activeCycleNeeded = activeCycleRequired ? Math.min(activeCycleMax, activePlayer?.hand?.length || 0) : 0;
   const activeChoiceType = gameState?.phase === 'CARD_CHOICE' ? gameState.choiceContext?.type : null;
-  const visiblePilePlayer = isOnlineGame ? localPlayer : activePlayer;
+  const visiblePilePlayer = isOnlineGame ? localPlayer : gameMode === 'PvE' ? gameState.players[0] : activePlayer;
   const visibleDiscardTopCard = visiblePilePlayer?.discard?.length ? CARDS[visiblePilePlayer.discard[visiblePilePlayer.discard.length - 1]] : null;
-  const visibleHandPlayer = isOnlineGame ? localPlayer : activePlayer;
-  const shouldShowLocalHand = !isAITurn && (!isOnlineGame || isLocalPlayersTurn);
+  const visibleHandPlayer = isOnlineGame ? localPlayer : gameMode === 'PvE' ? gameState.players[0] : activePlayer;
+  const shouldShowLocalHand = gameMode === 'PvE' ? true : !isAITurn && (!isOnlineGame || isLocalPlayersTurn);
   const activeHandVisible = shouldShowLocalHand && (gameState.phase === 'PLAY_CARD' || gameState.phase === 'NN_SELECT_CARD' || gameState.phase === 'MOVE' || gameState.phase === 'NN_MOVE');
-  const activeHandCanPlay = isLocalPlayersTurn && (gameState.phase === 'PLAY_CARD' || gameState.phase === 'NN_SELECT_CARD');
+  const activeHandCanPlay = !isAITurn && isLocalPlayersTurn && (gameState.phase === 'PLAY_CARD' || gameState.phase === 'NN_SELECT_CARD');
   const activeHandTucked = !activeHandCanPlay;
+  const activeHandLabel = activeHandCanPlay
+    ? gameState.phase === 'NN_SELECT_CARD' ? t('ui.lock_card_face_down', 'Lock in 1 Card Face Down!') : t('ui.play_driving_card', 'Play 1 Driving Card')
+    : isAITurn ? t('ui.hand_locked_rival', 'Hand Locked During Rival Turn') : t('ui.hand_locked_movement', 'Hand Locked During Movement');
   const showBonusTurnPrompt = gameState?.bonusTurnPlayerId === activePlayerId && gameState.phase === 'PLAY_CARD';
 
   // Calculate projected speed for speedometer preview
@@ -3401,6 +3931,26 @@ function ArcadeRacingGame() {
           78% { transform: translateY(0) scale(1); opacity: 1; filter: blur(0); }
           100% { transform: translateY(-12px) scale(0.97); opacity: 0; filter: blur(3px); }
         }
+        @keyframes movement_breathe {
+          0%, 100% {
+            opacity: 0.62;
+            filter: drop-shadow(0 0 5px rgba(16, 185, 129, 0.55));
+          }
+          50% {
+            opacity: 1;
+            filter: drop-shadow(0 0 18px rgba(16, 185, 129, 0.95));
+          }
+        }
+        @keyframes movement_warning_breathe {
+          0%, 100% {
+            opacity: 0.68;
+            filter: drop-shadow(0 0 5px rgba(250, 204, 21, 0.58));
+          }
+          50% {
+            opacity: 1;
+            filter: drop-shadow(0 0 18px rgba(250, 204, 21, 0.95));
+          }
+        }
         @keyframes tutorial-glow {
           0%, 100% { box-shadow: 0 0 0 3px rgba(250,204,21,0.95), 0 0 28px rgba(250,204,21,0.45); }
           50% { box-shadow: 0 0 0 6px rgba(250,204,21,0.7), 0 0 44px rgba(250,204,21,0.72); }
@@ -3409,10 +3959,11 @@ function ArcadeRacingGame() {
           0%, 100% { opacity: 0.35; }
           50% { opacity: 0.75; }
         }
-        @keyframes deck-card-draw {
-          0% { opacity: 0; transform: translate(0, 0) scale(0.78) rotate(-10deg); }
-          18% { opacity: 1; }
-          100% { opacity: 0; transform: translate(-46vw, -20vh) scale(1.08) rotate(8deg); }
+        @keyframes deck-card-draw-to-hand {
+          0% { opacity: 0; transform: translate(0, 0) scale(0.72) rotate(-8deg); }
+          14% { opacity: 1; }
+          78% { opacity: 1; transform: translate(-40vw, -9vh) scale(1.04) rotate(6deg); }
+          100% { opacity: 0; transform: translate(-46vw, -12vh) scale(1.08) rotate(8deg); }
         }
         .tutorial-highlight {
           animation: tutorial-glow 1.2s ease-in-out infinite;
@@ -3592,16 +4143,31 @@ function ArcadeRacingGame() {
           {/* Render Cars - Initial D Manga Style */}
           {gameState && gameState.players.map(p => {
             const s = TRACK[p.lane][p.idx];
-            const lastCardType = p.lastPlayed ? CARDS[p.lastPlayed].type : null;
+            const lastCardType = p.lastPlayed ? CARDS[p.lastPlayed].rulesType : null;
             const isGas = lastCardType === 'Gas';
             const isTurn = lastCardType === 'Turn';
             const isBrake = lastCardType === 'Brake';
+            const showCarMpBadge = canControlActivePlayer && p.id === activePlayerId && (gameState.phase === 'MOVE' || gameState.phase === 'NN_MOVE') && activeMovePointsLeft > 0;
+            const carMpBadgeOffset = showCarMpBadge ? getRoadsideBadgeOffset(p, TRACK) : null;
 
             return (
               <g key={`car-${p.id}`} transform={`translate(${s.center.x}, ${s.center.y}) rotate(${s.angle})`} style={{ transition: 'transform 0.3s cubic-bezier(0.25, 1, 0.5, 1)' }} className="pointer-events-none">
 
                 {activeTutorialTarget === 'active-car' && p.id === activePlayerId && (
                   <ellipse cx="0" cy="0" rx="48" ry="68" fill="rgba(250,204,21,0.18)" stroke="#facc15" strokeWidth="8" className="tutorial-svg-highlight" />
+                )}
+
+                {showCarMpBadge && (
+                  <g
+                    transform={`translate(${carMpBadgeOffset.x}, ${carMpBadgeOffset.y})`}
+                    style={{ animation: 'movement_breathe 1.45s ease-in-out infinite' }}
+                  >
+                    <g transform={`rotate(${-s.angle})`}>
+                      <rect x="-40" y="-34" width="80" height="68" rx="14" fill="rgba(6, 78, 59, 0.86)" stroke="rgba(52, 211, 153, 0.55)" strokeWidth="3" />
+                      <text x="0" y="-2" fill="#6ee7b7" fontSize="34" fontWeight="900" fontFamily="sans-serif" textAnchor="middle">{activeMovePointsLeft}</text>
+                      <text x="0" y="24" fill="rgba(209, 250, 229, 0.85)" fontSize="22" fontWeight="900" fontFamily="sans-serif" textAnchor="middle">MP</text>
+                    </g>
+                  </g>
                 )}
 
                 {/* Dynamic Manga Skidmarks & Flames */}
@@ -3657,7 +4223,7 @@ function ArcadeRacingGame() {
         className="fixed left-4 top-4 z-[90] flex items-center gap-2 rounded-full border border-white/15 bg-zinc-950/80 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-zinc-200 shadow-2xl backdrop-blur-md transition hover:border-yellow-300 hover:bg-zinc-900 hover:text-yellow-200 no-pan"
       >
         <ChevronLeft size={16} />
-        Main Menu
+        {t('ui.main_menu', 'Main Menu')}
       </button>
 
       {/* Neck-and-Neck Warning Stripes Overlay */}
@@ -3672,10 +4238,10 @@ function ArcadeRacingGame() {
       {gameState?.overtakeEvent && (
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-none w-full overflow-hidden flex flex-col items-center">
           <div className="bg-gradient-to-r from-transparent via-red-600 to-transparent w-full py-6 transform -skew-y-3 shadow-[0_0_50px_rgba(220,38,38,0.8)] flex items-center justify-center animate-in zoom-in duration-200">
-            <h2 className="text-7xl font-black text-white italic tracking-tighter drop-shadow-2xl uppercase">OVERTAKE!</h2>
+            <h2 className="text-7xl font-black text-white italic tracking-tighter drop-shadow-2xl uppercase">{t('ui.overtake', 'OVERTAKE!')}</h2>
           </div>
           <div className="text-center mt-4 text-3xl font-black text-yellow-400 drop-shadow-[0_0_15px_rgba(251,191,36,0.8)] animate-bounce bg-black/50 px-8 py-2 rounded-full border border-yellow-500/30">
-            {gameState.overtakeEvent} takes the lead!
+            {t('ui.takes_lead', '{player} takes the lead!', { player: gameState.overtakeEvent })}
           </div>
         </div>
       )}
@@ -3687,7 +4253,7 @@ function ArcadeRacingGame() {
              <h2 className="text-8xl font-black text-white italic tracking-tighter drop-shadow-2xl uppercase">{gameState.crashEvent.type}!</h2>
           </div>
           <div className="mt-6 text-4xl font-black text-white drop-shadow-[0_0_25px_rgba(255,0,0,1)] animate-bounce bg-black/90 px-10 py-4 rounded-full border-2 border-red-500">
-            {gameState.crashEvent.name} suffers {gameState.crashEvent.penalty}
+            {t('ui.suffers_penalty', '{player} suffers {penalty}', { player: gameState.crashEvent.name, penalty: gameState.crashEvent.penalty })}
           </div>
         </div>
       )}
@@ -3701,7 +4267,7 @@ function ArcadeRacingGame() {
           <div className={`max-w-[calc(100vw-2rem)] rounded-full border-2 px-5 py-3 shadow-[0_0_32px_rgba(250,204,21,0.35)] backdrop-blur-md md:px-8 ${turnBanner.playerId === 0 ? 'border-red-400 bg-red-950/85' : 'border-blue-400 bg-blue-950/85'}`}>
             <div className="text-center text-[10px] font-black uppercase tracking-[0.35em] text-yellow-300">{turnBanner.label}</div>
             <div className={`mt-1 truncate text-center text-2xl font-black italic uppercase tracking-wide md:text-3xl ${turnBanner.playerId === 0 ? 'text-red-200' : 'text-blue-200'}`}>
-              {turnBanner.playerName} Plays
+              {t('ui.player_plays', '{player} Plays', { player: turnBanner.playerName })}
             </div>
           </div>
         </div>
@@ -3743,9 +4309,9 @@ function ArcadeRacingGame() {
             <div className="flex items-center justify-between border-b border-zinc-800 px-5 py-4">
               <div>
                 <div className="text-[10px] font-black uppercase tracking-[0.35em] text-orange-400">{visiblePilePlayer.name}</div>
-                <h2 className="text-2xl font-black uppercase text-white">Discard Pile ({visiblePilePlayer.discard.length})</h2>
+                <h2 className="text-2xl font-black uppercase text-white">{t('ui.discard_pile', 'Discard Pile ({count})', { count: visiblePilePlayer.discard.length })}</h2>
               </div>
-              <button onClick={() => setInspectDiscardOpen(false)} className="rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-black uppercase text-zinc-300 hover:border-white hover:text-white">Close</button>
+              <button onClick={() => setInspectDiscardOpen(false)} className="rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2 text-sm font-black uppercase text-zinc-300 hover:border-white hover:text-white">{t('ui.close', 'Close')}</button>
             </div>
             <div className="max-h-[70vh] overflow-y-auto p-5">
               {visiblePilePlayer.discard.length > 0 ? (
@@ -3757,7 +4323,7 @@ function ArcadeRacingGame() {
                   ))}
                 </div>
               ) : (
-                <div className="py-16 text-center text-sm font-bold uppercase tracking-widest text-zinc-500">No discarded cards</div>
+                <div className="py-16 text-center text-sm font-bold uppercase tracking-widest text-zinc-500">{t('ui.no_discarded_cards', 'No discarded cards')}</div>
               )}
             </div>
           </div>
@@ -3766,16 +4332,16 @@ function ArcadeRacingGame() {
 
       {showRecenter && (
         <button onClick={() => setPanOffset({ x: 0, y: 0 })} className="fixed top-32 left-1/2 -translate-x-1/2 bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-full font-bold shadow-2xl z-50 flex items-center gap-2 no-pan transition-all animate-bounce">
-          <Crosshair size={18} /> Recenter
+          <Crosshair size={18} /> {t('ui.recenter', 'Recenter')}
         </button>
       )}
 
-      <TutorialOverlay step={activeTutorialStep} onDismiss={dismissTutorial} onSkip={skipTutorial} />
+      <TutorialOverlay step={activeTutorialStep} onDismiss={dismissTutorial} onSkip={skipTutorial} t={t} />
 
       {/* N&N Top Info Banner */}
       {gameState?.isNNRound && (
          <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur border border-yellow-500 px-8 py-2 rounded-full shadow-2xl z-40 flex items-center gap-4 no-pan">
-             <span className="text-yellow-500 font-black italic tracking-widest uppercase">Neck and Neck</span>
+             <span className="text-yellow-500 font-black italic tracking-widest uppercase">{t('ui.neck_and_neck', 'Neck and Neck')}</span>
              {gameState.phase === 'NN_MOVE' && (
                 <span className="text-white font-bold">| {activePlayer.name}'s Step ({gameState.nnMpLeft[activePlayerId]} left)</span>
              )}
@@ -3787,7 +4353,11 @@ function ArcadeRacingGame() {
         <div className="absolute inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 no-pan pointer-events-auto">
           <div className="w-full max-w-4xl max-h-[96vh] overflow-y-auto bg-zinc-950 border-2 border-yellow-500 shadow-[0_0_60px_rgba(250,204,21,0.35)] rounded-2xl p-5 md:p-8 flex flex-col items-center">
             <div className="flex items-center gap-2 mb-5" aria-label={`Reveal step ${nnRevealStageIndex + 1} of 3`}>
-              {['LOCK IN', 'REVEAL', 'MOVE ORDER'].map((label, index) => (
+              {[
+                t('ui.lock_in', 'LOCK IN'),
+                t('ui.reveal', 'REVEAL'),
+                t('ui.move_order', 'MOVE ORDER')
+              ].map((label, index) => (
                 <div key={label} className={`flex items-center gap-2 ${index <= nnRevealStageIndex ? 'text-yellow-400' : 'text-zinc-600'}`}>
                   <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-black ${index === nnRevealStageIndex ? 'border-yellow-400 bg-yellow-400 text-black scale-110' : index < nnRevealStageIndex ? 'border-yellow-500 bg-yellow-950' : 'border-zinc-700'}`}>{index + 1}</div>
                   <span className="hidden sm:inline text-[10px] font-black tracking-widest">{label}</span>
@@ -3796,45 +4366,45 @@ function ArcadeRacingGame() {
               ))}
             </div>
             <div className="text-center mb-5">
-              <div className="text-xs md:text-sm font-black tracking-[0.35em] text-yellow-500 uppercase mb-2">Neck and Neck</div>
+              <div className="text-xs md:text-sm font-black tracking-[0.35em] text-yellow-500 uppercase mb-2">{t('ui.neck_and_neck', 'Neck and Neck')}</div>
               <h2 className="text-3xl md:text-5xl font-black italic text-white tracking-tight">
-                {nnRevealStage === 'faceDown' ? 'CARDS LOCKED IN' : nnRevealStage === 'revealed' ? 'SIMULTANEOUS REVEAL' : 'ACTION ORDER SET'}
+                {nnRevealStage === 'faceDown' ? t('ui.cards_locked_in', 'CARDS LOCKED IN') : nnRevealStage === 'revealed' ? t('ui.simultaneous_reveal', 'SIMULTANEOUS REVEAL') : t('ui.action_order_set', 'ACTION ORDER SET')}
               </h2>
               <p className="text-zinc-400 mt-2 text-sm">
-                {nnRevealStage === 'faceDown' ? 'Both drivers commit face down.' : nnRevealStage === 'revealed' ? 'Both cards flip together. Comparing pre-effect speed...' : 'The first movement step is decided before card effects resolve.'}
+                {nnRevealStage === 'faceDown' ? t('ui.both_commit_face_down', 'Both drivers commit face down.') : nnRevealStage === 'revealed' ? t('ui.cards_flip_together', 'Both cards flip together. Comparing pre-effect speed...') : t('ui.first_step_decided', 'The first movement step is decided before card effects resolve.')}
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-5 md:gap-12 items-center justify-center pointer-events-none">
               <div className="flex flex-col items-center">
                 <span className="text-red-500 font-black text-lg md:text-xl mb-3">{gameState.players[0].name}</span>
                 <div key={`p0-${nnRevealStage}`} className={`nn-card-stage ${nnRevealStage === 'faceDown' ? 'nn-card-deal-left' : nnRevealStage === 'revealed' ? 'nn-card-reveal' : ''}`}>
-                  {nnRevealStage === 'faceDown' ? <RenderCardBack playerId={0} /> : gameState.nnSelections[0] ? <RenderCard card={CARDS[gameState.nnSelections[0]]} scale={0.85} /> : <div className="w-48 h-64 border-2 border-dashed border-red-500/50 rounded-xl flex items-center justify-center text-red-500 font-bold bg-black/50">NO CARD</div>}
+                  {nnRevealStage === 'faceDown' ? <RenderCardBack playerId={0} /> : gameState.nnSelections[0] ? <RenderCard card={CARDS[gameState.nnSelections[0]]} scale={0.85} /> : <div className="w-48 h-64 border-2 border-dashed border-red-500/50 rounded-xl flex items-center justify-center text-red-500 font-bold bg-black/50">{t('ui.no_card', 'NO CARD')}</div>}
                 </div>
               </div>
               <div className="text-3xl font-black italic text-zinc-600">VS</div>
               <div className="flex flex-col items-center">
                 <span className="text-blue-500 font-black text-lg md:text-xl mb-3">{gameState.players[1].name}</span>
                 <div key={`p1-${nnRevealStage}`} className={`nn-card-stage ${nnRevealStage === 'faceDown' ? 'nn-card-deal-right' : nnRevealStage === 'revealed' ? 'nn-card-reveal' : ''}`}>
-                  {nnRevealStage === 'faceDown' ? <RenderCardBack playerId={1} /> : gameState.nnSelections[1] ? <RenderCard card={CARDS[gameState.nnSelections[1]]} scale={0.85} /> : <div className="w-48 h-64 border-2 border-dashed border-blue-500/50 rounded-xl flex items-center justify-center text-blue-500 font-bold bg-black/50">NO CARD</div>}
+                  {nnRevealStage === 'faceDown' ? <RenderCardBack playerId={1} /> : gameState.nnSelections[1] ? <RenderCard card={CARDS[gameState.nnSelections[1]]} scale={0.85} /> : <div className="w-48 h-64 border-2 border-dashed border-blue-500/50 rounded-xl flex items-center justify-center text-blue-500 font-bold bg-black/50">{t('ui.no_card', 'NO CARD')}</div>}
                 </div>
               </div>
             </div>
             {nnRevealStage === 'decision' && (
               <>
                 <div className={`nn-decision-pop mt-5 w-full max-w-xl border-2 rounded-xl px-5 py-3 text-center ${nnFirstMover.id === 0 ? 'border-red-500 bg-red-950/50' : 'border-blue-500 bg-blue-950/50'}`}>
-                  <div className="text-xs font-black tracking-[0.3em] text-zinc-400 uppercase">First Movement Step</div>
+                  <div className="text-xs font-black tracking-[0.3em] text-zinc-400 uppercase">{t('ui.first_movement_step', 'First Movement Step')}</div>
                   <div className={`text-2xl md:text-3xl font-black italic mt-1 ${nnFirstMover.id === 0 ? 'text-red-400' : 'text-blue-400'}`}>
-                    {nnFirstMover.name} MOVES FIRST
+                    {t('ui.moves_first', '{player} MOVES FIRST', { player: nnFirstMover.name })}
                   </div>
-                  <div className="text-xs text-zinc-400 mt-1">Then movement alternates one point at a time.</div>
+                  <div className="text-xs text-zinc-400 mt-1">{t('ui.then_alternates', 'Then movement alternates one point at a time.')}</div>
                 </div>
                 {gameMode !== 'OnlinePvP' || onlineSession.role === 'host' ? (
                   <button onClick={resolveNNReveal} className="nn-decision-pop mt-5 px-8 py-3 bg-yellow-400 hover:bg-yellow-300 active:bg-yellow-500 text-black text-lg font-black uppercase tracking-wider rounded-lg shadow-[0_0_25px_rgba(250,204,21,0.4)] transition-colors">
-                    Close Banner & Start Movement
+                    {t('ui.close_banner_start_movement', 'Close Banner & Start Movement')}
                   </button>
                 ) : (
                   <div className="nn-decision-pop mt-5 rounded-full border border-zinc-700 bg-black/70 px-6 py-3 text-sm font-black uppercase tracking-widest text-zinc-300">
-                    Waiting for host to start movement
+                    {t('ui.waiting_host_movement', 'Waiting for host to start movement')}
                   </div>
                 )}
               </>
@@ -3845,40 +4415,40 @@ function ArcadeRacingGame() {
       {/* Prompts Overlay */}
       <div className={`absolute top-1/4 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex flex-col items-center no-pan ${activeTutorialTarget === 'prompt' ? 'tutorial-highlight' : ''}`}>
         {isAITurn ? (
-           <div className="bg-black/80 px-6 py-3 rounded-full border border-zinc-700 flex items-center gap-3 animate-pulse shadow-2xl"><Bot className="text-blue-400" /><span className="font-bold text-lg">AI is thinking...</span></div>
+           <div className="bg-black/80 px-6 py-3 rounded-full border border-zinc-700 flex items-center gap-3 animate-pulse shadow-2xl"><Bot className="text-blue-400" /><span className="font-bold text-lg">{t('ui.ai_thinking', 'AI is thinking...')}</span></div>
         ) : showBonusTurnPrompt ? (
-           <div className="bg-black/80 px-6 py-3 rounded-full border border-zinc-700 flex items-center gap-3 shadow-2xl"><FastForward className="text-yellow-300" /><span className="font-bold text-lg">Bonus turn</span></div>
+           <div className="bg-black/80 px-6 py-3 rounded-full border border-zinc-700 flex items-center gap-3 shadow-2xl"><FastForward className="text-yellow-300" /><span className="font-bold text-lg">{t('ui.bonus_turn', 'Bonus turn')}</span></div>
         ) : isOnlineGame && !isLocalPlayersTurn && ['PLAY_CARD', 'NN_SELECT_CARD', 'MOVE', 'NN_MOVE', 'DISCARD', 'CARD_CYCLE', 'NN_CARD_CYCLE', 'SLIPSTREAM', 'CARD_CHOICE'].includes(gameState.phase) ? (
-           <div className="bg-black/80 px-6 py-3 rounded-full border border-zinc-700 flex items-center gap-3 shadow-2xl"><Radio className="text-blue-300" /><span className="font-bold text-lg">Waiting for {activePlayer.name}</span></div>
+           <div className="bg-black/80 px-6 py-3 rounded-full border border-zinc-700 flex items-center gap-3 shadow-2xl"><Radio className="text-blue-300" /><span className="font-bold text-lg">{t('ui.waiting_for_player', 'Waiting for {player}', { player: activePlayer.name })}</span></div>
         ) : (
           <>
             {canControlActivePlayer && gameState.phase === 'SLIPSTREAM' && (
               <div className="bg-black/90 p-6 rounded-2xl border border-zinc-700 shadow-2xl text-center pointer-events-auto">
-                <h3 className="text-xl font-black text-yellow-400 mb-4">SLIPSTREAM AVAILABLE</h3>
+                <h3 className="text-xl font-black text-yellow-400 mb-4">{t('ui.slipstream_available', 'SLIPSTREAM AVAILABLE')}</h3>
                 <div className="flex gap-4">
-                  <button onClick={() => acceptSlipstream(true)} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-bold">Take (+10 km/h)</button>
-                  <button onClick={() => acceptSlipstream(false)} className="px-6 py-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg font-bold">Refuse</button>
+                  <button onClick={() => acceptSlipstream(true)} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-bold">{t('ui.take_slipstream', 'Take (+10 km/h)')}</button>
+                  <button onClick={() => acceptSlipstream(false)} className="px-6 py-3 bg-zinc-700 hover:bg-zinc-600 rounded-lg font-bold">{t('ui.refuse', 'Refuse')}</button>
                 </div>
               </div>
             )}
             {canControlActivePlayer && gameState.phase === 'CARD_CHOICE' && (
               <div className="bg-black/90 p-6 rounded-2xl border border-yellow-500 shadow-2xl text-center pointer-events-auto min-w-[360px]">
                 <h3 className="text-xl font-black text-yellow-400 mb-2">
-                  {activeChoiceType === 'torque_split' ? 'TORQUE SPLIT' : activeChoiceType === 'micro_correction' ? 'MICRO CORRECTION' : 'CHANGE SHIFT'}
+                  {activeChoiceType === 'torque_split' ? t('ui.torque_split', 'TORQUE SPLIT') : activeChoiceType === 'micro_correction' ? t('ui.micro_correction', 'MICRO CORRECTION') : t('ui.change_shift', 'CHANGE SHIFT')}
                 </h3>
                 <p className="mb-4 text-sm font-bold text-zinc-400">
-                  {activeChoiceType === 'torque_split' ? 'Choose speed now or corner limit this turn.' : activeChoiceType === 'micro_correction' ? 'Choose speed adjustment after the speed check.' : 'Choose shift direction.'}
+                  {activeChoiceType === 'torque_split' ? t('ui.choose_speed_or_check', 'Choose speed now or corner limit this turn.') : activeChoiceType === 'micro_correction' ? t('ui.choose_speed_adjustment', 'Choose speed adjustment after the speed check.') : t('ui.choose_shift_direction', 'Choose shift direction.')}
                 </p>
                 <div className="flex flex-wrap justify-center gap-4">
                   {activeChoiceType === 'torque_split' ? (
                     <>
-                      <button onClick={() => resolveCardChoice('speed')} className="px-6 py-3 bg-yellow-500 hover:bg-yellow-400 rounded-lg font-black text-black">Speed +30</button>
-                      <button onClick={() => resolveCardChoice('check_bonus')} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-black text-white">Check +40</button>
+                      <button onClick={() => resolveCardChoice('speed')} className="px-6 py-3 bg-yellow-500 hover:bg-yellow-400 rounded-lg font-black text-black">{t('ui.speed_plus', 'Speed +{amount}', { amount: 30 })}</button>
+                      <button onClick={() => resolveCardChoice('check_bonus')} className="px-6 py-3 bg-blue-600 hover:bg-blue-500 rounded-lg font-black text-white">{t('ui.check_plus', 'Check +{amount}', { amount: 40 })}</button>
                     </>
                   ) : (
                     <>
-                      <button onClick={() => resolveCardChoice('speed_up')} className="px-6 py-3 bg-yellow-500 hover:bg-yellow-400 rounded-lg font-black text-black">Speed +10</button>
-                      <button onClick={() => resolveCardChoice('speed_down')} className="px-6 py-3 bg-red-700 hover:bg-red-600 rounded-lg font-black text-white">Speed -10</button>
+                      <button onClick={() => resolveCardChoice('speed_up')} className="px-6 py-3 bg-yellow-500 hover:bg-yellow-400 rounded-lg font-black text-black">{t('ui.speed_plus', 'Speed +{amount}', { amount: 10 })}</button>
+                      <button onClick={() => resolveCardChoice('speed_down')} className="px-6 py-3 bg-red-700 hover:bg-red-600 rounded-lg font-black text-white">{t('ui.speed_minus', 'Speed -{amount}', { amount: 10 })}</button>
                     </>
                   )}
                 </div>
@@ -3891,11 +4461,11 @@ function ArcadeRacingGame() {
 
       {/* Fanned Cards UI */}
       {activeHandVisible && (
-        <div className={`absolute ${activeHandTucked ? '-bottom-28' : 'bottom-8'} left-[40%] -translate-x-1/2 flex items-end justify-center z-40 w-full no-pan transition-all duration-300`} style={{ perspective: '1200px' }}>
+        <div className={`pointer-events-none absolute ${activeHandTucked ? '-bottom-28' : 'bottom-8'} left-[40%] -translate-x-1/2 flex items-end justify-center z-40 w-full no-pan transition-all duration-300`} style={{ perspective: '1200px' }}>
           <div className="relative flex justify-center h-64 items-end w-full max-w-[1200px]">
              {activeTutorialTarget === 'hand' && <div className="pointer-events-none absolute bottom-[-2px] left-1/2 h-[270px] w-[min(660px,82vw)] -translate-x-1/2 rounded-xl border-2 border-yellow-300 shadow-[0_0_34px_rgba(250,204,21,0.55)] tutorial-svg-highlight" />}
              <div className={`absolute -top-12 px-6 py-2 rounded-full border text-sm font-bold shadow-2xl ${gameState.phase === 'NN_SELECT_CARD' ? 'bg-yellow-900/90 border-yellow-500 text-yellow-200 animate-pulse' : activeHandTucked ? 'bg-zinc-950/90 border-zinc-700 text-zinc-500' : 'bg-black/80 border-zinc-800 text-zinc-300'}`}>
-               {gameState.phase === 'NN_SELECT_CARD' ? 'Lock in 1 Card Face Down!' : activeHandTucked ? 'Hand Locked During Movement' : 'Play 1 Driving Card'}
+               {activeHandLabel}
              </div>
              {visibleHandPlayer.hand.map((cardId, idx) => {
                const card = CARDS[cardId];
@@ -3909,7 +4479,7 @@ function ArcadeRacingGame() {
                return (
                  <div
                     key={idx}
-                    className="absolute bottom-0"
+                    className="pointer-events-auto absolute bottom-0"
                     onMouseEnter={() => (playable || activeHandTucked) && setHoveredCardIdx(idx)}
                     onMouseLeave={() => setHoveredCardIdx(null)}
                     style={{
@@ -3931,7 +4501,7 @@ function ArcadeRacingGame() {
                );
              })}
           </div>
-          {activeHandCanPlay && <button onClick={skipToDiscard} className="absolute -bottom-2 right-[25%] px-9 py-6 bg-red-950/80 hover:bg-red-900 border border-red-900 rounded-lg text-m font-bold text-red-200 transition-colors shadow-2xl">Skip/Refresh</button>}
+          {activeHandCanPlay && <button onClick={skipToDiscard} className="pointer-events-auto absolute -bottom-2 right-[25%] px-9 py-6 bg-red-950/80 hover:bg-red-900 border border-red-900 rounded-lg text-m font-bold text-red-200 transition-colors shadow-2xl">{t('ui.skip_refresh', 'Skip/Refresh')}</button>}
         </div>
       )}
 
@@ -3939,7 +4509,7 @@ function ArcadeRacingGame() {
       {canControlActivePlayer && gameState.phase === 'DISCARD' && (
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center justify-end z-40 w-full no-pan max-w-4xl h-64">
              <div className="absolute -top-16 bg-red-900/90 px-6 py-2 rounded-full border border-red-500 text-sm font-bold text-white shadow-2xl animate-pulse">
-                Select cards to discard (Optional)
+                {t('ui.select_discard_optional', 'Select cards to discard (Optional)')}
              </div>
              <div className="flex gap-4 mb-4">
                {activePlayer.hand.map((cardId, idx) => (
@@ -3952,7 +4522,7 @@ function ArcadeRacingGame() {
                ))}
              </div>
              <button onClick={confirmDiscard} className="px-10 py-3 bg-blue-600 hover:bg-blue-500 rounded-xl text-lg font-black text-white transition-colors shadow-2xl border-2 border-blue-400">
-                Confirm Discard
+                {t('ui.confirm_discard', 'Confirm Discard')}
              </button>
         </div>
       )}
@@ -3962,9 +4532,9 @@ function ArcadeRacingGame() {
         <div className="absolute inset-0 z-[110] bg-black/65 backdrop-blur-sm flex items-end justify-center p-6 no-pan">
           <div className="w-full max-w-5xl bg-zinc-950/95 border-2 border-emerald-500 rounded-2xl shadow-[0_0_40px_rgba(16,185,129,0.25)] p-5 flex flex-col items-center">
             <div className="text-center mb-4">
-              <div className="text-xs font-black tracking-[0.3em] text-emerald-400 uppercase">{activeCycleRequired ? 'Required Discard' : 'Optional Hand Cycling'}</div>
-              <h3 className="text-xl font-black text-white mt-1">{activePlayer.name}: {activeCycleRequired ? `discard ${activeCycleNeeded} card` : `discard up to ${activeCycleMax} card`}</h3>
-              <p className="text-sm text-zinc-400 mt-1">Selected cards go to your discard pile. Your hand refills at turn end.</p>
+              <div className="text-xs font-black tracking-[0.3em] text-emerald-400 uppercase">{activeCycleRequired ? t('ui.required_discard', 'Required Discard') : t('ui.optional_hand_cycling', 'Optional Hand Cycling')}</div>
+              <h3 className="text-xl font-black text-white mt-1">{activePlayer.name}: {activeCycleRequired ? t('ui.discard_n_card', 'discard {count} card', { count: activeCycleNeeded }) : t('ui.discard_up_to_n_card', 'discard up to {count} card', { count: activeCycleMax })}</h3>
+              <p className="text-sm text-zinc-400 mt-1">{t('ui.selected_refills', 'Selected cards go to your discard pile. Your hand refills at turn end.')}</p>
             </div>
             <div className="flex gap-3 max-w-full overflow-x-auto px-3 pt-2 pb-4">
               {activePlayer.hand.map((cardId, idx) => (
@@ -3978,7 +4548,7 @@ function ArcadeRacingGame() {
               ))}
             </div>
             <button onClick={() => confirmCardCycle()} disabled={activeCycleRequired && discardSelection.length < activeCycleNeeded} className={`px-8 py-3 rounded-lg text-base font-black uppercase tracking-wider transition-colors ${activeCycleRequired && discardSelection.length < activeCycleNeeded ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed' : 'bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-black'}`}>
-              {discardSelection.length > 0 ? `Discard ${discardSelection.length} & Continue` : activeCycleRequired ? 'Select Card' : 'Keep Hand & Continue'}
+              {discardSelection.length > 0 ? t('ui.discard_continue', 'Discard {count} & Continue', { count: discardSelection.length }) : activeCycleRequired ? t('ui.select_card', 'Select Card') : t('ui.keep_hand_continue', 'Keep Hand & Continue')}
             </button>
           </div>
         </div>
@@ -3990,7 +4560,7 @@ function ArcadeRacingGame() {
           {isRadioOpen ? <ChevronRight /> : <Radio className="animate-pulse" />}
         </button>
         <div className="p-6 border-b border-zinc-800 bg-zinc-900/50">
-          <h2 className="text-lg font-black uppercase tracking-widest flex items-center gap-2 text-zinc-100"><Radio size={20} className="text-green-500" />Race Radio</h2>
+          <h2 className="text-lg font-black uppercase tracking-widest flex items-center gap-2 text-zinc-100"><Radio size={20} className="text-green-500" />{t('ui.race_radio', 'Race Radio')}</h2>
         </div>
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {gameState && gameState.logs.map((log, i) => <div key={i} className={`text-sm ${i === 0 ? 'text-white font-bold' : 'text-zinc-500'}`}>{log}</div>)}
@@ -3999,8 +4569,8 @@ function ArcadeRacingGame() {
 
       {appState === 'GAMEOVER' && (
         <div className="absolute inset-0 bg-black/90 z-50 flex items-center justify-center flex-col backdrop-blur-sm no-pan">
-          <h1 className="text-7xl font-black mb-4 text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 drop-shadow-[0_0_20px_rgba(253,224,71,0.5)]">FINISH - {gameState.winner} WINS!</h1>
-          <button onClick={() => setAppState('TITLE')} className="mt-8 px-10 py-4 bg-white text-black text-xl font-black rounded-full hover:bg-zinc-200 transition-colors shadow-[0_0_20px_rgba(255,255,255,0.5)]">Back to Title</button>
+          <h1 className="text-7xl font-black mb-4 text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 drop-shadow-[0_0_20px_rgba(253,224,71,0.5)]">{t('ui.finish_wins', 'FINISH - {player} WINS!', { player: gameState.winner })}</h1>
+          <button onClick={() => setAppState('TITLE')} className="mt-8 px-10 py-4 bg-white text-black text-xl font-black rounded-full hover:bg-zinc-200 transition-colors shadow-[0_0_20px_rgba(255,255,255,0.5)]">{t('ui.back_to_title', 'Back to Title')}</button>
         </div>
       )}
 
@@ -4024,12 +4594,14 @@ function ArcadeRacingGame() {
     </div>
   );
 }
-
-
 ReactDOM.createRoot(document.getElementById('root')).render(<ArcadeRacingGame />);
   </script>
 </body>
 </html>
+
+
+
+
 
 
 

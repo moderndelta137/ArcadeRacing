@@ -81,7 +81,7 @@ Printed plate serial format:
 
 ## AE86-01. Drift
 
-**Requirement:** Max 60  
+**Requirement:** Max 70  
 **Type:** Turn  
 **Timing:** Drive  
 **Implemented:** Yes  
@@ -151,7 +151,7 @@ line control / cornering card for Bright Red AE86.
 ---
 ## AE86-06. Early Brake Cornering
 
-**Requirement:** Max 60  
+**Requirement:** Max 110  
 **Type:** Turn  
 **Timing:** Before  
 **Implemented:** Yes  
@@ -165,7 +165,7 @@ line control / cornering card for Bright Red AE86.
 ---
 ## AE86-07. Rocket Start
 
-**Requirement:** Max 40  
+**Requirement:** Max 50  
 **Type:** Gas  
 **Timing:** After  
 **Implemented:** Yes  

@@ -1,17 +1,19 @@
-# Arcade Racing Game Design Document
+# Mountain Chase: Drift Duel Game Design Document
 
-Working title: **Untitled 1v1 Arcade Racing Card Game**  
-Version: **GDD v0.2**
+Game title: **山道疾走：ドリフトデュエル Mountain Chase: Drift Duel**  
+Short English title: **Mountain Chase: Drift Duel**  
+Tagline: **Tactical Drift Card Battles**  
+Version: **GDD v0.3 working update**
 
 ---
 
 ## 1. Game Overview
 
-This is a mostly 1v1 arcade racing board game about speed control, lane positioning, drifting, braking, slipstreaming, and overtaking.
+**Mountain Chase: Drift Duel** is a 1v1 arcade mountain-racing card game about speed control, lane positioning, drifting, braking, slipstreaming, and overtaking.
 
 Players race on a track built from a shared **Road Deck**. Each player controls one car miniature and uses a personal deck of **Driving Cards** to accelerate, brake, turn, drift, and control their racing line.
 
-The game focuses on the feeling of arcade racing games such as *Initial D* or *Need for Speed*: stylish cornering, risky speed management, and dramatic overtakes.
+The game focuses on the feeling of touge and arcade racing games: stylish cornering, risky speed management, mountain-road pressure, and dramatic overtakes.
 
 The central question every turn is:
 
@@ -19,11 +21,17 @@ The central question every turn is:
 
 ---
 
-## 2. Player Count
+## 2. Player Count and Modes
 
-The base game is designed for:
+The base game is designed as:
 
 - **2 players**
+
+The current browser prototype supports:
+
+- **VS AI Racers**: 1 human player versus CPU.
+- **Local 2 Player**: two players sharing one device.
+- **Online 2 Player**: host / guest room-key matchmaking.
 
 Future expansions may support more players, but the prototype rules assume 1v1 racing.
 
@@ -48,6 +56,8 @@ The Goal card is always the final card of the Road Deck.
 - Guardrail / no-guardrail indicators printed on road cards
 - Track direction markers, such as uphill / downhill direction
 - Optional global condition cards, such as Rain or Fog, for future expansion
+- Course selection cards or course reference panels for named routes
+- Card Codex / reference archive in the digital prototype
 
 ### 4.2 Player Components
 
@@ -61,6 +71,8 @@ Each player has:
 - 1 Needle Card
 - 1 car profile card
 - Optional car parts for advanced rules
+
+The digital prototype also uses car portraits, car cutouts, implemented card art, generated course backgrounds, and a circular speed-meter HUD asset.
 
 ---
 
@@ -517,7 +529,7 @@ It represents the race track.
 
 ### 13.1 Road Deck Structure
 
-For the prototype:
+For the physical prototype:
 
 - The Road Deck contains 10 road cards.
 - The final card is always the Goal card.
@@ -532,17 +544,37 @@ The lead player reveals and connects road cards, but does not choose their orien
 
 The lead player is maintaining the road, not controlling the track.
 
+For the current browser prototype:
+
+- The track begins with a **Start Straight** and ends with a **Finish Straight** containing the Goal space.
+- Between those fixed pieces, the game generates a route from weighted road-card families.
+- The generator avoids immediately repeating the same road-card family.
+- The generator retries layouts that would visually overlap earlier track sections.
+- Named courses use fixed seeds and course lengths so the same route can be replayed.
+- The Wildcard Route uses a selectable size and variable seed/background.
+
+Current course options:
+
+| Course | Region | Difficulty | Length | Generated road-card count |
+|---|---|---|---|---:|
+| Akagi Redline | Gunma | Technical | Short | 5 |
+| Haruna Skyline | Gunma | Balanced | Medium | 8 |
+| Hakone Turnpike | Kanagawa | High Speed | Long | 12 |
+| Wildcard Route | Unknown | Variable | Small / Medium / Long | 5 / 8 / 12 |
+
 ---
 
 ### 13.2 Revealed Road Cards
 
-At the start of the game, reveal and connect the first 3 road cards.
+In the tabletop rules, at the start of the game, reveal and connect the first 3 road cards.
 
 During the race:
 
 > The lead player reveals and connects 1 road card when there are fewer than 3 unreached road cards ahead of the players.
 
 This keeps about 3 road cards visible ahead so players can plan.
+
+In the browser prototype, the full generated route is visible as a top-down board. The design intent is still the same: the player should be able to read upcoming corners and decide whether to accelerate, brake, or set up their racing line.
 
 ---
 
@@ -655,7 +687,22 @@ If a road card has multiple speed-limit signs, each sign should clearly point to
 
 ### 14A.4 Prototype Road Card Families
 
-Use these as the first road-card families.
+The current browser prototype uses `racing_corner_cards.csv` when available, with these fallback road-card families:
+
+| Road-card family | Shape | Entry / exit spaces | Inner / outer spaces | Speed limit |
+|---|---|---:|---:|---:|
+| Sweeper | Single 70 degree curve | 1 / 2 | 3 / 4 | 80 km/h |
+| Hairpin | Single 180 degree curve | 3 / 2 | 3 / 5 | 40 km/h |
+| Chicane | Two opposite 45 degree curves | 2 / 1 | 2 / 3 each curve | 60 km/h |
+| Increasing Radius | Tight 45 degree curve into wider 45 degree curve | 1 / 3 | 2 / 3, then 3 / 4 | 50 then 70 km/h |
+| Decreasing Radius | Wider 45 degree curve into tight 45 degree curve | 3 / 1 | 3 / 4, then 2 / 3 | 70 then 50 km/h |
+| Double Apex | 65 degree curve, 1 straight space, 65 degree curve | 2 / 0 | 2 / 3 each curve | 50 km/h |
+| 90 Degree Corner | Single 90 degree curve | 1 / 1 | 2 / 3 | 60 km/h |
+| Straight | 5 to 7 straight spaces | 0 / 0 | same lane length | none |
+
+Curve direction may be random, repeated, or opposite depending on the family. Outer-lane speed-limit checks begin later on asymmetric corners, preserving the tabletop principle that the outer lane is longer but safer.
+
+Legacy paper-prototype guidance:
 
 #### Gentle Corner
 
@@ -1090,10 +1137,21 @@ This means:
 
 ### 31.1 Prepare Road Deck
 
-1. Build a 10-card Road Deck.
+For tabletop testing:
+
+1. Build a Road Deck.
 2. Place the Goal card as the final card.
 3. Shuffle or arrange the remaining road cards according to the chosen race.
 4. Reveal and connect the first 3 road cards.
+
+For the browser prototype:
+
+1. Choose a mode from the title screen: VS AI Racers, Local 2 Player, or Online 2 Player.
+2. Choose a course: Akagi Redline, Haruna Skyline, Hakone Turnpike, or Wildcard Route.
+3. If using a named course, choose downhill or uphill direction.
+4. If using Wildcard Route, choose small, medium, or long route size.
+5. Generate the route from the selected course seed / wildcard settings.
+6. Place both cars on the Start Straight.
 
 ### 31.2 Prepare Players
 
@@ -1106,6 +1164,15 @@ Each player:
 5. Shuffles their deck.
 6. Draws 4 cards.
 7. Sets speed to the maximum speed of 1st Gear.
+
+Current selectable cars:
+
+| Car | Drive | Prototype identity |
+|---|---|---|
+| Toyota AE86 | RWD | Lightweight balance, predictable drifts, and fast line changes. |
+| Lamborghini Huracan | AWD | Explosive exits and strong grip when power comes down early. |
+| Porsche 911 | RWD | Rear-engine traction and precise corrections through technical bends. |
+| Mustang GT500 | RWD | Raw straight-line power and door-to-door pressure. |
 
 For the base Gear table, this means:
 
@@ -1121,6 +1188,16 @@ The other player starts as the following player.
 
 Place the cars one after another at the starting line so the game begins in a clear lead/following state, not neck and neck.
 
+### 31.4 Title Screen and Reference Flow
+
+The current digital front end is part of the prototype design:
+
+- The title screen uses the `title-logo-transparent.png` logo for **山道疾走：ドリフトデュエル Mountain Chase: Drift Duel**.
+- The subtitle / mood line is **Tactical Drift Card Battles**.
+- The title screen offers VS AI Racers, Local 2 Player, Online 2 Player, and Codex.
+- Online play uses a host / guest room-key flow. The host creates the room and starts setup after the guest connects and marks ready.
+- The Codex is a card archive with tabs for Racing Cards and Road Cards. It supports hover / click inspection and should remain the main in-game reference surface for prototype content.
+
 ---
 
 ## 32. Example Cards
@@ -1129,13 +1206,13 @@ The current card list comes from [racing_cards.csv](racing_cards.csv). The separ
 
 | Serial | Card | Type | Requirement | Timing | Effect | Implemented |
 |---|---|---|---|---|---|---|
-| `AE86-01` | Drift | Turn | Max 60 | Drive | +30 km/h to the speed check this turn. | Yes |
+| `AE86-01` | Drift | Turn | Max 70 | Drive | +30 km/h to the speed check this turn. | Yes |
 | `AE86-02` | Full throttle | Gas | Any | Before | Speed +40 km/h. | Yes |
 | `AE86-03` | Back down | Brake | Any | Before | Speed -20 km/h. Discard 1 card. | Yes |
 | `AE86-04` | Hard Brake | Brake | Min 50 | Before | Speed -50 km/h. | Yes |
 | `AE86-05` | Change Lane | Turn | Any | Before | Move to the other lane. Discard 1 card. | Yes |
-| `AE86-06` | Early Brake Cornering | Turn | Max 60 | Before | Speed -20 km/h. Move to the inner lane. | Yes |
-| `AE86-07` | Rocket Start | Gas | Max 40 | After | Speed +50 km/h. You may discard 2 cards. | Yes |
+| `AE86-06` | Early Brake Cornering | Turn | Max 110 | Before | Speed -20 km/h. Move to the inner lane. | Yes |
+| `AE86-07` | Rocket Start | Gas | Max 50 | After | Speed +50 km/h. You may discard 2 cards. | Yes |
 | `AE86-08` | Change Shift | Gas | Any | Before | Speed +10 km/h or -10 km/h. You may then play another card. | Yes |
 | `HRCN-01` | Clutch Kick | Gas | Min 60 | Before | Speed +20 km/h. This turn, your first speed check gains +50 km/h. | Yes |
 | `HRCN-02` | Trail Braking | Brake | Max 80 | Drive | Before each speed check this turn, you may reduce Speed by 10 km/h. | Yes |
@@ -1232,32 +1309,26 @@ Shape: Gas 6 / Brake 3 / Turn 3. This deck keeps Common acceleration/braking as 
 Shape: Gas 5 / Brake 4 / Attack 3. This deck keeps enough control cards to recover from heavy speed spikes, then gives the Mustang contact pressure through blocking punishment and lane-force tools. Burn Rubber and No Room stay out of the first playable deck as more situational tuning cards.
 
 ---
-## 34. Prototype Road Deck Suggestion
+## 34. Prototype Course Structure
 
-For the first playtest, use 10 road cards:
+The current prototype no longer uses one fixed 10-card first-playtest route as the main experience. Instead, players choose a named course or a wildcard route during setup.
 
-| Road Type | Copies |
-|---|---:|
-| Straight | 3 |
-| Gentle Corner | 3 |
-| Medium Corner | 2 |
-| Sharp Corner | 1 |
-| Goal | 1 |
+Current route structure:
 
-Recommended first prototype structure:
+1. Start Straight
+2. Generated road-card sequence based on course length
+3. Finish Straight with Goal space
 
-1. Straight
-2. Gentle Corner
-3. Straight
-4. Medium Corner
-5. Gentle Corner
-6. Sharp Corner
-7. Straight
-8. Medium Corner
-9. Gentle Corner
-10. Goal
+Named courses:
 
-This fixed order is easier for the first playtest than a fully random road deck.
+| Course | Road-card sequence length | Design role |
+|---|---:|---|
+| Akagi Redline | 5 | Short technical route for fast tests and tutorial play. |
+| Haruna Skyline | 8 | Medium route and default-feeling balanced race. |
+| Hakone Turnpike | 12 | Longer, higher-speed race with more room for comeback and deck cycling. |
+| Wildcard Route | 5 / 8 / 12 | Variable route for replayability. |
+
+The earlier 10-card fixed road deck remains useful for tabletop paper testing, but the browser prototype should be documented and tuned around the course-select model.
 
 ---
 
@@ -1634,3 +1705,11 @@ The latest prototype component direction is:
 - Print speed-limit signs next to corners.
 - Give the outer lane more spaces than the inner lane.
 - Balance the inner lane by giving it more speed-limit check spaces.
+- Present the game under the final prototype name **山道疾走：ドリフトデュエル Mountain Chase: Drift Duel**.
+- Use the title-logo asset and the **Tactical Drift Card Battles** subtitle as the front-door identity.
+- Support VS AI Racers, Local 2 Player, and Online 2 Player from the title screen.
+- Use course select as a major setup step, with Akagi Redline, Haruna Skyline, Hakone Turnpike, and Wildcard Route.
+- Use generated top-down mountain-road layouts in the browser prototype while preserving Road Cards as the underlying design language.
+- Keep Driving Cards and Road Cards readable through the Codex.
+- Show current move points near the active car during movement so tactical options stay visible on the board.
+- In PvE, keep the human player's hand and discard pile visible while the rival turn is locked.

@@ -1,11 +1,11 @@
 id,name,category,requirement,type,timing,effect,implemented,deck_code,serial_number
-drift,Drift,Common / Starter Cards - Bright Red AE86,Max 60,Turn,Drive,+30 km/h to the speed check this turn.,TRUE,AE86,AE86-01
+drift,Drift,Common / Starter Cards - Bright Red AE86,Max 70,Turn,Drive,+30 km/h to the speed check this turn.,TRUE,AE86,AE86-01
 full_throttle,Full throttle,Common / Starter Cards - Bright Red AE86,Any,Gas,Before,Speed +40 km/h.,TRUE,AE86,AE86-02
 back_down,Back down,Common / Starter Cards - Bright Red AE86,Any,Brake,Before,Speed -20 km/h. Discard 1 card.,TRUE,AE86,AE86-03
 hard_brake,Hard Brake,Balance set / Starter Cards - Bright Red AE86,Min 50,Brake,Before,Speed -50 km/h. ,TRUE,AE86,AE86-04
 change_lane,Change Lane,Balance set / Starter Cards - Bright Red AE86,Any,Turn,Before,Move to the other lane. Discard 1 card.,TRUE,AE86,AE86-05
-early_brake_cornering,Early Brake Cornering,Balance set / Starter Cards - Bright Red AE86,Max 60,Turn,Before,Speed -20 km/h. Move to the inner lane.,TRUE,AE86,AE86-06
-rocket_start,Rocket Start,Balance set / Starter Cards - Bright Red AE86,Max 40,Gas,After,Speed +50 km/h. You may discard 2 cards.,TRUE,AE86,AE86-07
+early_brake_cornering,Early Brake Cornering,Balance set / Starter Cards - Bright Red AE86,Max 110,Turn,Before,Speed -20 km/h. Move to the inner lane.,TRUE,AE86,AE86-06
+rocket_start,Rocket Start,Balance set / Starter Cards - Bright Red AE86,Max 50,Gas,After,Speed +50 km/h. You may discard 2 cards.,TRUE,AE86,AE86-07
 change_shift,Change Shift,Balance set / Starter Cards - Bright Red AE86,Any,Gas,Before,Speed +10 km/h or -10 km/h. You may then play another card.,TRUE,AE86,AE86-08
 clutch_kick,Clutch Kick,RWD Drift set - Bright Green Lamborghini Huracan,Min 60,Gas,Before,"Speed +20 km/h. This turn, your first speed check gains +50 km/h.",TRUE,HRCN,HRCN-01
 trail_braking,Trail Braking,RWD Drift set - Bright Green Lamborghini Huracan,Max 80,Brake,Drive,"Before each speed check this turn, you may reduce Speed by 10 km/h.",TRUE,HRCN,HRCN-02
