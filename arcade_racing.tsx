@@ -4115,7 +4115,6 @@ export default function ArcadeRacingGame() {
   }
 
   if (appState === 'SELECT') {
-    const selectedCourse = COURSE_OPTIONS.find(course => course.id === selectedCourseId) || COURSE_OPTIONS[0];
     const onlineRole = gameMode === 'OnlinePvP' ? onlineSession.role : null;
     const activePicker = gameMode === 'PvE' ? activeCarPlayer : onlineRole === 'guest' ? 1 : onlineRole === 'host' ? 0 : activeCarPlayer;
     const canEditCourse = gameMode !== 'OnlinePvP' || onlineRole === 'host';
@@ -4134,7 +4133,15 @@ export default function ArcadeRacingGame() {
       ...car,
       specialty: t(`car.${car.id}.specialty`, car.specialty)
     }));
+    const localizedCourseOptions = COURSE_OPTIONS.map(course => ({
+      ...course,
+      regionLabel: t(`course.region.${course.region.toLowerCase()}`, course.region),
+      difficultyLabel: t(`course.difficulty.${course.difficulty.toLowerCase().replace(/\s+/g, '_')}`, course.difficulty),
+      lengthLabel: course.length ? t(`course.length.${course.length.toLowerCase()}`, course.length) : null
+    }));
+    const selectedCourse = localizedCourseOptions.find(course => course.id === selectedCourseId) || localizedCourseOptions[0];
     const selectedCarData = selectedCars.map(carId => localizedCarOptions.find(car => car.id === carId));
+    const getPlayerLabel = (player) => player === 0 ? t('ui.player_1_short', '1P') : gameMode === 'PvE' ? t('ui.cpu', 'CPU') : gameMode === 'OnlinePvP' ? t('ui.player_2_net_short', '2P NET') : t('ui.player_2_short', '2P');
     const CarPortrait = ({ car, player }) => (
       <div className={`relative h-36 sm:h-44 overflow-hidden border-b-4 ${player === 0 ? 'border-red-500 bg-gradient-to-br from-red-950 to-zinc-950' : 'border-blue-500 bg-gradient-to-bl from-blue-950 to-zinc-950'}`}>
         <div className={`absolute inset-0 opacity-25 ${player === 0 ? 'bg-[linear-gradient(135deg,transparent_32%,#ef4444_32%,#ef4444_35%,transparent_35%)]' : 'bg-[linear-gradient(45deg,transparent_32%,#3b82f6_32%,#3b82f6_35%,transparent_35%)]'}`} />
@@ -4150,8 +4157,8 @@ export default function ArcadeRacingGame() {
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_25%,transparent_0%,transparent_55%,rgba(0,0,0,0.58)_100%)]" />
             <div className={`absolute inset-x-0 bottom-0 h-14 ${player === 0 ? 'bg-gradient-to-t from-red-950/80' : 'bg-gradient-to-t from-blue-950/80'} to-transparent`} />
           </>
-        ) : <div className="absolute inset-0 flex items-center justify-center text-6xl font-black italic text-white/10">SELECT</div>}
-        <div className={`absolute top-3 ${player === 0 ? 'left-4' : 'right-4'} text-2xl font-black italic`}>{player === 0 ? '1P' : gameMode === 'PvE' ? 'CPU' : gameMode === 'OnlinePvP' ? '2P NET' : '2P'}</div>
+        ) : <div className="absolute inset-0 flex items-center justify-center text-6xl font-black italic text-white/10">{t('ui.select', 'SELECT')}</div>}
+        <div className={`absolute top-3 ${player === 0 ? 'left-4' : 'right-4'} text-2xl font-black italic`}>{getPlayerLabel(player)}</div>
       </div>
     );
 
@@ -4181,7 +4188,7 @@ export default function ArcadeRacingGame() {
           <main className="mx-auto grid max-w-7xl gap-4 py-4 lg:grid-rows-[minmax(270px,42vh)_minmax(300px,1fr)]">
             <section className="grid overflow-hidden border border-white/15 bg-black/60 shadow-2xl lg:grid-cols-[1.25fr_1fr]">
               <div className="relative min-h-52 border-b border-white/15 p-5 lg:border-b-0 lg:border-r">
-                <div className="absolute left-5 top-4 z-10"><div className="text-[10px] font-black uppercase tracking-[0.3em] text-yellow-400">{t('ui.player_course_pick', 'Player 1 Course Pick')}</div><h2 className="text-3xl font-black italic uppercase sm:text-4xl">{selectedCourse.name}</h2><p className="text-xs font-bold uppercase tracking-widest text-zinc-400">{selectedCourse.region} / {selectedCourse.difficulty} / {selectedCourse.id === 'random' ? randomMapSize : selectedCourse.length} / {t('ui.cards_count', '{count} cards', { count: selectedCourse.id === 'random' ? RANDOM_SIZE_CARDS[randomMapSize] : selectedCourse.cardCount })}</p></div>
+                <div className="absolute left-5 top-4 z-10"><div className="text-[10px] font-black uppercase tracking-[0.3em] text-yellow-400">{t('ui.player_course_pick', 'Player 1 Course Pick')}</div><h2 className="text-3xl font-black italic uppercase sm:text-4xl">{selectedCourse.name}</h2><p className="text-xs font-bold uppercase tracking-widest text-zinc-400">{selectedCourse.regionLabel} / {selectedCourse.difficultyLabel} / {selectedCourse.id === 'random' ? randomMapSize : selectedCourse.lengthLabel} / {t('ui.cards_count', '{count} cards', { count: selectedCourse.id === 'random' ? RANDOM_SIZE_CARDS[randomMapSize] : selectedCourse.cardCount })}</p></div>
                 <svg viewBox="0 0 100 90" className="absolute inset-0 h-full w-full p-6 pt-16" aria-label={`${selectedCourse.name} mini map`}>
                   <path d={selectedCourse.path} fill="none" stroke="#18181b" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round" />
                   <path d={selectedCourse.path} fill="none" stroke={selectedCourse.id === 'random' ? '#facc15' : '#f4f4f5'} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" strokeDasharray={selectedCourse.id === 'random' ? '3 4' : undefined} />
@@ -4192,8 +4199,8 @@ export default function ArcadeRacingGame() {
                 </div>
               </div>
               <div className="grid grid-cols-4 gap-2 p-3 lg:grid-cols-2">
-                {COURSE_OPTIONS.map((course, index) => <button key={course.id} disabled={!canEditCourse} onClick={() => canEditCourse && setSelectedCourseId(course.id)} className={`group relative min-h-24 overflow-hidden border p-3 text-left transition ${!canEditCourse ? 'cursor-not-allowed opacity-60' : ''} ${selectedCourseId === course.id ? 'border-yellow-400 bg-yellow-400/15' : 'border-white/15 bg-zinc-950/80 hover:border-white/50'}`}>
-                  <span className="text-[10px] font-black text-zinc-500">0{index + 1}</span><div className="mt-2 text-xs sm:text-base font-black uppercase leading-tight">{course.name}</div><div className="mt-1 hidden text-[10px] uppercase tracking-widest text-zinc-500 sm:block">{course.difficulty} / {course.id === 'random' ? t('ui.cards_count', '{count} cards', { count: RANDOM_SIZE_CARDS[randomMapSize] }) : `${course.length} / ${t('ui.cards_count', '{count} cards', { count: course.cardCount })}`}</div>
+                {localizedCourseOptions.map((course, index) => <button key={course.id} disabled={!canEditCourse} onClick={() => canEditCourse && setSelectedCourseId(course.id)} className={`group relative min-h-24 overflow-hidden border p-3 text-left transition ${!canEditCourse ? 'cursor-not-allowed opacity-60' : ''} ${selectedCourseId === course.id ? 'border-yellow-400 bg-yellow-400/15' : 'border-white/15 bg-zinc-950/80 hover:border-white/50'}`}>
+                  <span className="text-[10px] font-black text-zinc-500">0{index + 1}</span><div className="mt-2 text-xs sm:text-base font-black uppercase leading-tight">{course.name}</div><div className="mt-1 hidden text-[10px] uppercase tracking-widest text-zinc-500 sm:block">{course.difficultyLabel} / {course.id === 'random' ? t('ui.cards_count', '{count} cards', { count: RANDOM_SIZE_CARDS[randomMapSize] }) : `${course.lengthLabel} / ${t('ui.cards_count', '{count} cards', { count: course.cardCount })}`}</div>
                   {selectedCourseId === course.id && <span className="absolute right-2 top-2 h-2 w-2 bg-yellow-400 shadow-[0_0_10px_#facc15]"/>}
                 </button>)}
               </div>
@@ -4232,11 +4239,11 @@ export default function ArcadeRacingGame() {
                     <img src={car.cutout} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-[1.34] object-contain object-center opacity-60 saturate-125 drop-shadow-[0_12px_12px_rgba(0,0,0,0.65)] transition duration-300 group-hover:scale-[1.46] group-hover:opacity-90" />
                     <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-black/10" />
                     <div className="absolute -right-3 -top-4 text-7xl font-black italic text-white/[0.07]">0{index + 1}</div><div className="relative text-[10px] font-black uppercase tracking-widest text-zinc-400">{car.drive} / {t('ui.machine_number', 'Machine {number}', { number: `0${index + 1}` })}</div><div className="relative mt-4 text-lg font-black uppercase leading-tight drop-shadow-[0_2px_0_rgba(0,0,0,0.8)]">{car.name}</div>
-                    <div className="absolute bottom-2 left-2 flex gap-1">{pickedBy.map(player => <span key={player} className={`px-2 py-1 text-[10px] font-black text-white ${player === 0 ? 'bg-red-600' : 'bg-blue-600'}`}>{player === 0 ? '1P' : gameMode === 'PvE' ? 'CPU' : gameMode === 'OnlinePvP' ? '2P NET' : '2P'}</span>)}</div>
+                    <div className="absolute bottom-2 left-2 flex gap-1">{pickedBy.map(player => <span key={player} className={`px-2 py-1 text-[10px] font-black text-white ${player === 0 ? 'bg-red-600' : 'bg-blue-600'}`}>{getPlayerLabel(player)}</span>)}</div>
                   </button>;
                 })}
                 <div className="col-span-2 flex min-h-14 items-center justify-center">
-                  {canStartRaceSetup ? <button onClick={initGame} className="group flex items-center gap-3 border-2 border-yellow-300 bg-yellow-400 px-8 py-3 text-lg font-black italic uppercase text-black shadow-[0_0_26px_rgba(250,204,21,0.4)] transition hover:scale-105 hover:bg-yellow-300">{t('ui.start_your_engines', 'Start Your Engines')} <Play size={20}/></button> : <div className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">{gameMode === 'OnlinePvP' && onlineRole === 'guest' ? t('ui.waiting_host_start', 'Waiting for host to start') : activePicker === 0 ? t('ui.player_choose_machine', '{player}: choose machine', { player: 'Player 1' }) : t('ui.player_choose_machine', '{player}: choose machine', { player: gameMode === 'PvE' ? 'CPU' : 'Player 2' })}</div>}
+                  {canStartRaceSetup ? <button onClick={initGame} className="group flex items-center gap-3 border-2 border-yellow-300 bg-yellow-400 px-8 py-3 text-lg font-black italic uppercase text-black shadow-[0_0_26px_rgba(250,204,21,0.4)] transition hover:scale-105 hover:bg-yellow-300">{t('ui.start_your_engines', 'Start Your Engines')} <Play size={20}/></button> : <div className="text-xs font-black uppercase tracking-[0.25em] text-zinc-500">{gameMode === 'OnlinePvP' && onlineRole === 'guest' ? t('ui.waiting_host_start', 'Waiting for host to start') : t('ui.player_choose_machine', '{player}: choose machine', { player: getPlayerLabel(activePicker) })}</div>}
                 </div>
               </div>
             </section>

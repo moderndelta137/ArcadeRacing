@@ -136,12 +136,32 @@ ui.straight_spaces,Straight / {count} spaces,直線 / {count}マス
 ui.degree_curve,{angle} degree {direction} curve,{angle}度 {direction} カーブ
 ui.radius_inner_outer_limit,Radius {radius} / Inner {inner} spaces / Outer {outer} spaces / Speed limit {limit} km/h,半径 {radius} / 内側 {inner}マス / 外側 {outer}マス / 速度制限 {limit} km/h
 ui.selection_locked,Selection locked,選択ロック済み
+ui.select,Select,選択
+ui.player_1_short,1P,1P
+ui.player_2_short,2P,2P
+ui.player_2_net_short,2P NET,2P通信
+ui.cpu,CPU,CPU
+ui.go_first,Go First,先攻
+ui.go_second,Go Second,後攻
+ui.ai_normal,Normal,通常
+ui.ai_hard,Hard,ハード
+ui.ai_cheat,Cheat,チート
 ui.tutorial_skip,Skip Tutorial,チュートリアルをスキップ
 ui.got_it,Got It,了解
 ui.movement_step,Movement Step,移動ステップ
 ui.lock_in_card,Lock In Card,カードをセット
 ui.turn_start,Turn Start,ターン開始
 ui.player_plays,{player} Plays,{player} がプレイ
+course.region.gunma,Gunma,群馬
+course.region.kanagawa,Kanagawa,神奈川
+course.region.unknown,Unknown,不明
+course.difficulty.technical,Technical,テクニカル
+course.difficulty.balanced,Balanced,バランス
+course.difficulty.high_speed,High Speed,ハイスピード
+course.difficulty.variable,Variable,可変
+course.length.short,Short,ショート
+course.length.medium,Medium,ミドル
+course.length.long,Long,ロング
 online.guest_connected_waiting_ready,Guest connected. Waiting for ready signal.,ゲスト接続済み。準備完了を待っています。
 online.connected_mark_ready,Connected to host. Mark ready when you are set.,ホストに接続しました。準備ができたら完了を送ってください。
 online.connection_closed,Connection closed. Rejoin or host a new room.,接続が閉じました。再参加するか新しいルームを作成してください。
