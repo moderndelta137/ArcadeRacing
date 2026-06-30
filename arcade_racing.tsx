@@ -1070,25 +1070,19 @@ const DECK_COMPOSITIONS = {
     ['jump_exit', 1]
   ],
   porsche911: [
-    ['drift', 1],
-    ['full_throttle', 3],
-    ['back_down', 2],
-    ['progressive_acceleration', 1],
-    ['early_power', 1],
-    ['traction_control', 1],
-    ['grip_line', 1],
-    ['torque_split', 1],
-    ['micro_correction', 1]
+    ['progressive_acceleration', 3],
+    ['early_power', 2],
+    ['traction_control', 2],
+    ['torque_split', 3],
+    ['micro_correction', 2]
   ],
   mustang: [
-    ['full_throttle', 4],
-    ['back_down', 2],
-    ['raw_horsepower', 1],
     ['straight_line_monster', 1],
-    ['panic_stop', 1],
-    ['chrome_bumper', 1],
-    ['shove_aside', 1],
-    ['door_slam', 1]
+    ['panic_stop', 2],
+    ['shove_aside', 2],
+    ['burn_rubber', 2],
+    ['door_slam', 1],
+    ['no_room', 4]
   ]
 };
 

@@ -74,6 +74,13 @@ Each player has:
 
 The digital prototype also uses car portraits, car cutouts, implemented card art, generated course backgrounds, and a circular speed-meter HUD asset.
 
+Current digital asset surfaces also include:
+
+- Race-card back image: `Assets/Card backs/Race_card_back.png`
+- Road-card back image: `Assets/Card backs/Road_card_back.png`
+- Road-card face images: `Assets/Road cards/RoadCards_1.png` through `RoadCards_8.png`, plus reverse variants where present
+- Card-sheet reference images: `Assets/Card images/CardSheet_Set1.png` through `CardSheet_Set5.png`
+
 ---
 
 ## 4A. Speed Meter Card System
@@ -1150,15 +1157,18 @@ For the browser prototype:
 2. Choose a course: Akagi Redline, Haruna Skyline, Hakone Turnpike, or Wildcard Route.
 3. If using a named course, choose downhill or uphill direction.
 4. If using Wildcard Route, choose small, medium, or long route size.
-5. Generate the route from the selected course seed / wildcard settings.
-6. Place both cars on the Start Straight.
+5. Choose each player's car.
+6. In VS AI Racers, choose whether Player 1 goes first or second.
+7. In VS AI Racers, choose AI difficulty: Normal, Hard, or Cheat.
+8. Generate the route from the selected course seed / wildcard settings.
+9. Place both cars on the Start Straight in the selected lead/following order.
 
 ### 31.2 Prepare Players
 
 Each player:
 
 1. Chooses a car.
-2. Takes a 12-card Driving Deck.
+2. Takes a 12-card Driving Deck, either the default car deck or a saved custom deck from the Deck Editor.
 3. Takes 1 Speed Meter Card and 1 Needle Card.
 4. Places the Needle Card over the Speed Meter Card.
 5. Shuffles their deck.
@@ -1167,20 +1177,20 @@ Each player:
 
 Current selectable cars:
 
-| Car | Drive | Prototype identity |
+| Car | Archetype | Prototype identity |
 |---|---|---|
-| Toyota AE86 | RWD | Lightweight balance, predictable drifts, and fast line changes. |
-| Lamborghini Huracan | AWD | Explosive exits and strong grip when power comes down early. |
-| Porsche 911 | RWD | Rear-engine traction and precise corrections through technical bends. |
-| Mustang GT500 | RWD | Raw straight-line power and door-to-door pressure. |
+| Toyota AE86 | Balance / starter | Flexible 3rd-Gear control. Uses acceleration, braking, lane changes, drift checks, discard cycling, and one-more-card turns. |
+| Lamborghini Huracan | RWD drift | High-speed corner planner. Holds 4th Gear, modifies speed checks, delays payoff until corner exit, and dislikes lane disruption. |
+| Porsche 911 | AWD grip | Adaptive lane manager. Uses choice-based Drive effects, inner-lane control, and gradual speed correction instead of explosive drift. |
+| Mustang GT500 | Muscle attack | Immediate power and contact pressure. Forces collisions, punishes blockers, and regains speed faster than rivals after chaos. |
 
 For the base Gear table, this means:
 
 > Starting speed: 20 km/h
 
-### 31.3 Determine Pole Position
+### 31.3 Determine Start Order
 
-Randomly determine pole position.
+For tabletop testing, randomly determine pole position.
 
 The pole-position player starts as the lead player.
 
@@ -1188,14 +1198,23 @@ The other player starts as the following player.
 
 Place the cars one after another at the starting line so the game begins in a clear lead/following state, not neck and neck.
 
+In the browser prototype:
+
+- VS AI Racers lets the human player choose Go First or Go Second.
+- Local 2 Player defaults to Player 1 first.
+- Online 2 Player uses the host-controlled setup flow.
+- The first player starts one space ahead and acts first in the initial turn order.
+
 ### 31.4 Title Screen and Reference Flow
 
 The current digital front end is part of the prototype design:
 
 - The title screen uses the `title-logo-transparent.png` logo for **山道疾走：ドリフトデュエル Mountain Chase: Drift Duel**.
 - The subtitle / mood line is **Tactical Drift Card Battles**.
-- The title screen offers VS AI Racers, Local 2 Player, Online 2 Player, and Codex.
+- The title screen offers VS AI Racers, Local 2 Player, Online 2 Player, Deck Editor, and Codex.
 - Online play uses a host / guest room-key flow. The host creates the room and starts setup after the guest connects and marks ready.
+- Online setup syncs course, direction, wildcard size, selected cars, tutorial setting, start-order setting, AI setting, and player deck choices through room state.
+- The Deck Editor lets players build a saved 12-card deck for each car. A legal custom deck uses only Common cards plus that car's implemented card set, with a maximum of 4 copies of any card.
 - The Codex is a card archive with tabs for Racing Cards and Road Cards. It supports hover / click inspection and should remain the main in-game reference surface for prototype content.
 
 ---
@@ -1243,7 +1262,15 @@ The current card list comes from [racing_cards.csv](racing_cards.csv). The separ
 
 ## 33. Prototype Driving Decks
 
-The browser prototype currently uses fixed 12-card decks per selected car. Car decks may include Common / Starter cards so every archetype has enough basic acceleration and braking.
+The browser prototype uses 12-card decks per selected car. Each car has a default deck, and the Deck Editor can override it with a saved custom deck.
+
+Custom deck rules:
+
+- Deck size is 12 cards.
+- A card can appear up to 4 times.
+- Available cards are Common cards plus the selected car's implemented card set.
+- Incomplete or illegal saved decks fall back to the default deck.
+- Saved decks persist in browser local storage.
 
 ### Balance Set / Bright Red AE86
 
@@ -1258,7 +1285,7 @@ The browser prototype currently uses fixed 12-card decks per selected car. Car d
 | Rocket Start | 1 |
 | Change Shift | 1 |
 
-Shape: Gas 5 / Brake 3 / Turn 4. This deck is the stable starter baseline: enough acceleration, enough braking, and a clear AE86 lane-control identity.
+Shape: Gas 5 / Brake 3 / Turn 4. This deck is the stable starter baseline: enough acceleration, enough braking, speed-check help, lane control, discard cycling, After payoff, and one-more-card sequencing to teach the whole system.
 
 ### RWD Drift Set / Bright Green Lamborghini Huracan
 
@@ -1274,39 +1301,32 @@ Shape: Gas 5 / Brake 3 / Turn 4. This deck is the stable starter baseline: enoug
 | Gutter Boost | 1 |
 | Jump Exit | 1 |
 
-Shape: Gas 6 / Brake 3 / Turn 3. This deck keeps enough basic economy from Common cards, then leans into speed-check bonuses and drift recovery. Drift Extend and Blind Attack stay out of the first playable deck because they are more situational tuning cards.
+Shape: Gas 6 / Brake 3 / Turn 3. This deck keeps enough basic economy from Common cards, then leans into high-speed corner checks, drift recovery, inner-lane cornering, and delayed exit speed. Drift Extend and Blind Attack stay out of the first playable deck because they are more situational tuning cards.
 
 ### AWD Grip Set / Yellow Porsche 911
 
 | Card | Copies |
 |---|---:|
-| Drift | 1 |
-| Full throttle | 3 |
-| Back down | 2 |
-| Progressive Acceleration | 1 |
-| Early Power | 1 |
-| Traction Control | 1 |
-| Grip Line | 1 |
-| Torque Split | 1 |
-| Micro Correction | 1 |
+| Progressive Acceleration | 3 |
+| Early Power | 2 |
+| Traction Control | 2 |
+| Torque Split | 3 |
+| Micro Correction | 2 |
 
-Shape: Gas 6 / Brake 3 / Turn 3. This deck keeps Common acceleration/braking as the baseline, then adds Porsche grip tools for speed-check stability, safe understeer cancel, and post-check speed correction. Balanced Chassis and Line Lock stay out of the first playable deck as tuning cards.
+Shape: Gas 8 / Brake 2 / Turn 2. This tuned deck removes Common cards and leans into Porsche grip tools for choice-based acceleration, safe understeer cancel, and post-check speed correction. Grip Line, Balanced Chassis, and Line Lock stay out of this playable balance pass as tuning cards.
 
 ### Muscle Car Set / Blue Mustang GT500
 
 | Card | Copies |
 |---|---:|
-| Full throttle | 3 |
-| Back down | 2 |
-| Hard Brake | 1 |
-| Raw Horsepower | 1 |
 | Straight-Line Monster | 1 |
-| Panic Stop | 1 |
-| Chrome Bumper | 1 |
-| Shove Aside | 1 |
+| Panic Stop | 2 |
+| Shove Aside | 2 |
+| Burn Rubber | 2 |
 | Door Slam | 1 |
+| No Room | 4 |
 
-Shape: Gas 5 / Brake 4 / Attack 3. This deck keeps enough control cards to recover from heavy speed spikes, then gives the Mustang contact pressure through blocking punishment and lane-force tools. Burn Rubber and No Room stay out of the first playable deck as more situational tuning cards.
+Shape: Gas 3 / Brake 2 / Attack 7. This tuned deck removes Common cards and leans into Mustang pressure tools, blocking, overtaking payoff, lane denial, and heavy recovery braking. Raw Horsepower and Chrome Bumper stay out of this playable balance pass as tuning cards.
 
 ---
 ## 34. Prototype Course Structure
@@ -1334,60 +1354,149 @@ The earlier 10-card fixed road deck remains useful for tabletop paper testing, b
 
 ## 35. Car Archetypes
 
-Future car archetypes can change deck construction, card effects, Gear tables, or penalties.
+Car archetypes define each car's core game plan, deck shape, speed bands, Gear table, weaknesses, and synergy hooks.
 
 ---
 
-### 35.1 RWD Car
+### 35.1 AE86 Balance Car
 
-Specialty: drifting.
+Specialty: complete starter toolkit and 3rd-Gear rhythm.
 
-Possible traits:
+Game plan:
 
-- Stronger Drift cards
-- Better corner speed-limit modification
-- Better recovery from understeer
-- Higher exit speed after corners
+- Stay in 3rd Gear, usually 50-80 km/h.
+- Constantly accelerate and decelerate to match the next corner.
+- Use a little of every major mechanic: Gas, Brake, Turn, Drift, lane change, discard, After effects, and extra-card sequencing.
+- Win by clean tempo instead of one extreme power spike.
 
----
+Signature mechanics:
 
-### 35.2 AWD Car
+- Drift modifies speed checks.
+- Shift-up style cards give a choice, then allow one more card.
+- Change Lane moves lanes and discards to cycle the deck.
+- Rocket Start rewards careful speed math, then creates an After payoff.
 
-Specialty: grip cornering.
+Gear identity:
 
-Possible traits:
+- Wider 2nd and 3rd Gear.
+- Narrow 4th Gear.
+- Narrower 5th Gear.
+- Lower maximum speed than power-focused cars.
 
-- Better stability in rain
-- Higher natural corner tolerance
-- Easier lane changes in corners
-- Stronger mid-speed handling
+Weakness:
 
----
-
-### 35.3 Muscle Car
-
-Specialty: power and blocking.
-
-Possible traits:
-
-- Strong acceleration
-- Can knock blocking cars away
-- Better collision resistance
-- Worse cornering
-- Worse braking
+- No single plan is dominant. AE86 must pick the correct small tool every turn.
 
 ---
 
-### 35.4 Lightweight Car
+### 35.2 RWD Drift Car
 
-Specialty: technical handling.
+Specialty: high-speed corner planning and delayed corner-exit payoff.
 
-Possible traits:
+Game plan:
 
-- Better braking
-- Easier access to the inner lane
-- More flexible Turn cards
-- Lower top speed
+- Maintain a specific high speed, usually inside 4th Gear.
+- Use Drift and Turn cards to avoid braking instead of slowing down early.
+- Accept delayed satisfaction: set up corner entry now, gain speed after the corner.
+- Prefer roads with repeated corner checks, because each corner is a chance to convert setup into speed.
+
+Signature mechanics:
+
+- Many Turn cards modify speed checks.
+- Fewer pure Gas and Brake cards; Turn cards take those deck slots.
+- After effects grant speed only after successful cornering.
+- More delayed effects than other cars.
+
+Gear identity:
+
+- Lower 4th Gear target than Muscle.
+- Wants to live in 4th Gear as long as possible.
+- 5th Gear exists, but should feel like risk mode rather than comfort zone.
+
+Weakness:
+
+- Weak lane changing.
+- Weak when pushed out of the chosen lane by opponents.
+- Disruption hurts because the deck invests early and pays off late.
+
+---
+
+### 35.3 AWD Grip Car
+
+Specialty: adaptation, Drive-effect timing, and inner-lane management.
+
+Game plan:
+
+- Adapt to the current board state better than any other archetype.
+- Use Drive effects that let the player choose when and how to trigger benefits.
+- Stay in the inner lane whenever possible.
+- Gain speed gradually, then micro-adjust so speed always fits the next corner.
+
+Signature mechanics:
+
+- Choice effects with multiple legal modes.
+- Drive effects that can be triggered at the best moment during movement.
+- Understeer counters and inner-lane rewards.
+- Free or low-cost lane control.
+
+Gear identity:
+
+- Balanced Gear distribution.
+- No obvious dead band.
+- No extreme top-speed advantage.
+
+Weakness:
+
+- Not explosive.
+- Cannot drift.
+- Cannot directly raise speed limits or modify speed checks as strongly as RWD Drift.
+
+---
+
+### 35.4 Muscle Attack Car
+
+Specialty: raw power, contact pressure, and collision recovery.
+
+Game plan:
+
+- Gain immediate speed and board pressure.
+- Use the opponent as a braking tool when normal braking or lane changes are poor.
+- Force contact, reduce rival speed, move rivals away, and create collisions.
+- Recover speed faster than the opponent after a messy turn.
+
+Signature mechanics:
+
+- Attack cards are a unique deck pillar.
+- Attack cards reduce opponent speed, move opponents, deny lanes, or cause collisions.
+- Very few Turn cards.
+- Powerful Gas effects often restrict movement or lane choice.
+
+Gear identity:
+
+- Wider 5th Gear.
+- Other Gears are narrow.
+- Has a 6th Gear with a higher maximum speed than other archetypes.
+
+Weakness:
+
+- Bad braking.
+- Bad lane changing.
+- Poor fine speed control.
+- Can overcommit and crash if the road demands precision.
+
+---
+
+### 35.5 Future Synergy Hooks
+
+Additional archetypes can be built from these hooks:
+
+- Cycling deck: many discard effects, fast reshuffle, and rewards for seeing key cards often.
+- Slipstream / following deck: stronger slipstream, better overtaking, and payoffs for staying behind before passing.
+- Early-braking deck: rewards braking before corners instead of reacting at the check space.
+- Precision-speed deck: powerful effects locked behind narrow speed requirements.
+- Combo deck: plays more cards per turn, draws during the turn, and extends through careful sequencing.
+- Speed-range deck: modifies speed within a band instead of fixed plus/minus values.
+- Gear-timing deck: gains speed based on Gear, rewarding exact timing rather than current speed number.
 
 ---
 
@@ -1707,8 +1816,11 @@ The latest prototype component direction is:
 - Balance the inner lane by giving it more speed-limit check spaces.
 - Present the game under the final prototype name **山道疾走：ドリフトデュエル Mountain Chase: Drift Duel**.
 - Use the title-logo asset and the **Tactical Drift Card Battles** subtitle as the front-door identity.
-- Support VS AI Racers, Local 2 Player, and Online 2 Player from the title screen.
+- Support VS AI Racers, Local 2 Player, Online 2 Player, Deck Editor, and Codex from the title screen.
 - Use course select as a major setup step, with Akagi Redline, Haruna Skyline, Hakone Turnpike, and Wildcard Route.
+- Let VS AI Racers choose Go First / Go Second and Normal / Hard / Cheat AI difficulty during setup.
+- Let the Deck Editor create saved 12-card custom decks using Common cards plus each selected car's implemented card set.
+- Use race-card backs, road-card backs, road-card face assets, and card-sheet assets as current digital presentation references.
 - Use generated top-down mountain-road layouts in the browser prototype while preserving Road Cards as the underlying design language.
 - Keep Driving Cards and Road Cards readable through the Codex.
 - Show current move points near the active car during movement so tactical options stay visible on the board.
